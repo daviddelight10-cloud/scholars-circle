@@ -1,6 +1,6 @@
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
-import { updateUniversalStreak } from "../lib/streak.js";
+import { updateUniversalStreak, localDayKey, clampOffset } from "../lib/streak.js";
 import express from "express";
 const router = express.Router();
 
@@ -50,6 +50,67 @@ router.get("/", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error fetching user data:", error);
     res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
+
+// Per-day activity for the streak calendar: the distinct LOCAL days in the
+// requested month with any study signal (quiz attempt, material view, login),
+// plus freeze-covered days inferred from gaps inside the current streak run.
+// ?month=YYYY-MM (defaults to the user's current local month), ?tz= offset.
+router.get("/streak-calendar", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const tz = req.query.tz !== undefined ? Number(req.query.tz) : undefined;
+    const offsetMin = Number.isFinite(tz) ? clampOffset(tz) : 0;
+
+    const monthParam = String(req.query.month || "");
+    const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)
+      ? monthParam
+      : localDayKey(Date.now(), offsetMin).slice(0, 7);
+
+    // Local-month window as an absolute-ms range, widened ±1 day so day
+    // boundaries can't slip outside the query at extreme offsets.
+    const [y, m] = monthKey.split("-").map(Number);
+    const monthStart = Date.UTC(y, m - 1, 1);
+    const monthEnd = Date.UTC(m === 12 ? y + 1 : y, m % 12, 1);
+    const range = { gte: new Date(monthStart - 86400000), lt: new Date(monthEnd + 86400000) };
+
+    const [attempts, views, logins, up] = await Promise.all([
+      prisma.quizAttempt.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
+      prisma.resourceView.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
+      prisma.loginEvent.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
+      prisma.userProgress.findUnique({ where: { userId }, select: { streak: true, longestStreak: true, lastStudied: true } }),
+    ]);
+
+    const daySet = new Set();
+    for (const row of [...attempts, ...views, ...logins]) {
+      daySet.add(localDayKey(new Date(row.createdAt).getTime(), offsetMin));
+    }
+    const days = [...daySet].filter((d) => d.startsWith(monthKey)).sort();
+
+    // The streak run covers the last `streak` local days ending at the
+    // last-studied local day — days in that window with no activity were
+    // covered by a freeze. Only report ones inside the requested month.
+    const freezeDays = [];
+    if (up?.streak > 0 && up.lastStudied) {
+      const lastLocal = localDayKey(new Date(up.lastStudied).getTime(), offsetMin);
+      for (let i = 0; i < up.streak; i++) {
+        const dk = localDayKey(Date.parse(lastLocal) - i * 86400000, offsetMin);
+        if (!dk.startsWith(monthKey)) { if (dk < monthKey) break; continue; }
+        if (!daySet.has(dk)) freezeDays.push(dk);
+      }
+    }
+
+    res.json({
+      month: monthKey,
+      days,
+      freezeDays,
+      streak: up?.streak ?? 0,
+      longestStreak: up?.longestStreak ?? 0,
+    });
+  } catch (e) {
+    console.error("streak-calendar failed:", e);
+    res.status(500).json({ error: "Failed to load streak calendar" });
   }
 });
 

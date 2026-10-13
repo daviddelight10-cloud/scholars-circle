@@ -1,5 +1,5 @@
 import { LEAGUES, API_BASE } from "./constants";
-import { tzOffsetMinutes } from "./dayKey.js";
+import { tzOffsetMinutes, localDayKey } from "./dayKey.js";
 import { fetchWithAuth } from "./authToken.js";
 
 export function shuffle(arr) {
@@ -78,6 +78,24 @@ export async function api(path, { token, method = "GET", body } = {}) {  const r
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "API request failed");
   return data;
+}
+
+// Streak calendar — real per-day activity for the streak sheet's month grid.
+// Past months cache forever (history can't change); the current month is
+// always refetched so today's activity shows without a reload.
+const streakCalCache = new Map(); // `${uid}::${month}` → Promise<payload|null>
+export function fetchStreakCalendar(monthKey) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey || "")) return Promise.resolve(null);
+  let uid = "anon";
+  try { uid = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authUser?.id || "anon"; } catch {}
+  const key = `${uid}::${monthKey}`;
+  const current = monthKey === localDayKey().slice(0, 7);
+  if (!current && streakCalCache.has(key)) return streakCalCache.get(key);
+  const p = api(`/user-data/streak-calendar?month=${monthKey}&tz=${tzOffsetMinutes()}`)
+    .then((d) => (d && Array.isArray(d.days) ? d : null))
+    .catch(() => { streakCalCache.delete(key); return null; });
+  if (!current) streakCalCache.set(key, p);
+  return p;
 }
 
 export async function syncUserDataToBackend(token, data) {

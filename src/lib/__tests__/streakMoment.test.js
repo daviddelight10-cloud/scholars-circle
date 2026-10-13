@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveStreakMoment, weekStrip } from "../../hooks/useStreakMoment.js";
+import { deriveStreakMoment, weekStrip, monthCells, shiftMonth } from "../../hooks/useStreakMoment.js";
 
 const prev = (over = {}) => ({
   day: "2026-02-20",
@@ -81,5 +81,35 @@ describe("weekStrip", () => {
   it("keys are local-day YYYY-MM-DD, not UTC", () => {
     const days = weekStrip(1, new Date("2026-02-21T12:00:00"));
     expect(days[6].key).toBe("2026-02-21");
+  });
+});
+
+describe("monthCells", () => {
+  it("pads with blanks to the month's first weekday (Sunday-first)", () => {
+    // 2026-02-01 was a Sunday → zero leading blanks, 28 day cells.
+    const feb = monthCells("2026-02");
+    expect(feb.filter(Boolean)).toHaveLength(28);
+    expect(feb[0]).toMatchObject({ key: "2026-02-01", day: 1 });
+    // 2026-03-01 was a Sunday too? No — check a mid-week month instead:
+    const cells = monthCells("2026-10"); // Oct 1 2026 = Thursday → 4 blanks
+    expect(cells[0]).toBeNull();
+    expect(cells[3]).toBeNull();
+    expect(cells[4]).toMatchObject({ key: "2026-10-01", day: 1 });
+    expect(cells.filter(Boolean)).toHaveLength(31);
+  });
+
+  it("leap-year February has 29 cells", () => {
+    expect(monthCells("2028-02").filter(Boolean)).toHaveLength(29);
+    expect(monthCells("2026-02").filter(Boolean)).toHaveLength(28);
+  });
+});
+
+describe("shiftMonth", () => {
+  it("shifts forward and backward across year boundaries", () => {
+    expect(shiftMonth("2026-10", 1)).toBe("2026-11");
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(shiftMonth("2027-01", -1)).toBe("2026-12");
+    expect(shiftMonth("2026-10", -1)).toBe("2026-09");
+    expect(shiftMonth("2026-03", -3)).toBe("2025-12");
   });
 });

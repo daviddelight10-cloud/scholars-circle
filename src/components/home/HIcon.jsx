@@ -18,6 +18,7 @@ const PATHS = {
   bookmark: "M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z",
   bookmarkFill: { fill: true, d: "M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" },
   arrowR: <g><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></g>,
+  arrowL: <g><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></g>,
   play: { fill: true, d: "M8 5v14l11-7z" },
   bulb: <g><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z"/><path d="M9 21h6"/></g>,
   doc: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></g>,

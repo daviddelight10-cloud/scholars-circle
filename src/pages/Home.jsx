@@ -25,6 +25,7 @@ function Home({
   onImportToBank,
   loading,
   token,
+  momentsEnabled,
 }) {
   const { user: ctxUser } = useAuth();
   const { stats: ctxStats, history: ctxHistory, subjects: ctxSubjects, mastery: ctxMastery } = useUserData();
@@ -64,6 +65,7 @@ function Home({
       onOpenResource={onOpenResource}
       token={token}
       authUser={authUser}
+      momentsEnabled={momentsEnabled}
     />
   );
 }

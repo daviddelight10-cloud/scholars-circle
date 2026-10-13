@@ -352,6 +352,9 @@ function App() {
   // account was never onboarded (localStorage alone re-shows it on every
   // new device for returning users).
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // Becomes true only once we KNOW whether onboarding must run — keeps the
+  // daily streak sheet gated during the check AND the wizard itself.
+  const [onboardingResolved, setOnboardingResolved] = useState(false);
 
 
 
@@ -826,9 +829,9 @@ function App() {
   const onboardingUid = auth.user?.id || auth.user?.username || null;
 
   useEffect(() => {
-    if (!onboardingUid) return;
-    if (isLecturerRole) { markOnboarded(onboardingUid); saveMyProfile({ onboarded: true }).catch(() => {}); setShowOnboarding(false); return; }
-    if (isOnboarded(onboardingUid)) { setShowOnboarding(false); return; }
+    if (!onboardingUid) { setOnboardingResolved(false); return; }
+    if (isLecturerRole) { markOnboarded(onboardingUid); saveMyProfile({ onboarded: true }).catch(() => {}); setShowOnboarding(false); setOnboardingResolved(true); return; }
+    if (isOnboarded(onboardingUid)) { setShowOnboarding(false); setOnboardingResolved(true); return; }
     let cancelled = false;
     getMyProfile().then((data) => {
       if (cancelled) return;
@@ -841,7 +844,8 @@ function App() {
       } else {
         setShowOnboarding(true);
       }
-    }).catch(() => { if (!cancelled) setShowOnboarding(true); });
+      setOnboardingResolved(true);
+    }).catch(() => { if (!cancelled) { setShowOnboarding(true); setOnboardingResolved(true); } });
     return () => { cancelled = true; };
   }, [onboardingUid, isLecturerRole]);
 
@@ -8545,6 +8549,8 @@ function App() {
           }}
 
           onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerReturnTab("research-hub"); setHomeViewerToken(shareToken); }}
+
+          momentsEnabled={onboardingResolved && !showOnboarding}
 
           token={token}
 

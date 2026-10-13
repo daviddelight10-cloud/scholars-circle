@@ -50,6 +50,7 @@ export default function Dashboard({
   userName, stats, subjects, mastery, dueCards, history,
   onStartSubject, onOpenTab, onOpenLeaderboard, onOpenStats,
   onOpenAI, onOpenLearn, onOpenStudy, onOpenResource, token, authUser,
+  momentsEnabled = true,
 }) {
   const { setMobileNavHidden } = useUI();
   const [fsrsStats, setFsrsStats] = useState(() => {
@@ -62,7 +63,6 @@ export default function Dashboard({
   const [recents, setRecents] = useState(() => listRecentDocs());
   const [guidedProg, setGuidedProg] = useState({});
   const [preparingGuided, setPreparingGuided] = useState(null);
-  const [hasExam, setHasExam] = useState(false);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -242,7 +242,6 @@ export default function Dashboard({
       };
       const deptResources = resources.filter((r) => r.status !== "rejected" && matchesDept(r));
 
-      if (!cancelled) setHasExam(resources.some((r) => r.contentType === "exam" && r.status !== "rejected"));
       setUserProfile(profile);
       setResourceCounts({ dept: deptResources.length, saved, uploads });
       setCommunityFolders(Array.isArray(folders) ? folders : []);
@@ -384,6 +383,7 @@ export default function Dashboard({
     longestStreak: fsrsStats?.longestStreak,
     freezes: fsrsStats?.freezes ?? save?.freezes,
     level,
+    enabled: momentsEnabled,
   });
 
 
@@ -660,11 +660,10 @@ export default function Dashboard({
         name={displayName}
         dueCount={dueCount}
         recentDoc={recents[0] || null}
-        hasExam={hasExam}
         onClose={dismissMoment}
         onStartDaily={() => setShowDailyReview(true)}
         onOpenDoc={(shareToken) => onOpenResource?.(shareToken)}
-        onOpenExams={() => openResearchHub("library")}
+        onOpenLibrary={() => openResearchHub("library")}
       />
 
       {toast && <div className="hm-toast">{toast}</div>}

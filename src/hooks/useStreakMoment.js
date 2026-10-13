@@ -61,7 +61,7 @@ export function deriveStreakMoment(prev, cur, today) {
   return null; // brand-new account with streak 0 — FirstRun hero covers them
 }
 
-const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+export const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 
 /**
  * Last 7 local days ending today. A day tile is "lit" when it falls inside
@@ -85,15 +85,39 @@ export function weekStrip(streak, today = new Date()) {
 }
 
 /**
+ * Grid cells for a "YYYY-MM" month: leading blanks (Sunday-first week) then
+ * {key, day} per date. Pure — pairs with server streak-calendar data.
+ */
+export function monthCells(monthKey) {
+  const [y, m] = monthKey.split("-").map(Number);
+  const first = new Date(y, m - 1, 1);
+  const dim = new Date(y, m, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < first.getDay(); i++) cells.push(null);
+  for (let d = 1; d <= dim; d++) cells.push({ key: `${monthKey}-${String(d).padStart(2, "0")}`, day: d });
+  return cells;
+}
+
+/** Move a "YYYY-MM" key by whole months. */
+export function shiftMonth(monthKey, delta) {
+  const [y, m] = monthKey.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
  * @param {object} opts
  * @param {string} opts.userId
  * @param {number|undefined} opts.streak        fallback current streak (stats prop)
  * @param {number|undefined} opts.longestStreak fallback longest
  * @param {number|undefined} opts.freezes       fallback freeze count
  * @param {number} opts.level                   survival level (levelup flag)
+ * @param {boolean} opts.enabled                false while onboarding is
+ *   unresolved/showing — the gate stays CLOSED (no baseline write) so the
+ *   once-a-day moment still fires once onboarding is done.
  * @returns {{ moment: object|null, dismiss: () => void }}
  */
-export function useStreakMoment({ userId, streak, longestStreak, freezes, level }) {
+export function useStreakMoment({ userId, streak, longestStreak, freezes, level, enabled = true }) {
   const [moment, setMoment] = useState(null);
   const [ready, setReady] = useState(false);
   const decidedRef = useRef(false);
@@ -106,6 +130,7 @@ export function useStreakMoment({ userId, streak, longestStreak, freezes, level 
   }, []);
 
   useEffect(() => {
+    if (!enabled) return; // gate closed — do NOT write the baseline yet
     if (decidedRef.current) return;
     const uid = userId || "guest";
     const today = localDayKey();
@@ -135,14 +160,17 @@ export function useStreakMoment({ userId, streak, longestStreak, freezes, level 
       level: cur.level ?? level ?? 1,
     });
     if (!derived) return;
-    setMoment({
+    // Small delay so the sheet doesn't fight whatever surface is already
+    // animating in (onboarding closing, tab switches, app boot).
+    const t = setTimeout(() => setMoment({
       ...derived,
       streak: cur.streak,
       longestStreak: cur.longestStreak ?? cur.streak,
       freezes: cur.freezes ?? 0,
       offline: !info,
-    });
-  }, [ready, userId, streak, longestStreak, freezes, level]);
+    }), 650);
+    return () => clearTimeout(t);
+  }, [enabled, ready, userId, streak, longestStreak, freezes, level]);
 
   const dismiss = useCallback(() => setMoment(null), []);
 

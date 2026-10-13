@@ -20,7 +20,7 @@
 
 // Shifted-UTC trick: add the offset, then read the UTC date — that's the
 // user's local calendar day as YYYY-MM-DD.
-function localDayKey(ms, offsetMin) {
+export function localDayKey(ms, offsetMin) {
   return new Date(ms + offsetMin * 60000).toISOString().slice(0, 10);
 }
 
@@ -29,7 +29,7 @@ function dayDiff(a, b) {
   return Math.round((Date.parse(a) - Date.parse(b)) / 86400000);
 }
 
-function clampOffset(min) {
+export function clampOffset(min) {
   const n = Math.round(min);
   return Number.isFinite(n) ? Math.max(-840, Math.min(840, n)) : 0; // UTC±14
 }

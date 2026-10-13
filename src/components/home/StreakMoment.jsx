@@ -248,10 +248,14 @@ function WarmupCard({ onCelebrate, onReview }) {
 }
 
 /* ── The sheet ── */
-function StreakMoment({ moment, name, dueCount, recentDoc, hasExam, onClose, onStartDaily, onOpenDoc, onOpenExams }) {
+function StreakMoment({ moment, name, dueCount, recentDoc, onClose, onStartDaily, onOpenDoc, onOpenLibrary }) {
   const open = !!moment;
   const { modalProps, focusRef } = useModalA11y({ isOpen: open, onClose, labelledBy: "hm-sm-title" });
   const [shown, setShown] = useState(false);
+  const [wuOpen, setWuOpen] = useState(false); // warm-up collapsed until tapped
+  const [sheetDy, setSheetDy] = useState(null); // px — null = CSS-driven
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef({ y0: 0, dy: 0 });
   const confetti = useConfetti();
   const firedRef = useRef(false);
   const dayCount = useCountUp(moment?.streak ?? 0);
@@ -263,7 +267,7 @@ function StreakMoment({ moment, name, dueCount, recentDoc, hasExam, onClose, onS
   useEffect(() => {
     if (!open) return;
     const raf = requestAnimationFrame(() => setShown(true));
-    return () => { cancelAnimationFrame(raf); setShown(false); };
+    return () => { cancelAnimationFrame(raf); setShown(false); setWuOpen(false); setSheetDy(null); };
   }, [open]);
 
   // Milestones (and first correct warm-up) get confetti + a rising tone.
@@ -281,11 +285,38 @@ function StreakMoment({ moment, name, dueCount, recentDoc, hasExam, onClose, onS
   if (!open) return null;
   const k = STATES[moment.state] || STATES.streak;
   const kicker = `${moment.levelUp ? "LEVEL UP · " : ""}${k.kicker(moment)}`;
+  const go = (fn) => () => { haptics.selection(); onClose(); fn?.(); };
   const nextSteps = [
-    dueCount > 0 && { icon: "play", accent: "#F5A623", label: "Daily review", sub: `${dueCount} item${dueCount === 1 ? "" : "s"} due`, go: () => { onClose(); onStartDaily?.(); } },
-    recentDoc && { icon: "book", accent: "#6EC1FF", label: "Continue reading", sub: recentDoc.title, go: () => { onClose(); onOpenDoc?.(recentDoc.shareToken); } },
-    hasExam && { icon: "target", accent: "#C0B2FF", label: "Exam sim", sub: "Take your saved exam", go: () => { onClose(); onOpenExams?.(); } },
+    dueCount > 0 && { icon: "play", accent: "#F5A623", label: "Daily review", sub: `${dueCount} item${dueCount === 1 ? "" : "s"} due`, go: go(onStartDaily) },
+    recentDoc && { icon: "book", accent: "#6EC1FF", label: "Continue reading", sub: recentDoc.title, go: go(() => onOpenDoc?.(recentDoc.shareToken)) },
+    moment.state === "day1" && { icon: "book", accent: "#6EE7A0", label: "Find study materials", sub: "Browse the community library", go: go(onOpenLibrary) },
   ].filter(Boolean);
+  const [primary, ...secondary] = nextSteps;
+
+  // Grab-strip drag: pull down past ~90px (or flick) to dismiss like a real
+  // bottom sheet; springs back otherwise.
+  const onGrabStart = (e) => {
+    setDragging(true);
+    dragRef.current = { y0: e.touches[0].clientY, dy: 0, on: true };
+  };
+  const onGrabMove = (e) => {
+    if (!dragRef.current.on) return;
+    const dy = Math.max(0, e.touches[0].clientY - dragRef.current.y0);
+    dragRef.current.dy = dy;
+    setSheetDy(dy);
+  };
+  const onGrabEnd = () => {
+    if (!dragRef.current.on) return;
+    dragRef.current.on = false;
+    setDragging(false);
+    if (dragRef.current.dy > 90) {
+      setSheetDy(window.innerHeight); // keep transform so it slides out
+      setTimeout(onClose, 200);
+    } else {
+      setSheetDy(0); // snaps back via CSS transition
+      setTimeout(() => setSheetDy(null), 350);
+    }
+  };
 
   return createPortal(
     <>
@@ -295,9 +326,20 @@ function StreakMoment({ moment, name, dueCount, recentDoc, hasExam, onClose, onS
         ref={focusRef}
         tabIndex={-1}
         className={`hm-sheet hm-sm${shown ? " show" : ""}`}
-        style={{ "--wc-a": k.accent }}
+        style={{
+          "--wc-a": k.accent,
+          ...(sheetDy != null ? { transform: `translateY(${sheetDy}px)` } : {}),
+          transition: dragging ? "none" : undefined,
+        }}
       >
-        <div className="hm-sh-handle" />
+        <div
+          className="hm-sm-grab"
+          onTouchStart={onGrabStart}
+          onTouchMove={onGrabMove}
+          onTouchEnd={onGrabEnd}
+        >
+          <div className="hm-sh-handle" />
+        </div>
 
         {/* Streak hero */}
         <div className={`hm-sm-flame s-${moment.state}`}>
@@ -313,23 +355,37 @@ function StreakMoment({ moment, name, dueCount, recentDoc, hasExam, onClose, onS
           <div className="hm-sm-frz"><HIcon name="freeze" size={11} color="#7CC7FF" />{moment.freezes} freeze{moment.freezes === 1 ? "" : "s"} held — a missed day won't break the chain</div>
         )}
 
-        {/* Warm-up question (renders nothing for users with no practice) */}
-        <WarmupCard onCelebrate={() => confetti.fire(70)} onReview={() => { onClose(); onStartDaily?.(); }} />
+        {/* Warm-up — collapsed behind a row; skipped entirely on day 1
+            (a brand-new user has no practice to recall, and onboarding
+            just gave them enough to do). */}
+        {moment.state !== "day1" && !wuOpen && (
+          <button className="hm-sm-wurow" onClick={() => { haptics.light(); setWuOpen(true); }}>
+            <HIcon name="bolt" size={13} color="#FFC55C" />
+            <span>{warmupLabel()} — one recall question</span>
+            <HIcon name="arrowR" size={13} color="#FFC55C" />
+          </button>
+        )}
+        {moment.state !== "day1" && wuOpen && (
+          <WarmupCard onCelebrate={() => confetti.fire(70)} onReview={() => { onClose(); onStartDaily?.(); }} />
+        )}
 
-        {/* What's next */}
-        {nextSteps.length > 0 && (
-          <div className="hm-sm-next">
-            <div className="hm-sm-next-h">What's next</div>
-            {nextSteps.map((s) => (
-              <button key={s.label} className="hm-sm-card" onClick={s.go}>
-                <span className="hm-sm-card-ic" style={{ background: `color-mix(in srgb, ${s.accent} 14%, transparent)`, color: s.accent }}>
-                  <HIcon name={s.icon} size={15} />
-                </span>
-                <span className="hm-sm-card-t">
-                  <b>{s.label}</b>
-                  <span>{s.sub}</span>
-                </span>
-                <HIcon name="arrowR" size={14} color="#8b93a7" />
+        {/* One primary CTA; other routes become quiet pills */}
+        {primary && (
+          <button className="hm-sm-cta" onClick={primary.go}>
+            <HIcon name={primary.icon} size={16} />
+            <span className="hm-sm-cta-t">
+              {primary.label}
+              <small>{primary.sub}</small>
+            </span>
+            <HIcon name="arrowR" size={15} />
+          </button>
+        )}
+        {secondary.length > 0 && (
+          <div className="hm-sm-pills">
+            {secondary.map((s) => (
+              <button key={s.label} className="hm-sm-pillbtn" onClick={s.go}>
+                <HIcon name={s.icon} size={13} color={s.accent} />
+                <span>{s.label}</span>
               </button>
             ))}
           </div>
