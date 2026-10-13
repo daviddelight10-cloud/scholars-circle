@@ -159,7 +159,10 @@ function StreakSheet({ open, onClose, streak, longestStreak, freezes, save, onBu
               return <span key={c.key} className={cls}>{on ? <HIcon name="flame" size={11} color="#FFC55C" /> : fz ? <HIcon name="freeze" size={10} color="#7CC7FF" /> : c.day}</span>;
             })}
           </div>
-          {viewData === undefined || viewData === null ? (
+          {/* undefined = request still in flight; null = fetch failed or
+              returned nothing — show the grid (empty) instead of hanging
+              on "Loading…" forever */}
+          {viewData === undefined ? (
             <div className="hm-ss-cal-loading">Loading activity…</div>
           ) : null}
           <div className="hm-ss-cal-foot">
