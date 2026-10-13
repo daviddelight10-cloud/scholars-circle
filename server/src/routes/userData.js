@@ -75,16 +75,20 @@ router.get("/streak-calendar", requireAuth, async (req, res) => {
     const monthEnd = Date.UTC(m === 12 ? y + 1 : y, m % 12, 1);
     const range = { gte: new Date(monthStart - 86400000), lt: new Date(monthEnd + 86400000) };
 
+    // NB: ResourceView timestamps its rows "viewedAt" (no createdAt column).
     const [attempts, views, logins, up] = await Promise.all([
       prisma.quizAttempt.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
-      prisma.resourceView.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
+      prisma.resourceView.findMany({ where: { userId, viewedAt: range }, select: { viewedAt: true } }),
       prisma.loginEvent.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
       prisma.userProgress.findUnique({ where: { userId }, select: { streak: true, longestStreak: true, lastStudied: true } }),
     ]);
 
     const daySet = new Set();
-    for (const row of [...attempts, ...views, ...logins]) {
+    for (const row of attempts.concat(logins)) {
       daySet.add(localDayKey(new Date(row.createdAt).getTime(), offsetMin));
+    }
+    for (const row of views) {
+      daySet.add(localDayKey(new Date(row.viewedAt).getTime(), offsetMin));
     }
     const days = [...daySet].filter((d) => d.startsWith(monthKey)).sort();
 
@@ -94,8 +98,12 @@ router.get("/streak-calendar", requireAuth, async (req, res) => {
     const freezeDays = [];
     if (up?.streak > 0 && up.lastStudied) {
       const lastLocal = localDayKey(new Date(up.lastStudied).getTime(), offsetMin);
+      // UTC ms at the *local* midnight of the last-studied day — walking
+      // backwards from it keeps every day key exact at any offset (parsing
+      // the key bare and re-applying a negative offset shifts a day).
+      const lastLocalMs = Date.parse(lastLocal) - offsetMin * 60000;
       for (let i = 0; i < up.streak; i++) {
-        const dk = localDayKey(Date.parse(lastLocal) - i * 86400000, offsetMin);
+        const dk = localDayKey(lastLocalMs - i * 86400000, offsetMin);
         if (!dk.startsWith(monthKey)) { if (dk < monthKey) break; continue; }
         if (!daySet.has(dk)) freezeDays.push(dk);
       }

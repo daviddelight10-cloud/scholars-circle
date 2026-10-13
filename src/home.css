@@ -377,6 +377,7 @@
   transition: .32s cubic-bezier(.2,.8,.2,1); padding: 10px 18px 24px;
   max-height: 80vh; max-height: 80dvh; overflow-y: auto; scrollbar-width: none; color: var(--hm-text);
   font-family: var(--hm-font-body);
+  overscroll-behavior: contain; /* pull-down inside a sheet never triggers pull-to-refresh */
 }
 .hm-sheet::-webkit-scrollbar { display: none; }
 .hm-sheet.show { transform: translateY(0); }
@@ -932,6 +933,10 @@
 .hm-ss-leg-sq.fz { background: rgba(124,199,255,.15); border: 1px solid rgba(124,199,255,.45); }
 
 /* ── Streak moment: grab strip / collapsed warm-up / primary CTA ── */
+.hm-sm-headzone {
+  touch-action: none; /* the browser never claims headzone gestures for scroll — the sheet drag owns them */
+  -webkit-user-select: none; user-select: none;
+}
 .hm-sm-grab { margin: -10px -20px 0; padding: 10px 20px 6px; touch-action: none; cursor: grab; }
 .hm-sm-wurow {
   width: 100%; display: flex; align-items: center; gap: 9px;

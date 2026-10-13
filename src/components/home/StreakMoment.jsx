@@ -293,23 +293,40 @@ function StreakMoment({ moment, name, dueCount, recentDoc, onClose, onStartDaily
   ].filter(Boolean);
   const [primary, ...secondary] = nextSteps;
 
-  // Grab-strip drag: pull down past ~90px (or flick) to dismiss like a real
-  // bottom sheet; springs back otherwise.
-  const onGrabStart = (e) => {
+  // Bottom-sheet drag: pull down from anywhere on the headzone (grab strip,
+  // flame, title) past ~90px — or with a fast downward flick — to dismiss;
+  // springs back otherwise. Pointer events + capture cover touch and pen, and
+  // pointercancel reliably ends a gesture the OS steals (edge swipe,
+  // interruption) so the sheet can never freeze mid-drag. Mouse is excluded:
+  // on desktop this is a centered modal and translateY would break centering.
+  const onDragStart = (e) => {
+    if (e.pointerType === "mouse") return;
+    const now = performance.now();
+    dragRef.current = { on: true, y0: e.clientY, dy: 0, lastY: e.clientY, lastT: now, vy: 0 };
     setDragging(true);
-    dragRef.current = { y0: e.touches[0].clientY, dy: 0, on: true };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
   };
-  const onGrabMove = (e) => {
-    if (!dragRef.current.on) return;
-    const dy = Math.max(0, e.touches[0].clientY - dragRef.current.y0);
-    dragRef.current.dy = dy;
-    setSheetDy(dy);
+  const onDragMove = (e) => {
+    const d = dragRef.current;
+    if (!d.on) return;
+    const now = performance.now();
+    const dt = now - d.lastT;
+    if (dt > 0) {
+      d.vy = 0.7 * ((e.clientY - d.lastY) / dt) + 0.3 * d.vy; // smoothed px/ms
+      d.lastY = e.clientY;
+      d.lastT = now;
+    }
+    const dy = e.clientY - d.y0;
+    // slight rubber-band resistance as the pull deepens
+    d.dy = dy <= 0 ? 0 : dy < 420 ? dy * 0.85 : 357 + (dy - 420) * 0.3;
+    setSheetDy(d.dy);
   };
-  const onGrabEnd = () => {
-    if (!dragRef.current.on) return;
-    dragRef.current.on = false;
+  const onDragEnd = () => {
+    const d = dragRef.current;
+    if (!d.on) return;
+    d.on = false;
     setDragging(false);
-    if (dragRef.current.dy > 90) {
+    if (d.dy > 90 || (d.dy > 24 && d.vy > 0.45)) {
       setSheetDy(window.innerHeight); // keep transform so it slides out
       setTimeout(onClose, 200);
     } else {
@@ -332,23 +349,29 @@ function StreakMoment({ moment, name, dueCount, recentDoc, onClose, onStartDaily
           transition: dragging ? "none" : undefined,
         }}
       >
+        {/* Drag headzone — grab strip + hero + title. touch-action:none in
+            CSS means the browser never claims this gesture for scrolling;
+            pointer events below do the tracking. */}
         <div
-          className="hm-sm-grab"
-          onTouchStart={onGrabStart}
-          onTouchMove={onGrabMove}
-          onTouchEnd={onGrabEnd}
+          className="hm-sm-headzone"
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
         >
-          <div className="hm-sh-handle" />
-        </div>
+          <div className="hm-sm-grab">
+            <div className="hm-sh-handle" />
+          </div>
 
-        {/* Streak hero */}
-        <div className={`hm-sm-flame s-${moment.state}`}>
-          <HIcon name="flame" size={42} color={k.accent} />
-          <span className="hm-sm-count">{moment.state === "broken" ? 1 : dayCount}</span>
+          {/* Streak hero */}
+          <div className={`hm-sm-flame s-${moment.state}`}>
+            <HIcon name="flame" size={42} color={k.accent} />
+            <span className="hm-sm-count">{moment.state === "broken" ? 1 : dayCount}</span>
+          </div>
+          <div className="hm-wc-kicker">{kicker}</div>
+          <h3 id="hm-sm-title" className="hm-wc-title">{k.title({ ...moment, name })}</h3>
+          <p className="hm-wc-sub">{k.sub({ ...moment, name })}</p>
         </div>
-        <div className="hm-wc-kicker">{kicker}</div>
-        <h3 id="hm-sm-title" className="hm-wc-title">{k.title({ ...moment, name })}</h3>
-        <p className="hm-wc-sub">{k.sub({ ...moment, name })}</p>
 
         <WeekStrip streak={moment.streak} />
         {moment.freezes > 0 && (
