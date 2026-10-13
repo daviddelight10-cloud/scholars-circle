@@ -166,8 +166,10 @@ function StreakSheet({ open, onClose, streak, longestStreak, freezes, save, onBu
             <div className="hm-ss-cal-loading">Loading activity…</div>
           ) : null}
           <div className="hm-ss-cal-foot">
-            <span className="hm-ss-leg"><i className="hm-ss-leg-sq on" />studied</span>
-            <span className="hm-ss-leg"><i className="hm-ss-leg-sq fz" />freeze-saved</span>
+            <span className="hm-ss-leg"><i className="hm-ss-leg-sq on" />streak day</span>
+            {freezeSet.size > 0 && (
+              <span className="hm-ss-leg"><i className="hm-ss-leg-sq fz" />freeze-saved</span>
+            )}
             <span className="hm-ss-leg" style={{ marginLeft: "auto" }}>{weekCount} of 7 days this week</span>
           </div>
         </div>

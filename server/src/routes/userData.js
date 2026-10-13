@@ -75,44 +75,55 @@ router.get("/streak-calendar", requireAuth, async (req, res) => {
     const monthEnd = Date.UTC(m === 12 ? y + 1 : y, m % 12, 1);
     const range = { gte: new Date(monthStart - 86400000), lt: new Date(monthEnd + 86400000) };
 
-    // NB: ResourceView timestamps its rows "viewedAt" (no createdAt column).
-    const [attempts, views, logins, up] = await Promise.all([
+    // Every surface that can signal "the user studied/showed up" that day.
+    // NB: ResourceView timestamps rows "viewedAt", QuestionAttempt uses the
+    // "lastAttempted" rollup column — neither has a createdAt field.
+    const [attempts, views, logins, sessions, qAttempts, fqAttempts, aiLogs, up] = await Promise.all([
       prisma.quizAttempt.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
       prisma.resourceView.findMany({ where: { userId, viewedAt: range }, select: { viewedAt: true } }),
       prisma.loginEvent.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
+      prisma.sessionAttempt.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
+      prisma.questionAttempt.findMany({ where: { userId, lastAttempted: range }, select: { lastAttempted: true } }),
+      prisma.folderQuizAttempt.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
+      prisma.aiUsageLog.findMany({ where: { userId, createdAt: range }, select: { createdAt: true } }),
       prisma.userProgress.findUnique({ where: { userId }, select: { streak: true, longestStreak: true, lastStudied: true } }),
     ]);
 
     const daySet = new Set();
-    for (const row of attempts.concat(logins)) {
-      daySet.add(localDayKey(new Date(row.createdAt).getTime(), offsetMin));
-    }
-    for (const row of views) {
-      daySet.add(localDayKey(new Date(row.viewedAt).getTime(), offsetMin));
-    }
-    const days = [...daySet].filter((d) => d.startsWith(monthKey)).sort();
+    const addDays = (rows, field) => {
+      for (const row of rows) {
+        if (row[field]) daySet.add(localDayKey(new Date(row[field]).getTime(), offsetMin));
+      }
+    };
+    addDays(attempts, "createdAt");
+    addDays(views, "viewedAt");
+    addDays(logins, "createdAt");
+    addDays(sessions, "createdAt");
+    addDays(qAttempts, "lastAttempted");
+    addDays(fqAttempts, "createdAt");
+    addDays(aiLogs, "createdAt");
 
-    // The streak run covers the last `streak` local days ending at the
-    // last-studied local day — days in that window with no activity were
-    // covered by a freeze. Only report ones inside the requested month.
-    const freezeDays = [];
+    // The streak window is itself the activity record — every one of the
+    // last `streak` local days ending at lastStudied counted toward the run
+    // (touched or freeze-covered). Without per-day touch records we can't
+    // place the covered gaps exactly, so the whole window lights as flames
+    // rather than guessing wrong and icing out a real streak.
     if (up?.streak > 0 && up.lastStudied) {
       const lastLocal = localDayKey(new Date(up.lastStudied).getTime(), offsetMin);
       // UTC ms at the *local* midnight of the last-studied day — walking
-      // backwards from it keeps every day key exact at any offset (parsing
-      // the key bare and re-applying a negative offset shifts a day).
+      // backwards from it keeps every day key exact at any offset.
       const lastLocalMs = Date.parse(lastLocal) - offsetMin * 60000;
       for (let i = 0; i < up.streak; i++) {
-        const dk = localDayKey(lastLocalMs - i * 86400000, offsetMin);
-        if (!dk.startsWith(monthKey)) { if (dk < monthKey) break; continue; }
-        if (!daySet.has(dk)) freezeDays.push(dk);
+        daySet.add(localDayKey(lastLocalMs - i * 86400000, offsetMin));
       }
     }
+
+    const days = [...daySet].filter((d) => d.startsWith(monthKey)).sort();
 
     res.json({
       month: monthKey,
       days,
-      freezeDays,
+      freezeDays: [], // kept for the client contract — no per-day freeze data yet
       streak: up?.streak ?? 0,
       longestStreak: up?.longestStreak ?? 0,
     });
