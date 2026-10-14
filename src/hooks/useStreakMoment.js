@@ -121,6 +121,7 @@ export function useStreakMoment({ userId, streak, longestStreak, freezes, level,
   const [moment, setMoment] = useState(null);
   const [ready, setReady] = useState(false);
   const decidedRef = useRef(false);
+  const fireTimer = useRef(0);
 
   // Cap the wait for fresh server streakInfo — offline/slow boots still get
   // the sheet, derived from the last known stats.
@@ -128,6 +129,13 @@ export function useStreakMoment({ userId, streak, longestStreak, freezes, level,
     const t = setTimeout(() => setReady(true), WAIT_MS);
     return () => clearTimeout(t);
   }, []);
+
+  // Cancel the pending reveal only on unmount — never on dep changes. The
+  // decide effect re-runs whenever streak/level props settle, and an
+  // effect-scoped cleanup would clear the scheduled reveal after
+  // decidedRef/baseline were already consumed: the sheet silently never
+  // shows for the whole day.
+  useEffect(() => () => clearTimeout(fireTimer.current), []);
 
   useEffect(() => {
     if (!enabled) return; // gate closed — do NOT write the baseline yet
@@ -161,15 +169,16 @@ export function useStreakMoment({ userId, streak, longestStreak, freezes, level,
     });
     if (!derived) return;
     // Small delay so the sheet doesn't fight whatever surface is already
-    // animating in (onboarding closing, tab switches, app boot).
-    const t = setTimeout(() => setMoment({
+    // animating in (onboarding closing, tab switches, app boot). Held in a
+    // ref — a cleanup tied to this effect would cancel the reveal when
+    // async props (fsrsStats) arrive mid-countdown.
+    fireTimer.current = setTimeout(() => setMoment({
       ...derived,
       streak: cur.streak,
       longestStreak: cur.longestStreak ?? cur.streak,
       freezes: cur.freezes ?? 0,
       offline: !info,
     }), 650);
-    return () => clearTimeout(t);
   }, [enabled, ready, userId, streak, longestStreak, freezes, level]);
 
   const dismiss = useCallback(() => setMoment(null), []);
