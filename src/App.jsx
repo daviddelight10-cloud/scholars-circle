@@ -1956,35 +1956,11 @@ function App() {
 
         if (data.progress) {
 
-          // Validate streak: if lastStudied is stale, streak should reset
-
-          let validatedStreak = data.progress.streak ?? 0;
-
-          const backendLastStudied = data.progress.lastStudied
-            ? localDayKey(new Date(data.progress.lastStudied))
-            : null;
-
-          if (backendLastStudied && validatedStreak > 0) {
-
-            const todayStr = localDayKey();
-
-            if (backendLastStudied !== todayStr) {
-
-              const lastDate = new Date(backendLastStudied + 'T00:00:00');
-
-              const today = new Date(todayStr + 'T00:00:00');
-
-              const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-
-              // One freeze covers each missed day — streak only breaks when
-              // the gap exceeds the freeze inventory.
-              const missed = diffDays - 1;
-
-              if (missed > 0 && (data.progress.freezes ?? 0) < missed) validatedStreak = 0;
-
-            }
-
-          }
+          // Streak is server-owned: updateUniversalStreak already advanced,
+          // freeze-covered or reset it on the server clock + the client's
+          // reported tz. Re-validating here against the DEVICE clock only
+          // fabricates gaps when the two disagree (e.g. a skewed clock maps
+          // lastStudied to a past day → streak displayed as 0 every login).
 
           setStats({
 
@@ -1992,7 +1968,7 @@ function App() {
 
             sessions: data.progress.sessions ?? 0,
 
-            streak: validatedStreak,
+            streak: data.progress.streak ?? 0,
 
             freezes: data.progress.freezes ?? 0,
 
