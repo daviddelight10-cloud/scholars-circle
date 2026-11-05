@@ -175,6 +175,8 @@ ${notes}
 /**
  * Heuristic detection of existing MCQs in extracted text.
  * Counts option markers (A), B., (C), D:) and numbered question stems.
+ * Stem/question-mark signals only count when real option markers exist —
+ * otherwise any numbered list or FAQ false-positives as a question bank.
  * Returns estimated count, or 0 if below confidence threshold.
  */
 export function countExistingMcqs(text) {
@@ -194,7 +196,10 @@ export function countExistingMcqs(text) {
   const questionMarkRe = /^\s*.+\?\s*$/gm;
   const questionMarkLines = text.match(questionMarkRe) || [];
 
-  const estimated = Math.max(optionGroups, questionStems.length, Math.floor(questionMarkLines.length / 2));
+  const stemSignals = optionGroups > 0
+    ? Math.max(questionStems.length, Math.floor(questionMarkLines.length / 2))
+    : 0;
+  const estimated = Math.max(optionGroups, stemSignals);
   return estimated >= 5 ? estimated : 0;
 }
 
@@ -263,10 +268,12 @@ export function mapAiFlashcards(parsed) {
  *   called per question while the AI streams (per chunk on non-streaming
  *   servers). The final returned set stays authoritative — onRows previews.
  * @param {AbortSignal} [options.signal] - Abort in-flight generation.
+ * @param {boolean} [options.allowExtract] - Internal: false disables MCQ-bank
+ *   extraction mode (used by the extraction→generation fallback).
  * @returns {Promise<{rows: Array, warnings: string[]}>}
  */
 export async function generateMcqs(text, images, onProgress, options = {}) {
-  const { customCount = null, onWarning, onRows, signal } = options;
+  const { customCount = null, onWarning, onRows, signal, allowExtract = true } = options;
   const warnings = [];
   ensureNotAborted(signal);
 
@@ -288,7 +295,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   // them as-is instead of generating new ones. This prevents over-generation
   // where a 100-question document would otherwise produce 200+ questions.
   const existingCount = countExistingMcqs(text);
-  const useExtractMode = !customCount && existingCount >= 5;
+  const useExtractMode = allowExtract && !customCount && existingCount >= 5;
 
   // Determine chunk count from BOTH text length and desired question count,
   // so a large custom count still gets enough chunks to stay within the
@@ -467,7 +474,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       pending = deficits();
     }
 
-    if (allRows.length < existingCount) {
+    if (allRows.length > 0 && allRows.length < existingCount) {
       const w = `⚠️ Detected ~${existingCount} questions but extracted ${allRows.length} — some may have been missed.`;
       warnings.push(w);
       onWarning?.(w);
@@ -488,6 +495,13 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   }
 
   if (allRows.length === 0) {
+    // Extraction-mode false positive — the doc looked like a question bank
+    // but had nothing extractable. Re-run in generation mode instead of failing.
+    if (useExtractMode) {
+      onProgress?.("No existing questions found — generating fresh ones instead…");
+      onWarning?.("⚠️ No existing questions found in this document — generated fresh ones instead.");
+      return generateMcqs(text, images, onProgress, { ...options, allowExtract: false });
+    }
     // Surface the real per-chunk cause — a swallowed rate-limit/service
     // error shouldn't read as "try a different file".
     const firstErr = chunkResults.find((r) => r.error)?.error;

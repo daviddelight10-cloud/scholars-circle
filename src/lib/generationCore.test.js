@@ -103,6 +103,31 @@ describe("extraction mode (MCQ-bank document)", () => {
     expect(countExistingMcqs(makeMcqDoc(30))).toBe(30);
   });
 
+  it("doesn't treat a numbered list without option markers as a bank", () => {
+    const listDoc = "Chapter summary points.\n\n" +
+      Array.from({ length: 12 }, (_, i) => `${i + 1}. Concept number ${i + 1} explained briefly`).join("\n");
+    expect(countExistingMcqs(listDoc)).toBe(0);
+  });
+
+  it("doesn't treat question-mark lines without options as a bank", () => {
+    const faqDoc = "Frequently asked things.\n\n" +
+      Array.from({ length: 12 }, (_, i) => `What is concept ${i + 1} in physiology?`).join("\n");
+    expect(countExistingMcqs(faqDoc)).toBe(0);
+  });
+
+  it("falls back to generation when extraction finds no questions", async () => {
+    // Passes the heuristic (option markers + stems) but isn't a real bank —
+    // the extractor returns [] for every pass, then generation runs instead.
+    callAI.mockImplementation(async (prompt) =>
+      prompt.includes("Generate exactly") ? mcqRowsJson(6) : "[]"
+    );
+    const { rows } = await generateMcqs(makeMcqDoc(10), [], () => {});
+    expect(rows.length).toBe(6);
+    // Last call must be a generation prompt, not another extract prompt.
+    const lastPrompt = callAI.mock.calls.at(-1)[0];
+    expect(lastPrompt).toContain("Generate exactly");
+  });
+
   it("recovers underproduced chunks until the detected count is reached", async () => {
     // First pass: each chunk returns only half its questions.
     // Retry pass (retryHint): returns all of them.
