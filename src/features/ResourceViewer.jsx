@@ -120,9 +120,11 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     const cached = getCached(cacheKey);
     if (cached) { setResource(cached); setLoading(false); triggerLogView(cached); return; }
     try {
-      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      // Resolve through Supabase (auto-refresh) — a stale stored token returns
+      // the guest payload: mcqData silently stripped → empty deck + 0 questions.
+      const jwt = await getValidToken();
       const res = await fetch(`${API_BASE}/api/resources/${token}`, {
-        headers: authData.authToken ? { Authorization: `Bearer ${authData.authToken}` } : {},
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
       });
       if (res.ok) {
         const data = await res.json();
@@ -145,15 +147,15 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
   const triggerLogView = async (res) => {
     try {
-      const parsed = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      const jwtToken = parsed.authToken || null;
+      const jwtToken = await getValidToken();
       if (!jwtToken) return; // guests handled via auth overlay
       const r = await fetch(`${API_BASE}/api/resources/${res.shareToken || token}/view`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwtToken}` },
       });
-      const info = await r.json();
-      setTrialInfo(info);
+      // Only trust real trial payloads — a 401 JSON error body would set
+      // trialInfo.allowed to undefined and blank the content gate below.
+      if (r.ok) setTrialInfo(await r.json());
     } catch {}
   };
 

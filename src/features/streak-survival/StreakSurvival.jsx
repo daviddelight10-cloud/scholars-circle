@@ -25,6 +25,7 @@ import useConfetti from './useConfetti.js';
 import { useOverlayBackClose } from '../../hooks/useOverlayBackClose.js';
 import { localDayKey } from '../../lib/dayKey.js';
 import DeckView from './DeckView.jsx';
+import { fetchWithAuth } from '../../lib/authToken.js';
 import './streakSurvival.css';
 
 const MAX_LIVES = 3;
@@ -152,6 +153,35 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
 
   // ── Bank ──
   const isDaily = Array.isArray(items) && items.length > 0;
+
+  // Chat-saved questions live in a separate "__quiz_deck__" resource linked to
+  // the source material — fetch it so they merge into this run's bank.
+  const [linkedDeck, setLinkedDeck] = useState(null); // {id, mcqData} | null
+  useEffect(() => {
+    if (isDaily || !resource?.id || !isAuthed()) return;
+    // The deck links to the SOURCE material — for a derived variant (the chip
+    // a user taps), that's the parent resource, not the variant itself.
+    const sourceId = resource.sourceResourceId || resource.id;
+    let live = true;
+    fetchWithAuth(`${API_BASE}/api/resources/deck/${sourceId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(async (data) => {
+        if (!live || !data?.id || data.id === resource.id) return;
+        const mcqData = Array.isArray(data.mcqData) ? data.mcqData : [];
+        if (!mcqData.length) return;
+        setLinkedDeck({ id: data.id, mcqData });
+        const states = await fetchCardStates(data.id);
+        if (!live) return;
+        setCardStates((prev) => {
+          const next = { ...prev };
+          for (const [pi, v] of Object.entries(states)) next[`${data.id}:${pi}`] ??= v;
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [isDaily, resource?.id, resource?.sourceResourceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const bank = useMemo(() => {
     if (isDaily) {
       return items.map((it) => ({
@@ -160,9 +190,20 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
         _subject: it.subject,
       }));
     }
-    if (resource?.mcqData) return normalizeBank(resource.mcqData, resource.id);
-    return [];
-  }, [isDaily, items, resource]);
+    const baseBank = resource?.mcqData ? normalizeBank(resource.mcqData, resource.id) : [];
+    const deckBank = linkedDeck?.mcqData ? normalizeBank(linkedDeck.mcqData, linkedDeck.id) : [];
+    if (!deckBank.length) return baseBank;
+    // Deck questions first; drop dupes by normalized text (same rule /deck/add uses).
+    const seen = new Set();
+    const merged = [];
+    for (const q of [...deckBank, ...baseBank]) {
+      const key = String(q.q || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(q);
+    }
+    return merged;
+  }, [isDaily, items, resource, linkedDeck]);
 
   // ── FSRS state ──
   const [cardStates, setCardStates] = useState({});
@@ -329,6 +370,18 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
       startRun('survival');
     }
   }, [isDaily, bank]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The linked-deck fetch is async — a material with an empty own mcqData
+  // starts on 'home'; promote to the deck preview once questions arrive.
+  // One-shot latch: a manual trip back to 'home' must not be hijacked.
+  const deckUpgradeRef = useRef(bank.length > 0);
+  useEffect(() => {
+    if (deckUpgradeRef.current || !deckEntry) return;
+    if (bank.length > 0) {
+      deckUpgradeRef.current = true;
+      if (screen === 'home') setScreen('deck');
+    }
+  }, [deckEntry, bank.length, screen]);
 
   // ── Toasts & floats ──
   // Toasts are capped at 2 visible — extras queue and pump in as slots free up.

@@ -1427,6 +1427,32 @@ router.post("/fsrs/init", requireAuth, async (req, res) => {
   }
 });
 
+// ── GET /api/resources/deck/:sourceId — Fetch the user's linked quiz deck for
+// a source material. Returns deck id + mcqData so the runner can merge
+// chat-saved questions and attribute FSRS ratings to the deck correctly.
+router.get("/deck/:sourceId", requireAuth, async (req, res) => {
+  try {
+    const { sourceId } = req.params;
+    const deck = await prisma.resource.findFirst({
+      where: {
+        uploadedBy: req.user.sub,
+        contentType: "mcq",
+        fileName: "__quiz_deck__",
+        sourceResourceId: sourceId,
+      },
+      select: { id: true, mcqData: true },
+    });
+    if (!deck) return res.json({ id: null, mcqData: [] });
+    const mcqData = Array.isArray(deck.mcqData)
+      ? deck.mcqData
+      : typeof deck.mcqData === "string" ? JSON.parse(deck.mcqData) : [];
+    res.json({ id: deck.id, mcqData });
+  } catch (err) {
+    console.error("Deck fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch deck" });
+  }
+});
+
 // ── POST /api/resources/deck/add — Save PDF-generated questions into the
 // user's per-source "Survival Quiz deck" (a private MCQ resource), then seed
 // FSRS review items so the questions enter spaced repetition. ──
