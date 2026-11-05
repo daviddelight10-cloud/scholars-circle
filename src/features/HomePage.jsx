@@ -9,7 +9,7 @@ const TESTIMONIALS = [
 ];
 
 const FEATURES = [
-  { icon: '👥', title: 'Study live with friends', desc: 'Drop a 6-letter code in the group chat — up to 8 friends answer the same questions at the same time, with voice chat, XP wagers, and whoever got it right teaching the rest.' },
+  { icon: '👥', title: 'Study live with friends', desc: 'Drop a 6-letter code in the group chat — up to 50 friends answer the same questions at the same time, with voice chat, XP wagers, and whoever got it right teaching the rest.' },
   { icon: '⭕', title: 'Ask your notes anything', desc: 'Circle any diagram, table, or paragraph in your lecture PDF and get an answer grounded in that exact page — like leaning over to ask the sharpest person in your study group.' },
   { icon: '🎓', title: 'Sit the exam before the exam', desc: 'Timed mock exams built from your own materials — then a results summary that shows exactly which topics failed you, before the real CBT does.' },
   { icon: '🧠', title: 'Review at the right moment', desc: 'A smart review engine tracks everything you\'ve practiced and brings back exactly what you\'re about to forget — not what you already know cold.' },

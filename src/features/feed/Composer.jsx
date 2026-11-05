@@ -289,7 +289,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
               </button>
             )}
             <div className="fd-sheet-sub" style={{ marginTop: 8 }}>
-              Up to 8 friends can join your lobby.
+              Up to 50 friends can join your lobby.
             </div>
           </>
         ) : (

@@ -574,7 +574,7 @@ export default function PracticeSheet({
             <span className="pm-tile-icon"><IcoUsers size={17} /></span>
             <span className="pm-live-body">
               <span className="pm-live-name"><span className="pm-live-dot" />{liveMatch ? "Join live quiz" : goingLive ? "Opening lobby…" : "Go live with friends"}</span>
-              <span className="pm-live-sub">{liveMatch ? `${liveMatch.host} · ${liveMatch.players}/8 in lobby` : mcq ? "Quiz together in real time" : "Generate Rapid Recall first"}</span>
+              <span className="pm-live-sub">{liveMatch ? `${liveMatch.host} · ${liveMatch.players}/${liveMatch.maxPlayers || 50} in lobby` : mcq ? "Quiz together in real time" : "Generate Rapid Recall first"}</span>
             </span>
             {shownPeople.length > 0 && (
               <span className="pm-avatars" aria-hidden="true">

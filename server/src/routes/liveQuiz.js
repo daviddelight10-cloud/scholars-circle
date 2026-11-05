@@ -14,6 +14,7 @@ import {
   detachSocket,
   handleMessage,
   endRoom,
+  MAX_PARTICIPANTS,
 } from "../lib/liveQuizRooms.js";
 
 const router = Router();
@@ -193,7 +194,7 @@ router.get("/active", requireAuth, async (req, res) => {
       if (room.phase !== "lobby" && room.phase !== "transition") continue;
       const connected = [...room.participants.values()].filter((p) => p.connected).length;
       const total = room.participants.size;
-      if (total >= 8 && !room.participants.has(uid)) continue;
+      if (total >= MAX_PARTICIPANTS && !room.participants.has(uid)) continue;
       const host = room.participants.get(room.hostId);
       out.push({
         code: room.code,
@@ -203,7 +204,7 @@ router.get("/active", requireAuth, async (req, res) => {
         isMember: room.participants.has(uid),
         players: total,
         connected,
-        maxPlayers: 8,
+        maxPlayers: MAX_PARTICIPANTS,
         mcqResourceId: room.mcqResourceId || null,
         resourceId: room.resourceId || null,
         questions: Math.min(room.settings?.numQuestions || room.allQuestions?.length || 0, room.allQuestions?.length || 0),
@@ -272,7 +273,7 @@ router.get("/:code", optionalAuth, async (req, res) => {
       phase: room.phase,
       joinable: room.phase === "lobby" || room.phase === "transition",
       participantCount: [...room.participants.values()].filter((p) => p.connected).length,
-      maxParticipants: 8,
+      maxParticipants: MAX_PARTICIPANTS,
       settings: room.settings,
       isMember: req.user ? room.participants.has(userId(req)) : false,
     });
@@ -298,7 +299,7 @@ router.post("/join", requireAuth, async (req, res) => {
     if (!already && room.phase !== "lobby" && room.phase !== "transition") {
       return res.status(409).json({ error: "Session already in progress", phase: room.phase });
     }
-    if (!already && room.participants.size >= 8) {
+    if (!already && room.participants.size >= MAX_PARTICIPANTS) {
       return res.status(409).json({ error: "Room is full" });
     }
     const who = await identityFor(uid, req.user.username);

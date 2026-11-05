@@ -11,7 +11,7 @@ import { updateUniversalStreak } from "./streak.js";
 const rooms = new Map(); // roomId -> room
 const roomByCode = new Map(); // code -> roomId
 
-const MAX_PARTICIPANTS = 8;
+export const MAX_PARTICIPANTS = 50;
 const TRANSITION_MS = 2500;
 const READY_FALLBACK_MS = 25000;
 const TEACHBACK_MS = 45000;
@@ -33,7 +33,10 @@ const MSG_RATE_WINDOW_MS = 2000;
 const CHAT_RATE_LIMIT = 6;     // chat is stricter — it's stored + broadcast
 const CHAT_RATE_WINDOW_MS = 5000;
 
-const COLORS = ["#3B82F6", "#FF6B5E", "#F5C542", "#3DD68C", "#A78BFA", "#EC4899", "#14B8A6", "#F97316"];
+const COLORS = [
+  "#3B82F6", "#FF6B5E", "#F5C542", "#3DD68C", "#A78BFA", "#EC4899", "#14B8A6", "#F97316",
+  "#60A5FA", "#FB7185", "#FACC15", "#34D399", "#C084FC", "#F472B6", "#2DD4BF", "#FDBA74",
+];
 const EMOJI_ALLOWED = new Set(["💡", "🔥", "👏", "❤️", "😂", "🎉"]);
 
 export function getRoom(roomId) {
@@ -191,6 +194,7 @@ function buildSnapshot(room, forUserId) {
     settings: room.settings,
     maxQuestions: room.allQuestions.length,
     poolSize: room.allQuestions.length,
+    maxParticipants: MAX_PARTICIPANTS,
     participants: publicParticipants(room),
     talkedThrough: room.talkedThrough,
     groupStreak: room.groupStreak,

@@ -255,7 +255,7 @@ export default function LobbyView({ room, myId, actions }) {
       )}
 
       <div className="lq-section">
-        <p className="lq-label"><IconUsers size={12} style={{ verticalAlign: "-2px" }} /> Participants ({participants.length}/8)</p>
+        <p className="lq-label"><IconUsers size={12} style={{ verticalAlign: "-2px" }} /> Participants ({participants.length}/{room.maxParticipants || 50})</p>
         <div className="lq-invite-grid">
           {participants.map((p) => {
             const ready = p.lobbyReady;
