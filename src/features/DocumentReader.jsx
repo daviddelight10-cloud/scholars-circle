@@ -11,11 +11,19 @@ import {
 } from "../lib/studyHistory.js";
 import { API_BASE } from "../lib/constants";
 import { copyShareToken } from "../lib/researchUtils.js";
+import { downscaleImage } from "../lib/imageUtils.js";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 const JSZIP_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+
+// imageData stays full-res for display/cropping — downscale a copy for the AI
+// so large photos don't overflow the server body limit.
+async function imageForAI(dataUrl) {
+  try { return await downscaleImage(dataUrl, 1600, 0.8); }
+  catch { return dataUrl; }
+}
 
 function loadScript(src, globalKey) {
   return new Promise((resolve, reject) => {
@@ -422,7 +430,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
     let imageToSend = null;
 
     if (contentType === "image" && imageData) {
-      imageToSend = imageData;
+      imageToSend = await imageForAI(imageData);
       if (studyMode === "mcq") {
         promptText = `You are an expert exam writer for university students. Look at the image provided and generate multiple-choice questions based on what you see.\n\nDetermine the appropriate number of questions yourself based on how much content is in the image (between 3 and 15).\n\nFORMAT — separate each question with a line containing only "---":\nQ: <question text>\nA. <option A>\nB. <option B>\nC. <option C>\nD. <option D>\nCorrect Answer: <letter>\nExplanation: <brief explanation>\n\nRules:\n- Exactly 4 options (A–D) per question\n- One correct answer\n- Questions should test understanding, not just memorization\n- Keep explanations to 1–2 sentences\n- Base questions on what is visible in the image`;
       } else {
@@ -482,7 +490,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
       let contextText = "";
       let imageToSend = null;
       if (contentType === "image" && imageData) {
-        imageToSend = imageData;
+        imageToSend = await imageForAI(imageData);
         contextText = "The user is looking at an image. Answer their question about it.";
       } else if ((contentType === "docx" || contentType === "txt" || contentType === "pptx") && extractedText) {
         contextText = `The user is reading a document with this content:\n"""\n${extractedText.slice(0, 8000)}\n"""`;

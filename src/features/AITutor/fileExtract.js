@@ -4,6 +4,7 @@
  * Returns { text, pages?, images? }.
  */
 
+import { downscaleImage, readFileAsDataUrl } from "../../lib/imageUtils.js";
 import pdfjsLib from "../../lib/pdfjs.js";
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
@@ -31,14 +32,12 @@ export async function extractTextFromFile(file) {
   const name = (file.name || "").toLowerCase();
   const type = file.type || "";
 
-  // Image files — convert to base64 data URL
+  // Image files — downscale to a JPEG data URL for the AI payload (raw photos
+  // overflow the server body limit); fall back to raw only if decoding fails.
   if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(name)) {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error("Failed to read image file"));
-      reader.readAsDataURL(file);
-    });
+    let dataUrl;
+    try { dataUrl = await downscaleImage(file); }
+    catch { dataUrl = await readFileAsDataUrl(file); }
     return { text: "", images: [dataUrl] };
   }
 
@@ -70,8 +69,13 @@ export async function extractTextFromFile(file) {
           const c = document.createElement("canvas");
           c.width = viewport.width;
           c.height = viewport.height;
-          await page.render({ canvasContext: c.getContext("2d"), viewport }).promise;
-          pageImages.push(c.toDataURL("image/png"));
+          // JPEG on white — PNG renders are ~10x larger and overflow the
+          // server's request body limit on multi-page scans.
+          const ctx = c.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, c.width, c.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          pageImages.push(c.toDataURL("image/jpeg", 0.8));
         } catch (e) {
           console.warn(`Failed to render page ${i} as image:`, e);
         }

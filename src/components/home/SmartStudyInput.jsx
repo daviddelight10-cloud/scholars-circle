@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { downscaleImage, readFileAsDataUrl } from "../../lib/imageUtils.js";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
@@ -126,13 +127,12 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
     reader.readAsText(file);
   }
 
-  function handleImgSelect(file) {
+  async function handleImgSelect(file) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      setAttachment({ type: "img", name: file.name, content: `[Image: ${file.name}]`, dataUrl: ev.target.result });
-    };
-    reader.readAsDataURL(file);
+    // Downscale for the AI payload — raw phone photos blow past the server
+    // body limit. Fall back to the raw data URL only if decoding fails.
+    const dataUrl = await downscaleImage(file).catch(() => readFileAsDataUrl(file)).catch(() => null);
+    setAttachment({ type: "img", name: file.name, content: `[Image: ${file.name}]`, dataUrl });
   }
 
   // ── Launch study ──

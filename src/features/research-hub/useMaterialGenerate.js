@@ -206,10 +206,9 @@ export function useMaterialGenerate() {
         setDraftDone(true);
       }
     } catch (err) {
-      if (err.stoppedByUser) {
-        setStreamText(null); // cancelled — close the stream view quietly
-        setDraftRows(null); // same for the draft deck
-      } else {
+      setStreamText(null); // close overlays on cancel AND on failure —
+      setDraftRows(null);  // otherwise they spin on "Preparing…" forever
+      if (!err.stoppedByUser) {
         setGenError(err.message || "AI generation failed. Try again.");
         setGenErrorId(resource.id);
       }

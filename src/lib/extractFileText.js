@@ -7,6 +7,7 @@
  */
 
 import { detectFileType } from "./detectMimeType";
+import { downscaleImage, readFileAsDataUrl } from "./imageUtils.js";
 import pdfjsLib from "./pdfjs.js";
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
@@ -50,12 +51,11 @@ export async function extractFileText(file, maxImagePages = 10) {
   const isPPTX = detectedType === "pptx";
 
   if (isImage) {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error("Failed to read image file"));
-      reader.readAsDataURL(file);
-    });
+    // Downscale for the AI payload — raw photos blow past the server body
+    // limit. Fall back to the raw data URL only if decoding fails.
+    let dataUrl;
+    try { dataUrl = await downscaleImage(file); }
+    catch { dataUrl = await readFileAsDataUrl(file); }
     return { text: "", images: [dataUrl] };
   }
 
@@ -119,8 +119,13 @@ export async function extractFileText(file, maxImagePages = 10) {
           const c = document.createElement("canvas");
           c.width = viewport.width;
           c.height = viewport.height;
-          await page.render({ canvasContext: c.getContext("2d"), viewport }).promise;
-          pageImages.push(c.toDataURL("image/png"));
+          // JPEG on a white background — PNG page renders are ~10x larger and
+          // a multi-page scan overflows the server's request body limit.
+          const ctx = c.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, c.width, c.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          pageImages.push(c.toDataURL("image/jpeg", 0.8));
         } catch (e) {
           console.warn(`Failed to render page ${i} as image:`, e);
         }

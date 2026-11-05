@@ -84,7 +84,7 @@ app.use(cookieParser());
 
 // Body parsing with size limits
 // Capture raw body for Paystack webhook signature verification
-app.use(express.json({ limit: '10mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
+app.use(express.json({ limit: '25mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Health endpoint - MUST be before CORS for Railway health checks
@@ -398,7 +398,11 @@ setInterval(() => {
 
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
-  
+
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Upload too large — try fewer pages or a smaller image.' });
+  }
+
   // Don't leak error details in production
   if (process.env.NODE_ENV === 'production') {
     res.status(err.status || 500).json({ 

@@ -13,6 +13,7 @@ import { canUse, consume } from "../lib/freeTier.js";
 import { listFolders, createFolder } from "../lib/foldersApi";
 import { toast } from "../components/Toast";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
+import { downscaleImage } from "../lib/imageUtils.js";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -50,33 +51,6 @@ function buildChips(subjects, resources) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// Downscale an image (File or data URL) to a JPEG data URL — keeps payloads
-// under the server's 10mb limit and speeds up multimodal calls.
-function downscaleImage(src, maxDim = 1400, quality = 0.82) {
-  const toDataUrl = typeof src === "string"
-    ? Promise.resolve(src)
-    : new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = e => resolve(e.target.result);
-        r.onerror = () => reject(new Error("Failed to read image file"));
-        r.readAsDataURL(src);
-      });
-  return toDataUrl.then(dataUrl => new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
-      const c = document.createElement("canvas");
-      c.width = w; c.height = h;
-      c.getContext("2d").drawImage(img, 0, 0, w, h);
-      resolve(c.toDataURL("image/jpeg", quality));
-    };
-    img.onerror = () => reject(new Error("Couldn't read that image format."));
-    img.src = dataUrl;
-  }));
-}
 
 // Map resolved bank questions to the ExamSimulator session shape.
 function toExamSession(practice, maxQuestions = 50) {
