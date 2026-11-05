@@ -487,7 +487,17 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     console.warn("MCQ generation stats:", chunkResults.map((r, i) => ({ chunk: i, requested: r.requested, produced: r.rows.length, error: r.error })));
   }
 
-  if (allRows.length === 0) throw new Error("AI couldn't generate questions from this content. Try a different file.");
+  if (allRows.length === 0) {
+    // Surface the real per-chunk cause — a swallowed rate-limit/service
+    // error shouldn't read as "try a different file".
+    const firstErr = chunkResults.find((r) => r.error)?.error;
+    if (firstErr) {
+      const err = new Error(firstErr);
+      if (/daily ai limit/i.test(firstErr)) err.isLimitError = true;
+      throw err;
+    }
+    throw new Error("AI couldn't generate questions from this content. Try a different file.");
+  }
   return { rows: allRows, warnings };
 }
 
@@ -537,12 +547,20 @@ export async function generateFlashcards(text, images, onProgress) {
     const prompt = buildFlashcardPrompt(chunk, cardsPerChunk);
     return callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
       .then((raw) => { try { return mapAiFlashcards(extractJSON(raw, "array")); } catch { return []; } })
-      .catch(() => []);
+      .catch((err) => ({ error: err.message }));
   });
 
   const results = await Promise.all(promises);
-  const allCards = results.flat().slice(0, MAX_FLASHCARDS);
-  if (allCards.length === 0) throw new Error("AI couldn't generate flashcards from this content. Try a different file.");
+  const allCards = results.flat().filter((c) => c && c.front).slice(0, MAX_FLASHCARDS);
+  if (allCards.length === 0) {
+    const firstErr = results.find((r) => r && r.error)?.error;
+    if (firstErr) {
+      const err = new Error(firstErr);
+      if (/daily ai limit/i.test(firstErr)) err.isLimitError = true;
+      throw err;
+    }
+    throw new Error("AI couldn't generate flashcards from this content. Try a different file.");
+  }
   return allCards;
 }
 
