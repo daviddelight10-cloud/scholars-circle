@@ -1,8 +1,9 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import HomePage from './features/HomePage';
 import AuthPages from './pages/AuthPages';
 import { lazyWithRetry } from './lib/lazyWithRetry.js';
+import { ensureAppSession } from './lib/authToken.js';
 
 const App = lazyWithRetry(() => import('./App'));
 const ResearchHub = lazyWithRetry(() => import('./features/research-hub/ResearchHub'));
@@ -19,15 +20,26 @@ const CopyrightPolicyPage = lazyWithRetry(() => import('./pages/LegalPages').the
 
 function RequireAuth({ children }) {
   const location = useLocation();
-  const authData = localStorage.getItem('scholars-circle-auth');
   const redirectTo = `/signup?redirect=${encodeURIComponent(location.pathname + location.search)}`;
-  if (!authData) return <Navigate to={redirectTo} replace />;
-  try {
-    const parsed = JSON.parse(authData);
-    if (!parsed.authUser) return <Navigate to={redirectTo} replace />;
-  } catch {
-    return <Navigate to={redirectTo} replace />;
-  }
+  const [status, setStatus] = useState(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('scholars-circle-auth') || 'null');
+      return parsed?.authUser ? 'authed' : 'checking';
+    } catch { return 'checking'; }
+  });
+
+  // A post-signup return (email-confirm or OAuth) can land here with a live
+  // Supabase session but no scholars-circle-auth yet — recover before
+  // bouncing, or the user loops back to signup forever.
+  useEffect(() => {
+    if (status !== 'checking') return;
+    let live = true;
+    ensureAppSession().then((u) => { if (live) setStatus(u ? 'authed' : 'guest'); });
+    return () => { live = false; };
+  }, [status]);
+
+  if (status === 'checking') return <PageLoader />;
+  if (status === 'guest') return <Navigate to={redirectTo} replace />;
   return children;
 }
 

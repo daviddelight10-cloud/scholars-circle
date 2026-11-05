@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getLiveRoom, joinLiveRoom } from "./liveQuizApi.js";
+import { ensureAppSession } from "../../lib/authToken.js";
 import LiveQuizRoom from "./LiveQuizRoom.jsx";
 import { IconSpinner, IconUsers, IconZap } from "./icons.jsx";
 import "./live-quiz.css";
@@ -17,9 +18,27 @@ export default function LiveQuizPage() {
   const { code } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const myId = getAuth().authUser?.id || null;
-  const isAuthed = !!getAuth().authToken;
+  const [auth, setAuth] = useState(getAuth);
+  const myId = auth.authUser?.id || null;
+  const isAuthed = !!auth.authToken;
+  // Guests land here with no session; a post-signup return (email-confirm or
+  // OAuth) arrives with a live Supabase session but no scholars-circle-auth.
+  // Recover it before showing the signup CTA — otherwise a brand-new user
+  // loops right back to the signup page they just finished.
+  const [sessionChecked, setSessionChecked] = useState(() => !!auth.authUser);
   const wantJoin = new URLSearchParams(location.search).get("join") === "1";
+
+  useEffect(() => {
+    if (auth.authUser) return;
+    let live = true;
+    ensureAppSession().then((u) => {
+      if (!live) return;
+      if (u) setAuth(getAuth());
+      setSessionChecked(true);
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Host arrives here right after create — ticket passed via router state
   const [joined, setJoined] = useState(location.state?.ticket ? { ticket: location.state.ticket, roomId: location.state.roomId } : null);
@@ -111,6 +130,11 @@ export default function LiveQuizPage() {
             {error && <p style={{ fontSize: 13, color: "#FF6B5E", marginBottom: 12, textAlign: "center" }}>{error}</p>}
 
             {!isAuthed ? (
+              !sessionChecked ? (
+                <p style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <IconSpinner size={16} style={{ color: "#F5C542" }} /> Checking your session…
+                </p>
+              ) : (
               <>
                 <button className="lq-btn-primary" onClick={() => navigate(signupRedirect)}>
                   Sign up free to join
@@ -122,6 +146,7 @@ export default function LiveQuizPage() {
                   You'll land right back in this lobby after signing up.
                 </p>
               </>
+              )
             ) : preview.joinable || preview.isMember ? (
               <button className="lq-btn-primary" onClick={join} disabled={joining}>
                 {joining ? "Joining…" : preview.isMember ? "Rejoin Session" : "Join Session"}
