@@ -38,7 +38,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
   const [initialJoinCode, setInitialJoinCode] = useState(null);
   const [discoverQ, setDiscoverQ] = useState("");
   const [discoverSubject, setDiscoverSubject] = useState("");
-  const [listFilter, setListFilter] = useState("all"); // "all" | "unread"
+  const [addOpen, setAddOpen] = useState(false);
   const [section, setSection] = useState("groups"); // "groups" | "compete" | "discover"
   const [board, setBoard] = useState(null);
   const [boardError, setBoardError] = useState(null);
@@ -122,17 +122,20 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
 
   return (
     <div className="fd-groups">
-      <div className="fd-groups-actions">
-        <button className="fd-go-btn" onClick={() => setCreateOpen(true)}>＋ Create group</button>
-        <button className="fd-pill" onClick={() => setJoinOpen(true)}>🔑 Join with code</button>
+      {/* Single gold "+" — opens a bottom sheet with Create / Join */}
+      <div className="gv-groups-head">
+        <button className="gv-add-btn" onClick={() => setAddOpen(true)} aria-label="Create or join a group" title="Create or join a group">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
       </div>
 
-      {/* Sub-segments: your groups first, then compete, then discover */}
-      <div className="gv-subseg">
-        {[["groups", "Groups"], ["compete", "⚔️ Compete"], ["discover", "Discover"]].map(([v, l]) => (
+      {/* Underline sub-tabs: Mine / Compete / Discover */}
+      <div className="gv-utabs">
+        {[["groups", "Mine"], ["compete", "Compete"], ["discover", "Discover"]].map(([v, l]) => (
           <button
             key={v}
-            className={`gv-subseg-btn ${section === v ? "active" : ""}`}
+            className={`gv-utab ${section === v ? "active" : ""}`}
+            aria-current={section === v ? "page" : undefined}
             onClick={() => setSection(v)}
           >
             {l}
@@ -169,22 +172,8 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
 
       {section === "groups" && (mine || []).length > 0 && (
         <>
-          <SectionHeader title="Your groups" hint={`${mine.length}`}>
-            {(mine || []).some((g) => g.unread > 0) && (
-              <div className="gv-sort-row" style={{ margin: 0 }}>
-                {[["all", "All"], ["unread", "Unread"]].map(([v, l]) => (
-                  <button
-                    key={v}
-                    className={`gv-sort ${listFilter === v ? "active" : ""}`}
-                    onClick={() => setListFilter(v)}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-            )}
-          </SectionHeader>
-          {(listFilter === "unread" ? (mine || []).filter((g) => g.unread > 0) : mine).map((g) => (
+          <SectionHeader title="Your groups" hint={`${mine.length}`} />
+          {(mine || []).map((g) => (
             <button key={g.id} className="fd-group-card" onClick={() => setOpen(g)}>
               <span className="fd-group-card-avatar">
                 <span className="gv-avatar" style={{ background: groupGradient(g.name) }}>{initials(g.name)}</span>
@@ -192,17 +181,20 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
               </span>
               <span className="fd-group-info">
                 <span className="fd-group-card-name">
-                  {g.name}
-                  {g.isCreator && <span className="fd-mini-chip">creator</span>}
-                  {!g.isPublic && <span className="fd-mini-chip">🔒</span>}
-                  {g.muted && <span className="fd-mini-chip" title="Muted">🔕</span>}
+                  <span className="gv-card-nametext">{g.name}</span>
+                  {g.isCreator && <span className="gv-role-badge">Creator</span>}
+                  {!g.isPublic && (
+                    <svg className="gv-lock" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Private group"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                  )}
+                  {g.muted && <span className="gv-mute-flag" title="Muted">🔕</span>}
+                  {g.lastMessage && <span className="gv-card-time">{relShort(g.lastMessage.createdAt)}</span>}
                 </span>
                 <span className="fd-group-card-meta">
-                  {[g.subject, `${g.memberCount} member${g.memberCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+                  {`${g.memberCount} member${g.memberCount === 1 ? "" : "s"}`}
                 </span>
                 {g.lastMessage && (
                   <span className="gv-card-activity">
-                    {g.lastMessage.sender.split(" ")[0]}: {g.lastMessage.text} · {relShort(g.lastMessage.createdAt)}
+                    {g.lastMessage.sender.split(" ")[0]}: {g.lastMessage.text}
                   </span>
                 )}
               </span>
@@ -329,6 +321,20 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
       </div>
       )}
 
+      {addOpen && (
+        <FdSheet title={null} onClose={() => setAddOpen(false)} className="gv-addsheet">
+          <div className="gv-add-rows">
+            <button className="gv-add-row create" onClick={() => { setAddOpen(false); setCreateOpen(true); }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+              Create group
+            </button>
+            <button className="gv-add-row join" onClick={() => { setAddOpen(false); setJoinOpen(true); }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="15" r="4" /><path d="M11 12l9-9M16 7l3 3" /></svg>
+              Join with code
+            </button>
+          </div>
+        </FdSheet>
+      )}
       {createOpen && (
         <CreateGroupSheet
           token={token}

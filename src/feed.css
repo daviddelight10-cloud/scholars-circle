@@ -1291,31 +1291,44 @@
 .fd-groups-actions .fd-go-btn { flex: 1; margin-top: 0; }
 
 .fd-group-card {
-  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-  padding: 13px; border-radius: 16px;
-  background: var(--fd-card); border: 1px solid var(--fd-card-border);
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 12px; border-radius: 20px;
+  background: var(--app-card2); border: 1px solid var(--fd-card-border);
   color: var(--fd-text);
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
 }
 button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(--fd-stroke); transform: translateY(-1px); }
+.fd-group-card .gv-avatar { width: 52px; height: 52px; border-radius: 16px; font-size: 18px; }
 .fd-group-card-avatar { position: relative; flex-shrink: 0; }
 .fd-group-card-unread {
   position: absolute; top: -5px; right: -5px;
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 999px;
   background: var(--fd-coral); color: #fff;
-  border: 2px solid var(--fd-card);
+  border: 2px solid var(--app-card2);
   font-family: var(--fd-mono); font-size: 9.5px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 8px rgba(255, 107, 94, 0.5);
 }
-.fd-group-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fd-group-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .fd-group-card-name {
-  font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 7px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  white-space: nowrap; overflow: hidden;
+}
+.gv-card-nametext { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.gv-role-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; flex-shrink: 0;
+  background: var(--app-tint-med); color: var(--fd-muted);
+}
+.gv-lock { color: var(--fd-muted); flex-shrink: 0; }
+.gv-mute-flag { font-size: 11px; flex-shrink: 0; opacity: 0.8; }
+.gv-card-time {
+  margin-left: auto; flex-shrink: 0;
+  font-family: var(--fd-mono); font-size: 11px; color: var(--fd-muted);
 }
 .fd-group-card-meta {
-  font-family: var(--fd-mono); font-size: 10px; color: var(--fd-faint);
+  font-size: 12.5px; color: var(--fd-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .fd-group-card-desc {
@@ -1450,24 +1463,43 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   font-family: var(--fd-display);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
-/* Sub-segment: Groups / Compete / Discover */
-.gv-subseg {
-  display: flex; gap: 4px; padding: 4px;
-  background: var(--app-tint-soft); border-radius: 14px;
+/* Groups head: single gold "+" opens the create/join sheet */
+.gv-groups-head { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.gv-add-btn {
+  width: 42px; height: 42px; border-radius: 50%; border: none; flex-shrink: 0;
+  background: var(--fd-gold); color: #14130e;
+  display: grid; place-items: center;
+  box-shadow: 0 6px 16px rgba(245, 197, 66, 0.35);
+}
+.gv-add-btn:hover { filter: brightness(1.06); }
+
+/* Underline sub-tabs: Mine / Compete / Discover */
+.gv-utabs {
+  display: flex; gap: 24px;
+  border-bottom: 1px solid var(--fd-card-border);
   margin-bottom: 12px;
 }
-.gv-subseg-btn {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
-  padding: 8px 10px; border-radius: 10px; border: none;
-  background: transparent; color: var(--fd-faint);
-  font-family: var(--fd-sans); font-size: 12.5px; font-weight: 700;
-  cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+.gv-utab {
+  height: 40px; padding: 0; border: none;
+  border-bottom: 3px solid transparent; margin-bottom: -1px;
+  background: transparent; color: var(--fd-muted);
+  font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
-.gv-subseg-btn.active {
-  background: var(--app-card); color: var(--fd-text);
-  box-shadow: 0 1px 4px rgba(var(--app-tint-rgb), 0.10);
+.gv-utab.active { border-bottom-color: var(--fd-gold); color: var(--fd-text); }
+.gv-utab .fd-tab-badge { margin-left: 0; }
+
+/* "+" bottom sheet rows */
+.gv-add-rows { display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+.gv-add-row {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; height: 60px; padding: 0 16px;
+  border-radius: 16px; font-size: 15px; font-weight: 700; text-align: left;
 }
-.gv-subseg-btn .fd-tab-badge { margin-left: 0; }
+.gv-add-row.create { background: #2fd08a; color: #0e2a1d; border: none; }
+.gv-add-row.join { background: var(--app-card); color: var(--fd-text); border: 1px solid var(--fd-card-border); }
+.gv-add-row svg { flex-shrink: 0; }
 
 /* Compact single-line group status (replaces the chip row) */
 .gv-status {
@@ -1504,8 +1536,8 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 /* Group list cards */
 .gv-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
 .gv-card-activity {
-  font-size: 11px; color: var(--fd-muted);
-  max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px; color: var(--fd-text);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .gv-stack { display: flex; align-items: center; }
 .gv-stack-img {
