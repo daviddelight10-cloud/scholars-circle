@@ -103,7 +103,7 @@ export function ShortcutsModal({ onClose, T }) {
           { key: "← / →", action: "Previous / Next page" },
           { key: "+ / -", action: "Zoom in / out" },
           { key: "B", action: "Bookmark current page" },
-          { key: "T", action: "Cycle theme (dim → dark → sepia)" },
+          { key: "T", action: "Cycle theme (light → dark → sepia)" },
           { key: "F", action: "Toggle fullscreen" },
           { key: "H", action: "Toggle highlighter tool" },
           { key: "?", action: "Show this shortcuts overlay" },
