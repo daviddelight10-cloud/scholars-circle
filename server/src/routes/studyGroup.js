@@ -2,6 +2,7 @@ import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
+import { getWeekStart } from "../lib/tiers.js";
 import { getRoomByCode } from "../lib/liveQuizRooms.js";
 
 const RESOURCE_CARD_SELECT = { id: true, title: true, subject: true, contentType: true, shareToken: true };
@@ -41,6 +42,132 @@ async function verifyMembership(classroomId, userId) {
 }
 
 // ============ CHAT ============
+
+// GET /api/study-group/groups/leaderboard — public weekly groups board.
+// Registered before /:classroomId/* so "groups" isn't parsed as a classroomId.
+// period=week (Lagos week, default) | all · scope=all | university (creator's uni)
+router.get("/groups/leaderboard", requireAuth, async (req, res) => {
+  try {
+    const { period = "week", scope = "all" } = req.query;
+    let universityId = null;
+    if (scope === "university") {
+      const p = await prisma.userProfile.findUnique({
+        where: { userId: req.user.sub },
+        select: { universityId: true },
+      });
+      universityId = p?.universityId || null;
+      if (!universityId) return res.json({ entries: [], myGroups: [], weekStart: getWeekStart() });
+    }
+
+    const where = { classroom: { kind: "group" } };
+    if (period !== "all") where.createdAt = { gte: getWeekStart() };
+    if (universityId) {
+      where.classroom.createdBy = { userProfile: { is: { universityId } } };
+    }
+
+    const rows = await prisma.groupXpEvent.groupBy({
+      by: ["classroomId"],
+      where,
+      _sum: { xp: true },
+      orderBy: { _sum: { xp: "desc" } },
+      take: 50,
+    });
+    const ids = rows.map((r) => r.classroomId);
+    const [groups, myMemberships] = await Promise.all([
+      prisma.classroom.findMany({
+        where: { id: { in: ids } },
+        select: {
+          id: true, name: true, subject: true, isPublic: true,
+          createdBy: { select: { username: true, fullName: true } },
+          _count: { select: { members: true } },
+        },
+      }),
+      prisma.classroomMember.findMany({
+        where: { userId: req.user.sub, classroom: { kind: "group" } },
+        select: { classroomId: true, classroom: { select: { name: true } } },
+      }),
+    ]);
+
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    const entries = rows
+      .map((r, i) => {
+        const g = byId.get(r.classroomId);
+        if (!g) return null;
+        return {
+          rank: i + 1,
+          id: g.id,
+          name: g.name,
+          subject: g.subject,
+          isPublic: g.isPublic,
+          memberCount: g._count.members,
+          creator: g.createdBy?.fullName || g.createdBy?.username || null,
+          xp: r._sum.xp || 0,
+        };
+      })
+      .filter(Boolean);
+
+    const ranked = new Map(entries.map((e) => [e.id, e.rank]));
+    res.json({
+      weekStart: getWeekStart(),
+      entries,
+      myGroups: myMemberships.map((m) => ({
+        id: m.classroomId,
+        name: m.classroom.name,
+        rank: ranked.get(m.classroomId) || null,
+      })),
+    });
+  } catch (error) {
+    console.error("Groups leaderboard error:", error);
+    res.status(500).json({ error: "Failed to fetch groups leaderboard" });
+  }
+});
+
+// GET /api/study-group/:classroomId/xp — group XP total + per-member board
+// ("who practised this week and who did not").
+router.get("/:classroomId/xp", requireAuth, async (req, res) => {
+  try {
+    const { classroomId } = req.params;
+    const userId = req.user.sub;
+    const isMember = await verifyMembership(classroomId, userId);
+    if (!isMember) return res.status(403).json({ error: "Not a member" });
+
+    const since = getWeekStart();
+    const [weekRows, allRows, members] = await Promise.all([
+      prisma.groupXpEvent.groupBy({
+        by: ["userId"],
+        where: { classroomId, createdAt: { gte: since } },
+        _sum: { xp: true },
+      }),
+      prisma.groupXpEvent.groupBy({
+        by: ["userId"],
+        where: { classroomId },
+        _sum: { xp: true },
+      }),
+      prisma.classroomMember.findMany({
+        where: { classroomId },
+        include: { user: { select: AUTHOR_SELECT } },
+      }),
+    ]);
+    const weekMap = new Map(weekRows.map((r) => [r.userId, r._sum.xp || 0]));
+    const allMap = new Map(allRows.map((r) => [r.userId, r._sum.xp || 0]));
+    res.json({
+      weekStart: since,
+      weekXp: weekRows.reduce((s, r) => s + (r._sum.xp || 0), 0),
+      allXp: allRows.reduce((s, r) => s + (r._sum.xp || 0), 0),
+      members: members
+        .map((m) => ({
+          ...publicUser(m.user),
+          weekXp: weekMap.get(m.userId) || 0,
+          allXp: allMap.get(m.userId) || 0,
+          isMe: m.userId === userId,
+        }))
+        .sort((a, b) => b.weekXp - a.weekXp || b.allXp - a.allXp),
+    });
+  } catch (error) {
+    console.error("Group XP error:", error);
+    res.status(500).json({ error: "Failed to fetch group XP" });
+  }
+});
 
 // GET /api/study-group/:classroomId/messages
 router.get("/:classroomId/messages", requireAuth, async (req, res) => {
@@ -165,12 +292,18 @@ router.post("/:classroomId/messages", requireAuth, async (req, res) => {
 
 // POST /api/study-group/:classroomId/typing { name } — heartbeat while composing.
 router.post("/:classroomId/typing", requireAuth, async (req, res) => {
-  const { classroomId } = req.params;
-  const userId = req.user.sub;
-  const name = req.body?.name?.trim() || "Someone";
-  if (!typingIn.has(classroomId)) typingIn.set(classroomId, new Map());
-  typingIn.get(classroomId).set(userId, { name, ts: Date.now() });
-  res.json({ ok: true });
+  try {
+    const { classroomId } = req.params;
+    const userId = req.user.sub;
+    const isMember = await verifyMembership(classroomId, userId);
+    if (!isMember) return res.status(403).json({ error: "Not a member" });
+    const name = req.body?.name?.trim() || "Someone";
+    if (!typingIn.has(classroomId)) typingIn.set(classroomId, new Map());
+    typingIn.get(classroomId).set(userId, { name, ts: Date.now() });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: "Failed" });
+  }
 });
 
 // DELETE /api/study-group/messages/:messageId — author or classroom creator.
@@ -473,13 +606,20 @@ router.post("/goals/:goalId/contribute", requireAuth, async (req, res) => {
   try {
     const { goalId } = req.params;
     const userId = req.user.sub;
-    const { value } = req.body;
-    if (!value) return res.status(400).json({ error: "Value required" });
+    const num = parseInt(req.body?.value, 10);
+    if (!Number.isFinite(num) || num <= 0 || num > 10000) {
+      return res.status(400).json({ error: "value must be a positive integer (max 10000)" });
+    }
+
+    const goal = await prisma.classroomGoal.findUnique({ where: { id: goalId } });
+    if (!goal) return res.status(404).json({ error: "Goal not found" });
+    const isMember = await verifyMembership(goal.classroomId, userId);
+    if (!isMember) return res.status(403).json({ error: "Not a member" });
 
     const progress = await prisma.classroomGoalProgress.upsert({
       where: { goalId_userId: { goalId, userId } },
-      create: { goalId, userId, value: parseInt(value) },
-      update: { value: { increment: parseInt(value) } },
+      create: { goalId, userId, value: num },
+      update: { value: { increment: num } },
     });
 
     // Check if goal is completed
@@ -487,8 +627,7 @@ router.post("/goals/:goalId/contribute", requireAuth, async (req, res) => {
       where: { goalId },
       _sum: { value: true },
     });
-    const goal = await prisma.classroomGoal.findUnique({ where: { id: goalId } });
-    if (goal && allProgress._sum.value >= goal.targetValue && !goal.completedAt) {
+    if (allProgress._sum.value >= goal.targetValue && !goal.completedAt) {
       await prisma.classroomGoal.update({
         where: { id: goalId },
         data: { completedAt: new Date() },
@@ -871,7 +1010,8 @@ router.get("/:classroomId/streak", requireAuth, async (req, res) => {
 
     // Group streak = min streak among all members who have studied at least once
     const streaks = allUsers.map((u) => u.progress?.streak || 0);
-    const groupStreak = streaks.length > 0 ? Math.min(...streaks.filter((s) => s > 0)) : 0;
+    const positiveStreaks = streaks.filter((s) => s > 0);
+    const groupStreak = positiveStreaks.length > 0 ? Math.min(...positiveStreaks) : 0;
 
     // Members with quiz activity today
     const today = new Date();

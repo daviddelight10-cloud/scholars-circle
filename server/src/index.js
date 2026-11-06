@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/auth.js";
 import subjectRoutes from "./routes/subjects.js";
 import questionRoutes from "./routes/questions.js";
@@ -129,6 +130,17 @@ app.use(cors({
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
+
+// Baseline abuse throttle — generous headroom over real usage (leaderboard
+// ~2/min, battles ~6/min, typing heartbeats) but stops scripted hammering.
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: (req) => req.path === "/health",
+}));
+
 app.use("/auth", authRoutes);
 app.use("/subjects", subjectRoutes);
 app.use("/questions", questionRoutes);

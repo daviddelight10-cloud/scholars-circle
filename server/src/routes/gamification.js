@@ -133,7 +133,7 @@ router.post("/challenges/:id/submit", requireAuth, async (req, res) => {
 
     // Award XP only on first submission (not re-submissions)
     if (!existing) {
-      await addLeagueXP(userId, challenge.xpReward);
+      await addLeagueXP(userId, challenge.xpReward, { source: "challenge", dedupeKey: `challenge:${id}:${userId}` });
     }
 
     res.json(entry);
@@ -269,7 +269,7 @@ router.post("/duels/:id/answer", requireAuth, async (req, res) => {
 
       // Award XP to winner
       if (winnerId) {
-        await addLeagueXP(winnerId, duel.xpStake * 2);
+        await addLeagueXP(winnerId, duel.xpStake * 2, { source: "duel", dedupeKey: `duel:${id}:${winnerId}` });
         await checkDuelBadges(winnerId);
         // Check for perfect score badge
         const winnerScore = winnerId === duel.challengerId ? challengerScore : challengedScore;

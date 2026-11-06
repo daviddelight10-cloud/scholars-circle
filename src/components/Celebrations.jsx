@@ -240,12 +240,6 @@ export function CelebrationNotification({ stats, history, yesterdayTime }) {
       });
     }
 
-    if (stats.xp > 500 && Math.random() > 0.9) {
-      setNotification({
-        type: 'top10',
-        message: "You're in the top 10% this week! 🏆",
-      });
-    }
   }, [stats.xp, history, yesterdayTime]);
 
   if (!notification) return null;

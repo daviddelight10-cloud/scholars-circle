@@ -1,23 +1,11 @@
 import { prisma } from "../db.js";
+import { awardBadge } from "./badges.js";
+import { TIERS, tierForWeeklyXP, getWeekStart } from "./tiers.js";
 
-const TIERS = ["bronze", "silver", "gold", "platinum", "diamond"];
+// Re-export so existing importers (users.js) keep working.
+export { getWeekStart };
 
-function getTierFromXP(xp) {
-  if (xp >= 1000) return "diamond";
-  if (xp >= 500) return "platinum";
-  if (xp >= 250) return "gold";
-  if (xp >= 100) return "silver";
-  return "bronze";
-}
-
-export function getWeekStart(date = new Date()) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // Monday of this week
-  d.setDate(d.getDate() + diff);
-  return d;
-}
+const getTierFromXP = tierForWeeklyXP;
 
 function getSeasonWeek(date = new Date()) {
   const d = getWeekStart(date);
@@ -155,6 +143,12 @@ export async function runWeeklyLeagueReset() {
           demoted,
         },
       });
+
+      if (promoted && newTier !== "bronze") {
+        awardBadge(user.id, `league_${newTier}`).catch((e) =>
+          console.warn("[LeagueJob] badge award failed:", e?.message)
+        );
+      }
     }
   }
 

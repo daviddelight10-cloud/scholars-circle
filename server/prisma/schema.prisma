@@ -243,6 +243,8 @@ model User {
   feedCommentLikes  FeedCommentLike[]
   resourceLikes     ResourceLike[]
 
+  groupXpEvents     GroupXpEvent[]
+
 }
 
 model UserFollow {
@@ -634,6 +636,8 @@ model UserProgress {
 
   darkMode     Boolean  @default(true)
 
+  appearance   String   @default("system")
+
   themePack    String   @default("aurora")
 
   density      String   @default("cozy")
@@ -889,6 +893,8 @@ model Classroom {
   studyRooms       ClassroomStudyRoom[]
 
   duels            ClassroomDuel[]  @relation("DuelClassroom")
+
+  groupXpEvents    GroupXpEvent[]
 
 }
 
@@ -1654,6 +1660,26 @@ model QuizAttempt {
   @@index([resourceId])
   @@index([userId])
   @@index([mode])
+  @@index([userId, createdAt])
+}
+
+// Group XP ledger (Study Groups 2.0). One row per XP award fanned out to each
+// study group the earner belongs to. dedupeKey makes replays/retries safe —
+// writers pass `${sourceRef}:${classroomId}`.
+model GroupXpEvent {
+  id          String   @id @default(cuid())
+  classroomId String
+  userId      String
+  xp          Int
+  source      String   @default("xp") // session | quiz | live | duel | challenge
+  dedupeKey   String?  @unique
+  createdAt   DateTime @default(now())
+
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId, createdAt])
+  @@index([userId])
 }
 
 model ResourceRating {

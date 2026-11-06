@@ -208,7 +208,7 @@ self.addEventListener('notificationclick', (event) => {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
             client.focus();
             // Post message to navigate to specific section if provided
-            if (data?.tab) {
+            if (data?.tab || data?.liveCode) {
               // Forward the whole payload — Feed deep-links use feedTab/chatWith/joinGroup
               client.postMessage({ type: 'NAVIGATE', ...data });
             }
@@ -218,10 +218,12 @@ self.addEventListener('notificationclick', (event) => {
         // Otherwise open new window
         if (clients.openWindow) {
           let url = '/';
-          if (data?.tab) {
-            const p = new URLSearchParams({ tab: data.tab });
-            for (const k of ['feedTab', 'chatWith', 'joinGroup']) {
-              if (data[k]) p.set(k === 'joinGroup' ? 'join' : k, data[k]);
+          if (data?.tab || data?.liveCode) {
+            const p = new URLSearchParams();
+            if (data.tab) p.set('tab', data.tab);
+            const passthrough = { feedTab: 'feedTab', chatWith: 'chatWith', joinGroup: 'join', liveCode: 'live' };
+            for (const [k, out] of Object.entries(passthrough)) {
+              if (data[k]) p.set(out, data[k]);
             }
             url = `/?${p}`;
           }

@@ -35,4 +35,9 @@ export const groupsApi = {
   // Group chat messages live on the study-group router (classroomId === group id).
   sendMessage: ({ token, id, text, resourceId, liveCode } = {}) =>
     req(`/study-group/${id}/messages`, { token, method: "POST", body: { text, resourceId, liveCode } }),
+  // Group XP: member contribution board inside a group
+  groupXp: ({ token, id } = {}) => req(`/study-group/${id}/xp`, { token }),
+  // Public weekly/all-time groups leaderboard. scope: "all" | "university"
+  groupsBoard: ({ token, period = "week", scope = "all" } = {}) =>
+    req(`/study-group/groups/leaderboard?period=${period}&scope=${scope}`, { token }),
 };

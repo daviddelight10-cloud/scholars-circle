@@ -38,6 +38,8 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
   const [discoverQ, setDiscoverQ] = useState("");
   const [discoverSubject, setDiscoverSubject] = useState("");
   const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [board, setBoard] = useState(null);
+  const [boardScope, setBoardScope] = useState("all");
   const handledJoin = useRef(false);
 
   const loadMine = useCallback(async () => {
@@ -58,8 +60,22 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
     } catch {}
   }, [token, discoverQ, discoverSubject]);
 
+  const loadBoard = useCallback(() => {
+    groupsApi
+      .groupsBoard({ token, period: "week", scope: boardScope })
+      .then(setBoard)
+      .catch(() => {});
+  }, [token, boardScope]);
+
   useEffect(() => { loadMine(); }, [loadMine]);
   useEffect(() => { if (discoverOpen) loadDiscover(); }, [discoverOpen, loadDiscover]);
+
+  // Weekly groups leaderboard — polling, consistent with the existing boards
+  useEffect(() => {
+    loadBoard();
+    const id = setInterval(loadBoard, 60000);
+    return () => clearInterval(id);
+  }, [loadBoard]);
 
   // Deep-linked invite code → open the join sheet pre-filled. The code is
   // captured locally first since onJoinHandled clears it in the parent.
@@ -166,6 +182,48 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
             </button>
           ))}
         </>
+      )}
+
+      {(board?.entries || []).length > 0 && (
+        <div className="fd-groups-board">
+          <SectionHeader title="Top groups this week">
+            <div className="gv-sort-row" style={{ margin: 0 }}>
+              {[["all", "All"], ["university", "My uni"]].map(([v, l]) => (
+                <button
+                  key={v}
+                  className={`gv-sort ${boardScope === v ? "active" : ""}`}
+                  onClick={() => setBoardScope(v)}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </SectionHeader>
+          {board.entries.slice(0, 10).map((e) => {
+            const mineRow = (mine || []).find((g) => g.id === e.id);
+            return (
+              <button
+                key={e.id}
+                className="fd-group-card"
+                onClick={mineRow ? () => setOpen(mineRow) : undefined}
+              >
+                <span className="gv-lb-rank">#{e.rank}</span>
+                <span className="gv-avatar" style={{ background: groupGradient(e.name) }}>{initials(e.name)}</span>
+                <span className="fd-group-info">
+                  <span className="fd-group-card-name">
+                    {e.name}
+                    {mineRow && <span className="fd-mini-chip">yours</span>}
+                    {!e.isPublic && <span className="fd-mini-chip">🔒</span>}
+                  </span>
+                  <span className="fd-group-card-meta">
+                    {[e.subject, `${e.memberCount} member${e.memberCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className="gv-lb-val">⚡ {e.xp.toLocaleString()}</span>
+              </button>
+            );
+          })}
+        </div>
       )}
 
       <div className="fd-discover">

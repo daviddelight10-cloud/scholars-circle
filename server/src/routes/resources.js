@@ -13,6 +13,7 @@ import { pptxToPdf } from "../lib/pptxToPdf.js";
 import { matchDocumentToSkeleton } from "../lib/topicExtractionService.js";
 import { logError } from "../lib/logger.js";
 import { addLeagueXP } from "../lib/badges.js";
+import { parseScore, xpAttemptLimiter } from "../lib/validateScore.js";
 
 const router = express.Router();
 
@@ -688,12 +689,15 @@ router.patch("/:id/reject", requireAuth, requireRole("TEACHER", "LECTURER"), asy
 });
 
 // POST /api/quiz-attempts - Submit quiz attempt, award XP, return stats
-router.post("/quiz-attempts", requireAuth, async (req, res) => {
+router.post("/quiz-attempts", requireAuth, xpAttemptLimiter, async (req, res) => {
   try {
-    const { resourceId, score, total, details, mode, skipFsrs } = req.body;
-    if (!resourceId || score === undefined || total === undefined) {
+    const { resourceId, details, mode, skipFsrs } = req.body;
+    if (!resourceId || req.body.score === undefined || req.body.total === undefined) {
       return res.status(400).json({ error: "resourceId, score, and total are required" });
     }
+    const parsed = parseScore(req.body.score, req.body.total);
+    if (!parsed) return res.status(400).json({ error: "Invalid score or total" });
+    const { score, total } = parsed;
 
     const attemptMode = mode === "exam" ? "exam" : "practice";
 
@@ -714,7 +718,8 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
 
     // Feed the weekly league so XP earned here counts toward standings/promotion
     if (xpAwarded > 0) {
-      addLeagueXP(req.user.sub, xpAwarded).catch((e) => console.error("League XP error:", e.message));
+      addLeagueXP(req.user.sub, xpAwarded, { source: "quiz", dedupeKey: `quiz:${attempt.id}` })
+        .catch((e) => console.error("League XP error:", e.message));
     }
 
     // Increment takenCount on first attempt only

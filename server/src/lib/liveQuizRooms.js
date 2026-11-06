@@ -521,13 +521,16 @@ function handleAnswer(room, p, msg) {
   p.stats.times.push(timeMs / 1000);
   p.stats.answered++;
   p.stats.conf[confidence][correct ? 0 : 1]++;
+  // XP is a social reward — solo rooms keep points but earn no XP, otherwise
+  // a lone host could farm by answering alone (same rule as teach-back).
+  const social = room.participants.size > 1;
   if (correct) {
     p.stats.correct++;
-    addXp(room, p.userId, XP_PER_CORRECT);
+    if (social) addXp(room, p.userId, XP_PER_CORRECT);
     if (confidence === "Low") p.stats.lucky++;
     if (timeMs >= limitMs - CLUTCH_WINDOW_MS) p.stats.clutch++;
-    if (room.wagers.get(p.userId) === true) addXp(room, p.userId, XP_WAGER);
-  } else if (room.wagers.get(p.userId) === true) {
+    if (social && room.wagers.get(p.userId) === true) addXp(room, p.userId, XP_WAGER);
+  } else if (social && room.wagers.get(p.userId) === true) {
     addXp(room, p.userId, -XP_WAGER);
   }
   p.score += correct ? 1 : 0;
@@ -650,14 +653,6 @@ function resolveTeachBack(room, text) {
       color: teacher?.color,
       text,
       xpBonus: social ? XP_TEACHBACK : 0,
-    });
-    broadcast(room, {
-      type: "teachback",
-      userId: room.teachBack.teacherId,
-      name: teacher?.username,
-      color: teacher?.color,
-      text,
-      xpBonus: XP_TEACHBACK,
     });
   } else {
     broadcast(room, { type: "teachback_skipped", userId: room.teachBack.teacherId });
@@ -830,7 +825,7 @@ async function completeSession(room) {
             where: { id: uid },
             data: { totalXp: { increment: xp } },
           }).catch(() => {});
-          await addLeagueXP(uid, xp);
+          await addLeagueXP(uid, xp, { source: "live" });
         }
         // A live quiz IS studying — it counts toward the daily streak.
         if (p.stats.answered > 0) {

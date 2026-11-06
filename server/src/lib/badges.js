@@ -1,4 +1,9 @@
 import { prisma } from "../db.js";
+import { recordGroupXp } from "./groupXp.js";
+
+// Competitive league tiers/tier math now lives in ./tiers.js — re-exported so
+// existing importers (gamification.js) keep working.
+export { TIERS, tierForWeeklyXP as computeTier } from "./tiers.js";
 
 // ─── Badge Catalogue ───────────────────────────────────────────────
 export const BADGE_DEFS = [
@@ -113,17 +118,6 @@ export async function checkDuelBadges(userId) {
 }
 
 // ─── League Tiers ──────────────────────────────────────────────────
-export const TIERS = ["bronze", "silver", "gold", "platinum", "diamond"];
-const TIER_THRESHOLDS = { bronze: 0, silver: 200, gold: 500, platinum: 1000, diamond: 2000 };
-
-export function computeTier(weeklyXP) {
-  let tier = "bronze";
-  for (const [t, threshold] of Object.entries(TIER_THRESHOLDS)) {
-    if (weeklyXP >= threshold) tier = t;
-  }
-  return tier;
-}
-
 // Get or create user's league row
 export async function getUserLeague(userId) {
   let league = await prisma.userLeague.findUnique({ where: { userId } });
@@ -133,21 +127,19 @@ export async function getUserLeague(userId) {
   return league;
 }
 
-// Add XP to weekly league counter and potentially promote
-export async function addLeagueXP(userId, xpGained) {
-  let league = await getUserLeague(userId);
-  const newWeeklyXP = league.weeklyXP + xpGained;
-  const newTier = computeTier(newWeeklyXP);
-  const promoted = TIERS.indexOf(newTier) > TIERS.indexOf(league.tier);
-
-  league = await prisma.userLeague.update({
+// Add XP to the weekly league counter only. Tier changes are owned by the
+// weekly reset job — writing a computed tier here demoted users back to a
+// lower league the first time they earned XP after a promotion.
+export async function addLeagueXP(userId, xpGained, { source = "xp", dedupeKey = null } = {}) {
+  await getUserLeague(userId);
+  const league = await prisma.userLeague.update({
     where: { userId },
-    data: { weeklyXP: newWeeklyXP, tier: newTier, promoted },
+    data: { weeklyXP: { increment: xpGained } },
   });
-
-  // Award league badge on promotion
-  if (promoted && newTier !== "bronze") {
-    await awardBadge(userId, `league_${newTier}`);
-  }
+  // Fan the same XP out to the user's study groups — group XP is the fuel
+  // for the weekly groups leaderboard. Idempotent when dedupeKey is given.
+  recordGroupXp(userId, xpGained, { source, dedupeKey }).catch((e) =>
+    console.warn("[group-xp] record failed:", e?.message)
+  );
   return league;
 }

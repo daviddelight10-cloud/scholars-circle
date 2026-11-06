@@ -8,7 +8,7 @@ import { fsrsRate, toFsrsCard, gradeFromResult } from "./lib/fsrs.js";
 import { haptics } from "./lib/haptics";
 import { useConnectionQuality } from "./lib/useConnectionQuality";
 
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 
 import { useToast } from "./components/Toast";
 
@@ -495,6 +495,7 @@ function App() {
 
 
   const location = useLocation();
+  const navigate = useNavigate();
 
 
 
@@ -2332,6 +2333,13 @@ function App() {
         const chatWith = bootParams.get("chatWith");
         if (feedTab || joinCode || chatWith) setFeedDeepLink({ feedTab, joinCode, chatWith });
       }
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
+    const live = bootParams.get("live");
+    if (live) {
+      // Live-quiz notification taps land here via ?live=CODE (sw.js / fcmOptions.link)
+      navigate(`/live/${encodeURIComponent(live)}`);
       window.history.replaceState(null, "", window.location.pathname);
     }
 
@@ -4691,18 +4699,24 @@ function App() {
 
       const msg = event.data;
 
-      if (msg?.type === 'NAVIGATE' && msg.tab) {
+      if (msg?.type === 'NAVIGATE' && (msg.tab || msg.liveCode)) {
 
         try {
-          // Legacy DM pushes used tab:"messages" — they land on Feed → Chats
-          const target = msg.tab === "messages" ? "discuss" : msg.tab;
-          setTab(target);
-          if (target === "discuss" && (msg.feedTab || msg.chatWith || msg.joinGroup)) {
-            setFeedDeepLink({
-              feedTab: msg.feedTab || (msg.tab === "messages" ? "chats" : undefined),
-              chatWith: msg.chatWith,
-              joinCode: msg.joinGroup,
-            });
+          if (msg.tab) {
+            // Legacy DM pushes used tab:"messages" — they land on Feed → Chats
+            const target = msg.tab === "messages" ? "discuss" : msg.tab;
+            setTab(target);
+            if (target === "discuss" && (msg.feedTab || msg.chatWith || msg.joinGroup)) {
+              setFeedDeepLink({
+                feedTab: msg.feedTab || (msg.tab === "messages" ? "chats" : undefined),
+                chatWith: msg.chatWith,
+                joinCode: msg.joinGroup,
+              });
+            }
+          }
+          // "X went live" pushes carry the room code — jump straight into it
+          if (msg.liveCode) {
+            navigate(`/live/${encodeURIComponent(msg.liveCode)}`);
           }
         } catch {}
 

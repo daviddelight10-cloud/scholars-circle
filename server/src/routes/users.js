@@ -1,9 +1,57 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { ensureLeagueAssignments, getWeekStart } from "../lib/leagueJob.js";
+import { ensureLeagueAssignments } from "../lib/leagueJob.js";
+import { getWeekStart } from "../lib/tiers.js";
 
 const router = express.Router();
+
+// Leaderboard aggregates are expensive to compute per-request (XP sums per
+// user over the period + rank order). Cache the ranked user-id list and XP
+// maps for 45s — clients already poll every 30s, so identical work otherwise
+// runs twice per user per minute at 10x traffic.
+const LB_CACHE_TTL_MS = 45 * 1000;
+const lbCache = new Map();
+
+async function sumXpByUser(userIds, gte, lt) {
+  if (!userIds.length) return new Map();
+  const rows = await prisma.quizAttempt.groupBy({
+    by: ["userId"],
+    where: { userId: { in: userIds }, createdAt: lt ? { gte, lt } : { gte } },
+    _sum: { xpAwarded: true },
+  });
+  return new Map(rows.map((r) => [r.userId, r._sum.xpAwarded || 0]));
+}
+
+// Returns { order, xpMap, prevMap, dailyMap, prevRanks, dailyRanks } — userIds
+// sorted by period XP desc, plus per-user maps for the response fields.
+async function boardAggregates(cacheKey, { userIds, period, startDate, prevStartDate, todayStart }) {
+  const hit = lbCache.get(cacheKey);
+  if (hit && Date.now() - hit.ts < LB_CACHE_TTL_MS) return hit.data;
+  if (lbCache.size > 200) lbCache.clear();
+
+  const [xpMap, prevMap, dailyMap] = await Promise.all([
+    period === "all"
+      ? prisma.userProgress
+          .findMany({ where: { userId: { in: userIds } }, select: { userId: true, xp: true } })
+          .then((rows) => new Map(rows.map((r) => [r.userId, r.xp || 0])))
+      : sumXpByUser(userIds, startDate),
+    startDate && prevStartDate ? sumXpByUser(userIds, prevStartDate, startDate) : Promise.resolve(new Map()),
+    sumXpByUser(userIds, todayStart),
+  ]);
+
+  const order = [...userIds].sort((a, b) => (xpMap.get(b) || 0) - (xpMap.get(a) || 0));
+
+  // Rank by previous-period XP → trend (positive = climbed places)
+  const prevOrder = [...userIds].sort((a, b) => (prevMap.get(b) || 0) - (prevMap.get(a) || 0));
+  const prevRanks = new Map(prevOrder.map((id, i) => [id, i + 1]));
+  const dailyOrder = [...userIds].sort((a, b) => (dailyMap.get(b) || 0) - (dailyMap.get(a) || 0));
+  const dailyRanks = new Map(dailyOrder.map((id, i) => [id, i + 1]));
+
+  const data = { order, xpMap, prevMap, dailyMap, prevRanks, dailyRanks };
+  lbCache.set(cacheKey, { ts: Date.now(), data });
+  return data;
+}
 
 // GET /api/users/me/department - Get current user's department and year level
 router.get("/me/department", requireAuth, async (req, res) => {
@@ -62,149 +110,80 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
     prevStartDate.setMonth(prevStartDate.getMonth() - 2);
   }
 
-  // Build where clause — scope to user's league unless friends filter is on
-  const userWhere = { role: "STUDENT" };
+  // Scope to followed users, else the requester's league tier
+  let scopeIds;
   if (friends === "true") {
     const followingIds = await prisma.userFollow.findMany({
       where: { followerId: req.user.sub },
       select: { followingId: true },
     });
-    const ids = followingIds.map(f => f.followingId);
-    ids.push(req.user.sub); // include self
-    userWhere.id = { in: ids };
+    scopeIds = followingIds.map((f) => f.followingId);
+    scopeIds.push(req.user.sub); // include self
   } else {
-    // Scope to same league tier
     const leagueUserIds = await prisma.userLeague.findMany({
       where: { tier: myTier },
       select: { userId: true },
     });
-    const leagueIds = leagueUserIds.map(l => l.userId);
-    leagueIds.push(req.user.sub); // ensure self is included
-    userWhere.id = { in: leagueIds };
+    scopeIds = leagueUserIds.map((l) => l.userId);
+    if (!scopeIds.includes(req.user.sub)) scopeIds.push(req.user.sub);
   }
 
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(200, Math.max(1, parseInt(limit) || 50));
 
-  // quizAttempts are the live XP source; legacy Session rows are dead (Learn tab removed).
-  // Bound the include to the period — or just today for "all" (dailyXP pill).
-  const activitySince = startDate || todayStart;
-  const users = await prisma.user.findMany({
-    where: userWhere,
+  // Aggregates (cached): XP per user for the period/prev-period/today plus
+  // rank order — groupBy sums only, no per-attempt row loading.
+  const cacheKey = `${period}|${friends === "true" ? `f:${req.user.sub}` : `t:${myTier}`}`;
+  const { order, xpMap, dailyMap, prevRanks, dailyRanks } = await boardAggregates(cacheKey, {
+    userIds: scopeIds,
+    period,
+    startDate,
+    prevStartDate,
+    todayStart,
+  });
+
+  const totalCount = order.length;
+  const myRank = (order.indexOf(req.user.sub) + 1) || null;
+  const pageIds = order.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+  // Load full user fields for just the page being returned.
+  const pageUsers = await prisma.user.findMany({
+    where: { id: { in: pageIds } },
     select: {
       id: true,
       username: true,
       fullName: true,
       email: true,
-      role: true,
-      createdAt: true,
-      totalXp: true,
-      progress: {
-        select: {
-          xp: true,
-          streak: true,
-          mastery: true,
-        },
-      },
-      userProfile: {
-        select: { avatar: true },
-      },
-      quizAttempts: {
-        where: { createdAt: { gte: activitySince } },
-        select: {
-          xpAwarded: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
+      progress: { select: { xp: true, streak: true, mastery: true } },
+      userProfile: { select: { avatar: true } },
     },
   });
+  const byId = new Map(pageUsers.map((u) => [u.id, u]));
 
-  // Fetch previous period quiz XP for trend calculation
-  let prevPeriodXPMap = {};
-  if (startDate && prevStartDate) {
-    const prevUsers = await prisma.user.findMany({
-      where: userWhere,
-      select: {
-        id: true,
-        quizAttempts: {
-          where: { createdAt: { gte: prevStartDate, lt: startDate } },
-          select: { xpAwarded: true },
-        },
-      },
-    });
-    prevPeriodXPMap = {};
-    for (const u of prevUsers) {
-      prevPeriodXPMap[u.id] = u.quizAttempts.reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
-    }
-  }
-
-  const leaderboard = users.map((user) => {
+  const leaderboardWithDailyRank = pageIds.map((id) => {
+    const user = byId.get(id);
+    if (!user) return null;
     const masteryObj = user.progress?.mastery || {};
     const masteryValues = Object.values(masteryObj);
     const avgMastery = masteryValues.length > 0
       ? masteryValues.reduce((a, b) => a + b, 0) / masteryValues.length
       : 0;
-
-    const quizAttempts = user.quizAttempts || [];
-    const quizXP = quizAttempts.reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
-    const periodXP = period !== "all"
-      ? quizXP
-      : user.progress?.xp || 0;
-
-    // XP earned today (for the "+N today" pill)
-    const dailyXP = quizAttempts
-      .filter((q) => new Date(q.createdAt) >= todayStart)
-      .reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
-
+    const currentRank = order.indexOf(id) + 1;
     return {
       username: user.username || user.fullName?.split(/\s+/)[0] || user.email?.split("@")[0] || "scholar",
       fullName: user.fullName || null,
       userId: user.id,
       isMe: user.id === req.user.sub,
       avatar: user.userProfile?.avatar || null,
-      xp: periodXP,
+      xp: xpMap.get(id) || 0,
       totalXP: user.progress?.xp || 0,
-      dailyXP,
+      dailyXP: dailyMap.get(id) || 0,
       streak: user.progress?.streak || 0,
       avgMastery: Math.round(avgMastery),
-      _prevXP: prevPeriodXPMap[user.id] || 0,
-      trend: 0, // will be calculated after sorting
+      trend: startDate && prevStartDate ? (prevRanks.get(id) || (totalCount + 1)) - currentRank : 0,
+      dailyRank: dailyRanks.get(id) || 0,
     };
-  }).sort((a, b) => b.xp - a.xp);
-
-  // Calculate trend: compare current rank with previous period rank
-  if (startDate && prevStartDate) {
-    const prevSorted = [...leaderboard].sort((a, b) => b._prevXP - a._prevXP);
-    const prevRanks = {};
-    prevSorted.forEach((entry, index) => {
-      prevRanks[entry.userId] = index + 1;
-    });
-    leaderboard.forEach((entry, index) => {
-      const currentRank = index + 1;
-      const prevRank = prevRanks[entry.userId] || (leaderboard.length + 1);
-      entry.trend = prevRank - currentRank; // positive = moved up, negative = moved down
-    });
-  }
-
-  // Calculate daily ranks (based on daily XP)
-  const sortedByDailyXP = [...leaderboard].sort((a, b) => b.dailyXP - a.dailyXP);
-  const dailyRanks = {};
-  sortedByDailyXP.forEach((entry, index) => {
-    dailyRanks[entry.userId] = index + 1;
-  });
-
-  // Add daily rank, remove internal fields, apply pagination
-  const totalCount = leaderboard.length;
-  const myRank = (leaderboard.findIndex((entry) => entry.userId === req.user.sub) + 1) || null;
-  const paginated = leaderboard.slice((pageNum - 1) * limitNum, pageNum * limitNum);
-  const leaderboardWithDailyRank = paginated.map(entry => {
-    const { _prevXP, ...rest } = entry;
-    return {
-      ...rest,
-      dailyRank: dailyRanks[entry.userId] || 0,
-    };
-  });
+  }).filter(Boolean);
 
   res.json({
     entries: leaderboardWithDailyRank,

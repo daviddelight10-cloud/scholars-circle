@@ -5,11 +5,13 @@ import GroupChat from "../study-group/GroupChat.jsx";
 import GroupMembers from "../study-group/GroupMembers.jsx";
 import GroupGoals from "../study-group/GroupGoals.jsx";
 import GroupPlay from "../study-group/GroupPlay.jsx";
+import GroupBoard from "../study-group/GroupBoard.jsx";
 import { FdScreen, FdSheet } from "../feed/feedUi.jsx";
 
 const SUB_TABS = [
   { id: "chat", icon: "💬", label: "Chat" },
   { id: "play", icon: "⚔️", label: "Play" },
+  { id: "board", icon: "🏆", label: "Board" },
   { id: "goals", icon: "🎯", label: "Goals" },
   { id: "members", icon: "👥", label: "Members" },
 ];
@@ -199,6 +201,11 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
               currentUser={currentUser}
               onJoinQuiz={onJoinQuiz}
             />
+          </div>
+        )}
+        {sub === "board" && (
+          <div className="fd-group-scroll">
+            <GroupBoard classroomId={group.id} token={token} />
           </div>
         )}
         {sub === "goals" && (

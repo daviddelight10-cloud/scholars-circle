@@ -3,12 +3,17 @@ import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { addLeagueXP, awardBadge } from "../lib/badges.js";
 import { updateUniversalStreak } from "../lib/streak.js";
+import { parseScore, xpAttemptLimiter } from "../lib/validateScore.js";
 
 const router = express.Router();
 
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", requireAuth, xpAttemptLimiter, async (req, res) => {
   try {
-    const { mode, score, total, durationSec, answers = [] } = req.body;
+    const { mode, durationSec, answers = [] } = req.body;
+    const parsed = parseScore(req.body.score, req.body.total);
+    if (!parsed) return res.status(400).json({ error: "Invalid score or total" });
+    const { score, total } = parsed;
+    if (!Array.isArray(answers) || answers.length > 500) return res.status(400).json({ error: "Invalid answers" });
     const percentage = total > 0 ? (score / total) * 100 : 0;
 
     // Filter out answers with questionIds that don't exist in DB (e.g. data.js keys like "bio112-0")
@@ -44,7 +49,8 @@ router.post("/", requireAuth, async (req, res) => {
     const xpPerCorrect = (mode === "practice" || mode === "practicehints") ? 5 : 10;
     const xpGained = score * xpPerCorrect;
     if (xpGained > 0) {
-      addLeagueXP(req.user.sub, xpGained).catch(e => console.error("League XP error:", e.message));
+      addLeagueXP(req.user.sub, xpGained, { source: "session", dedupeKey: `session:${session.id}` })
+        .catch(e => console.error("League XP error:", e.message));
     }
     // Increment general XP + sessions + streak in UserProgress (shared streak logic)
     if (score > 0) {

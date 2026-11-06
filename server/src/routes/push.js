@@ -66,13 +66,14 @@ router.get("/preferences", requireAuth, async (req, res) => {
 
 router.put("/preferences", requireAuth, async (req, res) => {
   try {
-    const { announcements, assignments, liveSessions, directMessages, studyReminders } = req.body || {};
+    const { announcements, assignments, liveSessions, directMessages, studyReminders, social } = req.body || {};
     const data = {};
     if (typeof announcements === "boolean") data.announcements = announcements;
     if (typeof assignments === "boolean") data.assignments = assignments;
     if (typeof liveSessions === "boolean") data.liveSessions = liveSessions;
     if (typeof directMessages === "boolean") data.directMessages = directMessages;
     if (typeof studyReminders === "boolean") data.studyReminders = studyReminders;
+    if (typeof social === "boolean") data.social = social;
 
     const prefs = await prisma.notificationPreference.upsert({
       where: { userId: req.user.sub },

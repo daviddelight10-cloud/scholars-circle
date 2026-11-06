@@ -60,7 +60,7 @@ export async function sendPushToUser(userId, payload, options = {}) {
                 : {}),
             },
             fcmOptions: {
-              link: payload.data?.tab ? `/?tab=${payload.data.tab}` : "/",
+              link: buildLink(payload.data),
             },
           },
         };
@@ -105,6 +105,14 @@ export async function sendPushToUsers(userIds, payload, options = {}) {
     sent: results.reduce((sum, r) => sum + (r.sent || 0), 0),
     users: results.length,
   };
+}
+
+function buildLink(data) {
+  if (!data?.tab && !data?.liveCode) return "/";
+  const p = new URLSearchParams();
+  if (data.tab) p.set("tab", data.tab);
+  if (data.liveCode) p.set("live", data.liveCode);
+  return `/?${p}`;
 }
 
 function stringifyData(data) {

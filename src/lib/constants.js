@@ -26,6 +26,10 @@ export const EMPTY_QUESTS = [
   { id: "q8", label: "Use the AI Helper once", target: 1, type: "ai" },
 ];
 
+// Lifetime-XP display ladder (drives LeagueProgress + "level up" moments).
+// This is NOT the competitive weekly league — that tier is server-owned in
+// server/src/lib/tiers.js and read back via the API. Different feature,
+// different scale, kept deliberately separate.
 export const LEAGUES = [
   { id: "bronze", name: "Bronze", icon: "🥉", minXP: 0, color: "#cd7f32" },
   { id: "silver", name: "Silver", icon: "🥈", minXP: 200, color: "#c0c0c0" },

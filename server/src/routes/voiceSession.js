@@ -30,6 +30,14 @@ const MAX_RESUME_ATTEMPTS = 2;
 const activeSessions = new Map();
 const ticketStore = new Map();
 
+// Tickets are deleted on consume — sweep ones that were never redeemed.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ticket, entry] of ticketStore) {
+    if (entry.used || now > entry.expiresAt) ticketStore.delete(ticket);
+  }
+}, 60 * 1000).unref();
+
 export function generateTicket(sessionId, userId) {
   const ticket = crypto.randomUUID();
   ticketStore.set(ticket, {
