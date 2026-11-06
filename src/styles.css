@@ -1989,7 +1989,7 @@ button:active {
 .hero-overlay p {
   margin: 0;
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--c-94a3b8);
   max-width: 400px;
 }
 
@@ -2342,7 +2342,7 @@ body {
 
   .app-sidebar-item:hover {
     background: rgba(255, 215, 0, 0.06);
-    color: #c8c8a8;
+    color: var(--c-c8c8a8);
   }
 
   .app-sidebar-item.active {
@@ -2495,7 +2495,7 @@ body {
 .pg-title.gone { max-height: 0; opacity: 0; transform: translateY(-8px); }
 .pg-title-txt {
   font-size: 25px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;
-  padding: 4px 0 10px; color: #f2f2f2;
+  padding: 4px 0 10px; color: var(--c-f2f2f2);
 }
 .pg-title-sub { font-size: 12px; font-weight: 700; color: var(--app-tint-strong); }
 @media (max-width: 480px) {
@@ -2553,7 +2553,7 @@ body {
 .lp-title.gone { max-height: 0; opacity: 0; transform: translateY(-8px); }
 .lp-title-txt {
   font-size: 25px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;
-  padding: 4px 0 6px; color: #f2f2f2;
+  padding: 4px 0 6px; color: var(--c-f2f2f2);
 }
 .lp-title-sub { font-size: 12px; font-weight: 700; color: var(--app-tint-strong); }
 @media (max-width: 480px) { .lp-title-txt { font-size: 21px; } }
@@ -2574,8 +2574,8 @@ body {
   box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.18), 0 8px 20px rgba(255, 179, 0, 0.15);
 }
 .lp-hero-info { flex: 1; min-width: 0; }
-.lp-hero-name { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; color: #f2f2f2; }
-.lp-hero-sub { font-size: 12.5px; color: #c9b273; margin-top: 3px; }
+.lp-hero-name { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; color: var(--c-f2f2f2); }
+.lp-hero-sub { font-size: 12.5px; color: var(--c-c9b273); margin-top: 3px; }
 .lp-status-pill {
   display: inline-flex; align-items: center; gap: 6px;
   margin-top: 8px; font-size: 11px; font-weight: 700;
@@ -2600,13 +2600,13 @@ body {
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 11px; font-weight: 700; color: #FFB300; flex-shrink: 0;
 }
-.lp-section-title { margin: 0; font-size: 15px; font-weight: 800; color: #f2f2f2; }
+.lp-section-title { margin: 0; font-size: 15px; font-weight: 800; color: var(--c-f2f2f2); }
 .lp-section-sub { margin: 2px 0 0; font-size: 12px; color: var(--app-dim); }
 
 /* Fields + inputs */
 .lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 12px; }
 .lp-field { margin-bottom: 14px; }
-.lp-label { display: block; font-weight: 600; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+.lp-label { display: block; font-weight: 600; font-size: 12px; color: var(--c-cbd5e1); margin-bottom: 4px; }
 .lp-hint { font-size: 11px; color: var(--app-dim); margin-bottom: 6px; }
 .lp-input {
   width: 100%; padding: 11px 12px; border-radius: 10px;
@@ -2672,7 +2672,7 @@ select.lp-input { appearance: none; }
 }
 .lp-visrow:hover { border-color: rgba(255, 179, 0, 0.25); }
 .lp-vis-txt { flex: 1; min-width: 0; }
-.lp-vis-t { font-size: 14px; font-weight: 700; color: #f2f2f2; }
+.lp-vis-t { font-size: 14px; font-weight: 700; color: var(--c-f2f2f2); }
 .lp-vis-s { font-size: 12px; color: var(--app-dim); margin-top: 2px; }
 .lp-switch {
   width: 46px; height: 27px; border: none; padding: 0;
@@ -2687,13 +2687,13 @@ select.lp-input { appearance: none; }
   transition: transform 0.18s ease, background 0.18s ease;
 }
 .lp-switch.on { background: #F5A623; }
-.lp-switch.on::after { transform: translateX(18px); background: #151005; }
+.lp-switch.on::after { transform: translateX(18px); background: var(--c-151005); }
 
 .lp-error {
   padding: 12px 14px; margin-top: 12px; border-radius: 10px;
-  background: rgba(239, 68, 68, 0.1); color: #f87171; font-size: 13px;
+  background: rgba(239, 68, 68, 0.1); color: var(--c-f87171); font-size: 13px;
 }
-.lp-warn { color: #f87171; }
+.lp-warn { color: var(--c-f87171); }
 .lp-ok { color: #4ade80; font-weight: 700; }
 
 /* Floating save pill — slides up only when there are unsaved changes */
@@ -3795,7 +3795,7 @@ textarea {
   gap: 4px;
   background: transparent;
   border: 1px solid var(--app-tint-med);
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary, var(--c-f1f5f9));
   padding: 6px 14px;
   border-radius: 999px;
   font-size: 13px;
@@ -3811,7 +3811,7 @@ textarea {
 .tab-back-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary, var(--c-f1f5f9));
 }
 
 .light .tab-back-btn {
@@ -3936,7 +3936,7 @@ textarea {
 
 .flashcard-back {
 
-  background: linear-gradient(135deg, #1a1a0a, var(--app-bg));
+  background: linear-gradient(135deg, var(--c-1a1a0a), var(--app-bg));
 
   border-color: #FFD700;
 
@@ -4116,7 +4116,7 @@ textarea {
 }
 .tt-day-name {
   font-size: 12px; font-weight: 700; letter-spacing: 0.05em;
-  text-transform: uppercase; color: #C7C7D1;
+  text-transform: uppercase; color: var(--c-c7c7d1);
   display: flex; align-items: center; gap: 8px;
 }
 .tt-day.today .tt-day-name { color: #FFC55C; }
@@ -4131,7 +4131,7 @@ textarea {
   width: 26px; height: 26px; border-radius: 8px;
   border: 1px solid var(--app-tint-med);
   background: var(--app-tint-soft);
-  color: #C7C7D1; font-size: 15px; line-height: 1;
+  color: var(--c-c7c7d1); font-size: 15px; line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all .15s ease;
@@ -4166,7 +4166,7 @@ textarea {
 
 .tt-sheet {
   width: 100%; max-width: 480px;
-  background: #12161F;
+  background: var(--c-12161f);
   border: 1px solid var(--app-tint-med);
   border-bottom: none;
   border-radius: 20px 20px 0 0;
@@ -4229,7 +4229,7 @@ textarea {
 /* ── Ring: incoming-call overlay (group "ring" into a live session) ── */
 
 .ring-call {
-  background: var(--app-card, #14161c);
+  background: var(--app-card, var(--c-14161c));
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 22px;
   padding: 28px 26px 22px;
@@ -4252,8 +4252,8 @@ textarea {
   0%, 100% { box-shadow: 0 0 0 0 rgba(245,166,35,0.4); }
   50% { box-shadow: 0 0 0 14px rgba(245,166,35,0); }
 }
-.ring-call-title { margin: 0; font-size: 17px; font-weight: 800; color: var(--app-text, #f3f4f6); }
-.ring-call-sub { margin: 6px 0 0; font-size: 13px; color: var(--app-dim, #8a8f9c); }
+.ring-call-title { margin: 0; font-size: 17px; font-weight: 800; color: var(--app-text, var(--c-f3f4f6)); }
+.ring-call-sub { margin: 6px 0 0; font-size: 13px; color: var(--app-dim, var(--c-8a8f9c)); }
 .ring-call-btns { display: flex; gap: 10px; margin-top: 20px; }
 .ring-call-join, .ring-call-decline {
   flex: 1; padding: 13px 0; border-radius: 999px; border: none;
@@ -4345,7 +4345,7 @@ textarea {
 
   padding: 10px 14px 10px 28px;
 
-  border-bottom: 1px solid #2a2a2c;
+  border-bottom: 1px solid var(--c-2a2a2c);
 
   background: var(--app-tint-soft);
 
@@ -4610,13 +4610,13 @@ textarea {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: #111114;
-  border-top: 1px solid #2E2E36;
+  background: var(--c-111114);
+  border-top: 1px solid var(--c-2e2e36);
   border-radius: 28px 28px 0 0;
   box-shadow:
     inset 0 1px 0 var(--app-tint-soft),
     0 -12px 40px rgba(0, 0, 0, 0.55);
-  color: #F2F0EA;
+  color: var(--c-f2f0ea);
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
@@ -4730,12 +4730,12 @@ textarea {
   border-radius: 14px;
   background: var(--app-card);
   border: 1px solid var(--app-border);
-  color: #AEB3BF;
+  color: var(--c-aeb3bf);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.mm-close:active { background: #1B1B20; }
+.mm-close:active { background: var(--c-1b1b20); }
 
 .light .mm-close { background: var(--app-card); border-color: var(--app-border); color: var(--app-dim); }
 .light .mm-close:active { background: var(--app-card2); }
@@ -4752,9 +4752,9 @@ textarea {
   min-height: 68px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: linear-gradient(110deg, #3B2C08 0%, #1C1509 75%);
+  background: linear-gradient(110deg, var(--c-3b2c08) 0%, var(--c-1c1509) 75%);
   border: 1px solid rgba(224, 165, 38, 0.45);
-  color: #F2F0EA;
+  color: var(--c-f2f0ea);
   text-align: left;
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -4812,8 +4812,8 @@ textarea {
 }
 
 .mm-premium-copy { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mm-premium-copy b { font-size: 16px; font-weight: 600; color: #F6E4B0; }
-.mm-premium-copy span { font-size: 12.5px; color: #C2AE80; }
+.mm-premium-copy b { font-size: 16px; font-weight: 600; color: var(--c-f6e4b0); }
+.mm-premium-copy span { font-size: 12.5px; color: var(--c-c2ae80); }
 .mm-premium > svg { color: #E0A526; flex: none; }
 
 .mm-group { flex: none; display: flex; flex-direction: column; gap: 10px; }
@@ -4824,7 +4824,7 @@ textarea {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #8A8F9C;
+  color: var(--c-8a8f9c);
 }
 
 .light .mm-label { color: var(--app-dim); }
@@ -4850,7 +4850,7 @@ textarea {
   transition: background 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
 }
 
-.mm-tile:active { background: #1B1B20; transform: scale(0.98); }
+.mm-tile:active { background: var(--c-1b1b20); transform: scale(0.98); }
 
 .mm-tile-ic {
   width: 32px;
@@ -4866,7 +4866,7 @@ textarea {
 
 .mm-tile-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mm-tile-txt b { font-size: 13.5px; font-weight: 600; line-height: 1.2; }
-.mm-tile-txt span { font-size: 12px; color: #8A8F9C; }
+.mm-tile-txt span { font-size: 12px; color: var(--c-8a8f9c); }
 
 .light .mm-tile { background: var(--app-card); border-color: var(--app-border); }
 .light .mm-tile:active { background: var(--app-card2); }
@@ -4900,25 +4900,25 @@ textarea {
   transition: background 0.15s ease;
 }
 
-.mm-row:active { background: #1B1B20; }
+.mm-row:active { background: var(--c-1b1b20); }
 .light .mm-row:active { background: var(--app-card2); }
 
-.mm-row + .mm-row { border-top: 1px solid #222227; }
+.mm-row + .mm-row { border-top: 1px solid var(--c-222227); }
 .light .mm-row + .mm-row { border-top-color: var(--app-card2); }
 
-.mm-row > svg { color: #AEB3BF; flex: none; }
+.mm-row > svg { color: var(--c-aeb3bf); flex: none; }
 .light .mm-row > svg { color: var(--app-dim); }
 .mm-row span { flex: 1; }
 .mm-row .mm-chev { color: #5B606C; }
-.light .mm-row .mm-chev { color: #b0b3ba; }
+.light .mm-row .mm-chev { color: var(--c-b0b3ba); }
 
 .mm-row.active > span, .mm-tile.active .mm-tile-txt b { color: #E0A526; }
 .mm-row.active > svg:first-of-type, .mm-tile.active .mm-tile-ic { color: #E0A526; }
 
 @media (hover: hover) {
-  .mm-tile:hover, .mm-row:hover { background: #1B1B20; }
+  .mm-tile:hover, .mm-row:hover { background: var(--c-1b1b20); }
   .light .mm-tile:hover, .light .mm-row:hover { background: #f6f6f8; }
-  .mm-close:hover { background: #1B1B20; color: #F2F0EA; }
+  .mm-close:hover { background: var(--c-1b1b20); color: var(--c-f2f0ea); }
   .light .mm-close:hover { background: var(--app-card2); color: #1a1a1e; }
 }
 
@@ -5105,7 +5105,7 @@ textarea {
 
 .heatmap-stats {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--c-94a3b8);
 }
 
 .heatmap-grid {
@@ -5143,7 +5143,7 @@ textarea {
 }
 
 .light .heatmap-tooltip {
-  background: #3a3a40;
+  background: var(--c-3a3a40);
 }
 
 .heatmap-legend {
@@ -5152,7 +5152,7 @@ textarea {
   gap: 6px;
   margin-top: 10px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--c-94a3b8);
 }
 
 .heatmap-legend-cells {
@@ -5218,7 +5218,7 @@ textarea {
   justify-content: space-between;
   margin-top: 8px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--c-94a3b8);
 }
 
 .league-max {
@@ -5317,7 +5317,7 @@ textarea {
 
 .badge-desc {
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--c-94a3b8);
 }
 
 .badge-rarity {
@@ -5331,7 +5331,7 @@ textarea {
 }
 .today-tile-label {
   font-size: 12px;
-  color: var(--muted, #8b8fa3);
+  color: var(--muted, var(--c-8b8fa3));
   margin-bottom: 4px;
 }
 .today-tile-value {
@@ -6034,7 +6034,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #f87171;
+  color: var(--c-f87171);
   font-weight: 500;
   animation: tabSlideIn 0.2s ease;
 }
@@ -6053,7 +6053,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   align-items: center;
   gap: 4px;
   padding: 8px;
-  color: var(--muted, #94a3b8);
+  color: var(--muted, var(--c-94a3b8));
   font-size: 12px;
   transition: opacity 0.2s ease;
   pointer-events: none;
@@ -6446,7 +6446,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
 .cr-class-name {
   font-size: 12px;
   font-weight: 700;
-  color: #e8eaf6;
+  color: var(--c-e8eaf6);
   font-family: "Manrope", sans-serif;
   white-space: nowrap;
   overflow: hidden;
@@ -6639,7 +6639,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
 .cr-header-title {
   font-size: 16px;
   font-weight: 800;
-  color: #f1f5f9;
+  color: var(--c-f1f5f9);
   font-family: "Syne", sans-serif;
 }
 
@@ -6780,7 +6780,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
 .cr-announcement-title {
   font-size: 13px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--c-f1f5f9);
   margin-bottom: 4px;
 }
 
@@ -6875,7 +6875,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
 .cr-empty-title {
   font-size: 14px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--c-f1f5f9);
   margin-bottom: 6px;
   font-family: "Syne", sans-serif;
 }
@@ -6955,7 +6955,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   border-radius: 10px;
   border: 1px solid rgba(255, 215, 0, 0.15);
   background: rgba(var(--app-glass-rgb),0.7);
-  color: #f1f5f9;
+  color: var(--c-f1f5f9);
   font-size: 13px;
   font-family: "Manrope", sans-serif;
   outline: none;
@@ -7675,7 +7675,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   height: 150px;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 30% 30%, #E0EAFF 0%, #88B5FF 20%, #4F8EF7 50%, #1A357A 90%);
+    radial-gradient(circle at 30% 30%, #E0EAFF 0%, #88B5FF 20%, #4F8EF7 50%, var(--c-1a357a) 90%);
   box-shadow:
     0 0 0 1px var(--app-tint-med),
     0 20px 40px -10px rgba(0,0,0,0.5),
@@ -8460,4 +8460,498 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   .sc-vt-doc-dropdown {
     max-height: 280px;
   }
+}
+
+/* ── Auto-generated: leftover literal palette. Dark = original hex; light = derived. ── */
+:root {
+  --c-031623: #031623;
+  --c-060818: #060818;
+  --c-064e3b: #064e3b;
+  --c-071410: #071410;
+  --c-080a18: #080a18;
+  --c-080d2a: #080d2a;
+  --c-0a0b18: #0a0b18;
+  --c-0a0c10: #0a0c10;
+  --c-0a0c1e: #0a0c1e;
+  --c-0a1020: #0a1020;
+  --c-0a1a0a: #0a1a0a;
+  --c-0a1a10: #0a1a10;
+  --c-0a1f10: #0a1f10;
+  --c-0a3020: #0a3020;
+  --c-0a3a55: #0a3a55;
+  --c-0b0d12: #0b0d12;
+  --c-0b1e3a: #0b1e3a;
+  --c-0d0820: #0d0820;
+  --c-0d0c08: #0d0c08;
+  --c-0d0e1a: #0d0e1a;
+  --c-0d0f1f: #0d0f1f;
+  --c-0d0f20: #0d0f20;
+  --c-0d0f22: #0d0f22;
+  --c-0d1220: #0d1220;
+  --c-0f1128: #0f1128;
+  --c-0f1218: #0f1218;
+  --c-0f1230: #0f1230;
+  --c-0f1240: #0f1240;
+  --c-0f1440: #0f1440;
+  --c-0f1535: #0f1535;
+  --c-0f1626: #0f1626;
+  --c-0f172a: #0f172a;
+  --c-0f2a1a: #0f2a1a;
+  --c-0f2b1d: #0f2b1d;
+  --c-0f3460: #0f3460;
+  --c-100808: #100808;
+  --c-101014: #101014;
+  --c-101018: #101018;
+  --c-101511: #101511;
+  --c-111114: #111114;
+  --c-111328: #111328;
+  --c-120d2a: #120d2a;
+  --c-12110a: #12110a;
+  --c-121214: #121214;
+  --c-12121f: #12121f;
+  --c-12142a: #12142a;
+  --c-12151d: #12151d;
+  --c-12161f: #12161f;
+  --c-122519: #122519;
+  --c-123a24: #123a24;
+  --c-140808: #140808;
+  --c-14120a: #14120a;
+  --c-141410: #141410;
+  --c-14161c: #14161c;
+  --c-141631: #141631;
+  --c-151005: #151005;
+  --c-15181e: #15181e;
+  --c-161618: #161618;
+  --c-16213e: #16213e;
+  --c-17150b: #17150b;
+  --c-171719: #171719;
+  --c-17171b: #17171b;
+  --c-17171c: #17171c;
+  --c-1a0808: #1a0808;
+  --c-1a0828: #1a0828;
+  --c-1a0a0a: #1a0a0a;
+  --c-1a1000: #1a1000;
+  --c-1a1400: #1a1400;
+  --c-1a1a0a: #1a1a0a;
+  --c-1a1a2e: #1a1a2e;
+  --c-1a1d35: #1a1d35;
+  --c-1a1e2a: #1a1e2a;
+  --c-1a357a: #1a357a;
+  --c-1a4a25: #1a4a25;
+  --c-1a4a2a: #1a4a2a;
+  --c-1b1b20: #1b1b20;
+  --c-1c1509: #1c1509;
+  --c-1c1c1e: #1c1c1e;
+  --c-1c1c24: #1c1c24;
+  --c-1c1f26: #1c1f26;
+  --c-1c2029: #1c2029;
+  --c-1d1d1f: #1d1d1f;
+  --c-1d1d24: #1d1d24;
+  --c-1e1e20: #1e1e20;
+  --c-1e2140: #1e2140;
+  --c-1e2245: #1e2245;
+  --c-1e2a5a: #1e2a5a;
+  --c-1e3a1e: #1e3a1e;
+  --c-1e3a5a: #1e3a5a;
+  --c-1e3a5f: #1e3a5f;
+  --c-1e3b28: #1e3b28;
+  --c-1e4a45: #1e4a45;
+  --c-1f1000: #1f1000;
+  --c-202022: #202022;
+  --c-222227: #222227;
+  --c-232323: #232323;
+  --c-232329: #232329;
+  --c-252860: #252860;
+  --c-252d3b: #252d3b;
+  --c-26230f: #26230f;
+  --c-262415: #262415;
+  --c-2a0a0a: #2a0a0a;
+  --c-2a0f0f: #2a0f0f;
+  --c-2a1515: #2a1515;
+  --c-2a2410: #2a2410;
+  --c-2a2610: #2a2610;
+  --c-2a2a2c: #2a2a2c;
+  --c-2a2a33: #2a2a33;
+  --c-2a2d4a: #2a2d4a;
+  --c-2a2f4a: #2a2f4a;
+  --c-2a3080: #2a3080;
+  --c-2a3a5a: #2a3a5a;
+  --c-2c2a18: #2c2a18;
+  --c-2d1f5e: #2d1f5e;
+  --c-2e2e30: #2e2e30;
+  --c-2e2e36: #2e2e36;
+  --c-30343d: #30343d;
+  --c-33321f: #33321f;
+  --c-3a1010: #3a1010;
+  --c-3a1e28: #3a1e28;
+  --c-3a2800: #3a2800;
+  --c-3a3300: #3a3300;
+  --c-3a3826: #3a3826;
+  --c-3a3a40: #3a3a40;
+  --c-3a3d46: #3a3d46;
+  --c-3b2c08: #3b2c08;
+  --c-3d2e12: #3d2e12;
+  --c-3d3714: #3d3714;
+  --c-3d3d3d: #3d3d3d;
+  --c-4a1010: #4a1010;
+  --c-4a1414: #4a1414;
+  --c-4a2a00: #4a2a00;
+  --c-4a2a5a: #4a2a5a;
+  --c-4a3a00: #4a3a00;
+  --c-5c2b2b: #5c2b2b;
+  --c-66bb6a: #66bb6a;
+  --c-6ee787: #6ee787;
+  --c-6ee7a0: #6ee7a0;
+  --c-7cc7ff: #7cc7ff;
+  --c-7fadf5: #7fadf5;
+  --c-80cbc4: #80cbc4;
+  --c-818cf8: #818cf8;
+  --c-81c784: #81c784;
+  --c-81d4fa: #81d4fa;
+  --c-8892b0: #8892b0;
+  --c-8a8f9c: #8a8f9c;
+  --c-8b8d97: #8b8d97;
+  --c-8b8fa3: #8b8fa3;
+  --c-8b8fc0: #8b8fc0;
+  --c-8f8f9a: #8f8f9a;
+  --c-90caf9: #90caf9;
+  --c-9199a8: #9199a8;
+  --c-9298a6: #9298a6;
+  --c-949cac: #949cac;
+  --c-94a3b8: #94a3b8;
+  --c-9899a6: #9899a6;
+  --c-9a9a9a: #9a9a9a;
+  --c-9aa2d8: #9aa2d8;
+  --c-9aa3b5: #9aa3b5;
+  --c-9db8e8: #9db8e8;
+  --c-9e9e9e: #9e9e9e;
+  --c-9fa8da: #9fa8da;
+  --c-a3a3a3: #a3a3a3;
+  --c-a5d6a7: #a5d6a7;
+  --c-a78bfa: #a78bfa;
+  --c-a8b0be: #a8b0be;
+  --c-a9b0c2: #a9b0c2;
+  --c-aaaaaa: #aaaaaa;
+  --c-aeb3bf: #aeb3bf;
+  --c-b0b3ba: #b0b3ba;
+  --c-b0bec5: #b0bec5;
+  --c-b388ff: #b388ff;
+  --c-b39ddb: #b39ddb;
+  --c-b8bec9: #b8bec9;
+  --c-b8becb: #b8becb;
+  --c-b8c6e8: #b8c6e8;
+  --c-b8e8c6: #b8e8c6;
+  --c-b9b9c6: #b9b9c6;
+  --c-b9e8bb: #b9e8bb;
+  --c-b9f2ff: #b9f2ff;
+  --c-c084fc: #c084fc;
+  --c-c0b2ff: #c0b2ff;
+  --c-c0c0c0: #c0c0c0;
+  --c-c0c1cc: #c0c1cc;
+  --c-c2ae80: #c2ae80;
+  --c-c5c9e8: #c5c9e8;
+  --c-c7c7d1: #c7c7d1;
+  --c-c8c8a8: #c8c8a8;
+  --c-c8c9d5: #c8c9d5;
+  --c-c8e6c9: #c8e6c9;
+  --c-c9824a: #c9824a;
+  --c-c9a267: #c9a267;
+  --c-c9b273: #c9b273;
+  --c-c9b8ff: #c9b8ff;
+  --c-c9c9cb: #c9c9cb;
+  --c-c9c9d2: #c9c9d2;
+  --c-c9cede: #c9cede;
+  --c-c9cfdb: #c9cfdb;
+  --c-c9d1e0: #c9d1e0;
+  --c-c9ecd9: #c9ecd9;
+  --c-cbd5e1: #cbd5e1;
+  --c-cddfff: #cddfff;
+  --c-ce93d8: #ce93d8;
+  --c-cfc9ad: #cfc9ad;
+  --c-d1d5db: #d1d5db;
+  --c-d3d1c7: #d3d1c7;
+  --c-d6d2c2: #d6d2c2;
+  --c-d8d8dc: #d8d8dc;
+  --c-d9d9d9: #d9d9d9;
+  --c-e0e0e0: #e0e0e0;
+  --c-e57373: #e57373;
+  --c-e5e4e2: #e5e4e2;
+  --c-e8d9a0: #e8d9a0;
+  --c-e8dfae: #e8dfae;
+  --c-e8e9f0: #e8e9f0;
+  --c-e8eaf6: #e8eaf6;
+  --c-e9c9c9: #e9c9c9;
+  --c-edeff5: #edeff5;
+  --c-eef0fb: #eef0fb;
+  --c-ef9a9a: #ef9a9a;
+  --c-f0d9a8: #f0d9a8;
+  --c-f0f0f0: #f0f0f0;
+  --c-f1f5f9: #f1f5f9;
+  --c-f2f0ea: #f2f0ea;
+  --c-f2f2f2: #f2f2f2;
+  --c-f2f4f8: #f2f4f8;
+  --c-f3f4f6: #f3f4f6;
+  --c-f3f5f8: #f3f5f8;
+  --c-f472b6: #f472b6;
+  --c-f5f5f5: #f5f5f5;
+  --c-f6e4b0: #f6e4b0;
+  --c-f87171: #f87171;
+  --c-f9a8d4: #f9a8d4;
+  --c-fb7185: #fb7185;
+  --c-fca5a5: #fca5a5;
+  --c-ff7ba3: #ff7ba3;
+  --c-ff8098: #ff8098;
+  --c-ff8a8a: #ff8a8a;
+  --c-ff9aa8: #ff9aa8;
+  --c-ff9b9b: #ff9b9b;
+  --c-ff9fb2: #ff9fb2;
+  --c-ffa0a0: #ffa0a0;
+  --c-ffcc80: #ffcc80;
+  --c-ffe9a8: #ffe9a8;
+}
+html[data-theme="light"] {
+  --c-031623: #fdfbf3;
+  --c-060818: #fdfbf3;
+  --c-064e3b: #d6f5ed;
+  --c-071410: #fdfbf3;
+  --c-080a18: #fdfbf3;
+  --c-080d2a: #fdfbf3;
+  --c-0a0b18: #fdfbf3;
+  --c-0a0c10: #fdfbf3;
+  --c-0a0c1e: #fdfbf3;
+  --c-0a1020: #fdfbf3;
+  --c-0a1a0a: #e9f5e9;
+  --c-0a1a10: #fdfbf3;
+  --c-0a1f10: #e6f5eb;
+  --c-0a3020: #c3ead9;
+  --c-0a3a55: #c3dcea;
+  --c-0b0d12: #fdfbf3;
+  --c-0b1e3a: #fdfbf3;
+  --c-0d0820: #fdfbf3;
+  --c-0d0c08: #fdfbf3;
+  --c-0d0e1a: #fdfbf3;
+  --c-0d0f1f: #fdfbf3;
+  --c-0d0f20: #fdfbf3;
+  --c-0d0f22: #fdfbf3;
+  --c-0d1220: #fdfbf3;
+  --c-0f1128: #fdfbf3;
+  --c-0f1218: #fdfbf3;
+  --c-0f1230: #fdfbf3;
+  --c-0f1240: #fdfbf3;
+  --c-0f1440: #fdfbf3;
+  --c-0f1535: #fdfbf3;
+  --c-0f1626: #fdfbf3;
+  --c-0f172a: #fdfbf3;
+  --c-0f2a1a: #e2f3e9;
+  --c-0f2b1d: #e2f3ea;
+  --c-0f3460: #c3d5ea;
+  --c-100808: #fdfbf3;
+  --c-101014: #fdfbf3;
+  --c-101018: #fdfbf3;
+  --c-101511: #fdfbf3;
+  --c-111114: #fdfbf3;
+  --c-111328: #fdfbf3;
+  --c-120d2a: #fdfbf3;
+  --c-12110a: #fdfbf3;
+  --c-121214: #fdfbf3;
+  --c-12121f: #fdfbf3;
+  --c-12142a: #fdfbf3;
+  --c-12151d: #fdfbf3;
+  --c-12161f: #fdfbf3;
+  --c-122519: #e5f1ea;
+  --c-123a24: #dcf2e6;
+  --c-140808: #fdfbf3;
+  --c-14120a: #fdfbf3;
+  --c-141410: #fdfbf3;
+  --c-14161c: #fdfbf3;
+  --c-141631: #fdfbf3;
+  --c-151005: #f8f4e9;
+  --c-15181e: #fdfbf3;
+  --c-161618: #fdfbf3;
+  --c-16213e: #fdfbf3;
+  --c-17150b: #fdfbf3;
+  --c-171719: #fdfbf3;
+  --c-17171b: #fdfbf3;
+  --c-17171c: #fdfbf3;
+  --c-1a0808: #f6e8e8;
+  --c-1a0828: #fdfbf3;
+  --c-1a0a0a: #f5e9e9;
+  --c-1a1000: #f9f3e8;
+  --c-1a1400: #f9f5e8;
+  --c-1a1a0a: #f5f5e9;
+  --c-1a1a2e: #fdfbf3;
+  --c-1a1d35: #fdfbf3;
+  --c-1a1e2a: #fdfbf3;
+  --c-1a357a: #cad4f0;
+  --c-1a4a25: #c7e6ce;
+  --c-1a4a2a: #c7e6d1;
+  --c-1b1b20: #fdfbf3;
+  --c-1c1509: #f6f1e8;
+  --c-1c1c1e: #fdfbf3;
+  --c-1c1c24: #fdfbf3;
+  --c-1c1f26: #fdfbf3;
+  --c-1c2029: #fdfbf3;
+  --c-1d1d1f: #fdfbf3;
+  --c-1d1d24: #fdfbf3;
+  --c-1e1e20: #e4ddc9;
+  --c-1e2140: #e4ddc9;
+  --c-1e2245: #e4ddc9;
+  --c-1e2a5a: #c6cce7;
+  --c-1e3a1e: #cce1cc;
+  --c-1e3a5a: #c6d5e7;
+  --c-1e3a5f: #cedbec;
+  --c-1e3b28: #ddece2;
+  --c-1e4a45: #e4ddc9;
+  --c-1f1000: #f9f0e7;
+  --c-202022: #fdfbf3;
+  --c-222227: #e4ddc9;
+  --c-232323: #e4ddc9;
+  --c-232329: #f0ebdf;
+  --c-252860: #c8c9e5;
+  --c-252d3b: #f0ebdf;
+  --c-26230f: #f3f1e4;
+  --c-262415: #e0ddcd;
+  --c-2a0a0a: #f6e2e2;
+  --c-2a0f0f: #f3e2e2;
+  --c-2a1515: #e1cbcb;
+  --c-2a2410: #f2efe3;
+  --c-2a2610: #f2f0e3;
+  --c-2a2a2c: #e4ddc9;
+  --c-2a2a33: #e4ddc9;
+  --c-2a2d4a: #e4ddc9;
+  --c-2a2f4a: #e4ddc9;
+  --c-2a3080: #c6c8e7;
+  --c-2a3a5a: #e4ddc9;
+  --c-2c2a18: #e0decd;
+  --c-2d1f5e: #cdc6e7;
+  --c-2e2e30: #f0ebdf;
+  --c-2e2e36: #e4ddc9;
+  --c-30343d: #e4ddc9;
+  --c-33321f: #ebeae0;
+  --c-3a1010: #e9c4c4;
+  --c-3a1e28: #ecdde2;
+  --c-3a2800: #eadec3;
+  --c-3a3300: #f7f4de;
+  --c-3a3826: #e8e7de;
+  --c-3a3a40: #f0ebdf;
+  --c-3a3d46: #e4ddc9;
+  --c-3b2c08: #f6eedb;
+  --c-3d2e12: #e8dcc4;
+  --c-3d3714: #e7e2c6;
+  --c-3d3d3d: #e4ddc9;
+  --c-4a1010: #eac3c3;
+  --c-4a1414: #e9c3c3;
+  --c-4a2a00: #ead9c3;
+  --c-4a2a5a: #e4ddc9;
+  --c-4a3a00: #eae1c3;
+  --c-5c2b2b: #e2caca;
+  --c-66bb6a: #387f3c;
+  --c-6ee787: #189131;
+  --c-6ee7a0: #18914a;
+  --c-7cc7ff: #004b83;
+  --c-7fadf5: #0a3880;
+  --c-80cbc4: #347f78;
+  --c-818cf8: #07127e;
+  --c-81c784: #387e3b;
+  --c-81d4fa: #05587e;
+  --c-8892b0: #6b6557;
+  --c-8a8f9c: #6b6557;
+  --c-8b8d97: #6b6557;
+  --c-8b8fa3: #6b6557;
+  --c-8b8fc0: #3f4374;
+  --c-8f8f9a: #6b6557;
+  --c-90caf9: #06406f;
+  --c-9199a8: #6b6557;
+  --c-9298a6: #6b6557;
+  --c-949cac: #6b6557;
+  --c-94a3b8: #6b6557;
+  --c-9899a6: #6b6557;
+  --c-9a9a9a: #6b6557;
+  --c-9aa2d8: #272f65;
+  --c-9aa3b5: #6b6557;
+  --c-9db8e8: #173262;
+  --c-9e9e9e: #6b6557;
+  --c-9fa8da: #252e60;
+  --c-a3a3a3: #6b6557;
+  --c-a5d6a7: #295a2b;
+  --c-a78bfa: #210574;
+  --c-a8b0be: #6b6557;
+  --c-a9b0c2: #6b6557;
+  --c-aaaaaa: #6b6557;
+  --c-aeb3bf: #3a362e;
+  --c-b0b3ba: #3a362e;
+  --c-b0bec5: #3a362e;
+  --c-b388ff: #2b0077;
+  --c-b39ddb: #3a2462;
+  --c-b8bec9: #3a362e;
+  --c-b8becb: #3a362e;
+  --c-b8c6e8: #3a362e;
+  --c-b8e8c6: #174725;
+  --c-b9b9c6: #3a362e;
+  --c-b9e8bb: #174619;
+  --c-b9f2ff: #003946;
+  --c-c084fc: #3f037b;
+  --c-c0b2ff: #0e004d;
+  --c-c0c0c0: #3a362e;
+  --c-c0c1cc: #3a362e;
+  --c-c2ae80: #7c683c;
+  --c-c5c9e8: #3a362e;
+  --c-c7c7d1: #3a362e;
+  --c-c8c8a8: #575737;
+  --c-c8c9d5: #3a362e;
+  --c-c8e6c9: #19371a;
+  --c-c9824a: #8d562a;
+  --c-c9a267: #876530;
+  --c-c9b273: #846f33;
+  --c-c9b8ff: #110047;
+  --c-c9c9cb: #3a362e;
+  --c-c9c9d2: #3a362e;
+  --c-c9cede: #3a362e;
+  --c-c9cfdb: #3a362e;
+  --c-c9d1e0: #3a362e;
+  --c-c9ecd9: #133623;
+  --c-cbd5e1: #3a362e;
+  --c-cddfff: #1a1814;
+  --c-ce93d8: #62276c;
+  --c-cfc9ad: #524c30;
+  --c-d1d5db: #3a362e;
+  --c-d3d1c7: #3a362e;
+  --c-d6d2c2: #3d3929;
+  --c-d8d8dc: #3a362e;
+  --c-d9d9d9: #1a1814;
+  --c-e0e0e0: #1a1814;
+  --c-e57373: #8c1a1a;
+  --c-e5e4e2: #1a1814;
+  --c-e8d9a0: #5f5017;
+  --c-e8dfae: #514817;
+  --c-e8e9f0: #1a1814;
+  --c-e8eaf6: #1a1814;
+  --c-e9c9c9: #361616;
+  --c-edeff5: #1a1814;
+  --c-eef0fb: #1a1814;
+  --c-ef9a9a: #651010;
+  --c-f0d9a8: #57400f;
+  --c-f0f0f0: #1a1814;
+  --c-f1f5f9: #1a1814;
+  --c-f2f0ea: #1a1814;
+  --c-f2f2f2: #1a1814;
+  --c-f2f4f8: #1a1814;
+  --c-f3f4f6: #1a1814;
+  --c-f3f5f8: #1a1814;
+  --c-f472b6: #8d0b4f;
+  --c-f5f5f5: #1a1814;
+  --c-f6e4b0: #4f3d09;
+  --c-f87171: #8e0707;
+  --c-f9a8d4: #570632;
+  --c-fb7185: #8e0418;
+  --c-fca5a5: #5a0303;
+  --c-ff7ba3: #840028;
+  --c-ff8098: #7f0018;
+  --c-ff8a8a: #750000;
+  --c-ff9aa8: #65000e;
+  --c-ff9b9b: #640000;
+  --c-ff9fb2: #600013;
+  --c-ffa0a0: #5f0000;
+  --c-ffcc80: #7f4c00;
+  --c-ffe9a8: #574100;
 }

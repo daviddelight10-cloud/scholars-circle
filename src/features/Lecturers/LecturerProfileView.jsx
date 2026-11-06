@@ -84,7 +84,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
         </button>
         <div className="card" style={{ padding: 24, textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>😕</div>
-          <div style={{ color: "#f87171", marginBottom: 12 }}>{error || "Profile not available."}</div>
+          <div style={{ color: "var(--c-f87171)", marginBottom: 12 }}>{error || "Profile not available."}</div>
           <button
             onClick={() => setRetryCount((n) => n + 1)}
             style={primaryBtn}
@@ -137,7 +137,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
             )}
 
             {lecturer.bio && (
-              <p style={{ marginTop: 12, color: "#cbd5e1", lineHeight: 1.6 }}>{lecturer.bio}</p>
+              <p style={{ marginTop: 12, color: "var(--c-cbd5e1)", lineHeight: 1.6 }}>{lecturer.bio}</p>
             )}
 
             <div style={{ display: "flex", gap: 16, marginTop: 14, flexWrap: "wrap" }}>
@@ -241,7 +241,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
               {lecturer.posts.map((p) => (
                 <div key={p.id} style={{ padding: 12, background: "rgba(var(--app-glass-rgb),0.6)", borderRadius: 8 }}>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.title}</div>
-                  <div style={{ fontSize: 13, color: "#cbd5e1", whiteSpace: "pre-wrap" }}>{p.content}</div>
+                  <div style={{ fontSize: 13, color: "var(--c-cbd5e1)", whiteSpace: "pre-wrap" }}>{p.content}</div>
                   <div style={{ fontSize: 11, color: "var(--app-dim)", marginTop: 6 }}>{new Date(p.createdAt).toLocaleDateString()}</div>
                 </div>
               ))}
@@ -258,7 +258,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
                     <span style={{ color: "#fbbf24" }}>{"★".repeat(Math.max(0, Math.min(5, Number(r.score) || 0)))}{"☆".repeat(Math.max(0, 5 - Math.min(5, Number(r.score) || 0)))}</span>
                     <span style={{ fontSize: 11, color: "var(--app-dim)" }}>by {r.student?.username || "Anonymous"}</span>
                   </div>
-                  {r.comment && <div style={{ fontSize: 13, color: "#cbd5e1" }}>{r.comment}</div>}
+                  {r.comment && <div style={{ fontSize: 13, color: "var(--c-cbd5e1)" }}>{r.comment}</div>}
                 </div>
               ))}
             </div>

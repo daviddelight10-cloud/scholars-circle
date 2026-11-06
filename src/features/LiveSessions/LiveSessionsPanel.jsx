@@ -106,7 +106,7 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9" }}>📹 Live Sessions</h3>
+        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "var(--c-f1f5f9)" }}>📹 Live Sessions</h3>
         {isHost && (
           <button className="cr-btn" onClick={() => setShowCreate(!showCreate)}>
             {showCreate ? "✕ Cancel" : "➕ Schedule Session"}
@@ -141,7 +141,7 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
       )}
 
       {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>Loading sessions…</div>}
-      {error && <div className="cr-glass" style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", marginBottom: 12 }}>{error}</div>}
+      {error && <div className="cr-glass" style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "var(--c-f87171)", marginBottom: 12 }}>{error}</div>}
 
       {!loading && sessions.length === 0 && (
         <div className="cr-empty" style={{ padding: "32px 20px" }}>
@@ -191,7 +191,7 @@ function SessionCard({ session, isHost, accent, actionLabel, actionDisabled, onA
     <div className="cr-glass-flat" style={{ marginBottom: 8, borderLeft: `3px solid ${accent}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", fontFamily: "Syne, sans-serif" }}>{session.title}</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--c-f1f5f9)", fontFamily: "Syne, sans-serif" }}>{session.title}</div>
           {session.description && <div style={{ fontSize: 12, color: "var(--app-dim)", marginTop: 2 }}>{session.description}</div>}
           <div style={{ fontSize: 11, color: "#FFD700", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
             <span>🕐 {dt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>
@@ -217,7 +217,7 @@ function SessionCard({ session, isHost, accent, actionLabel, actionDisabled, onA
               className="cr-btn-outline"
               onClick={onCancel}
               title="Cancel"
-              style={{ borderColor: "rgba(239,68,68,0.4)", color: "#f87171", padding: "6px 10px" }}
+              style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--c-f87171)", padding: "6px 10px" }}
             >
               🗑️
             </button>

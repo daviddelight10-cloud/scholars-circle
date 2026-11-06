@@ -11,7 +11,7 @@ const T = {
   borderHi:  "rgba(61,126,255,0.28)",
   blue:      "#3D7EFF",
   blueGrad:  "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
-  text:      "#F1F5F9",
+  text:      "var(--c-f1f5f9)",
   muted:     "#64748B",
   dim:       "#3a3a40",
   syne:      "Syne,sans-serif",
@@ -214,7 +214,7 @@ export default function CampusComm({ token, currentUser }) {
 
         .sc-input::placeholder { color: #3a3a40; }
         .sc-input::-webkit-calendar-picker-indicator { filter: invert(0.4); }
-        .sc-select option { background: var(--app-surface); color: #F1F5F9; }
+        .sc-select option { background: var(--app-surface); color: var(--c-f1f5f9); }
 
         /* Scrollbar */
         .sc-scroll::-webkit-scrollbar { width: 4px; }

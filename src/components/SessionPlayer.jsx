@@ -790,7 +790,7 @@ ${isCorrect
 
                 borderRadius: 10,
 
-                color: "#f87171",
+                color: "var(--c-f87171)",
 
                 fontWeight: 600,
 
@@ -946,7 +946,7 @@ ${isCorrect
 
             lineHeight: 1.7, 
 
-            color: "#f1f5f9",
+            color: "var(--c-f1f5f9)",
 
             margin: 0,
 
@@ -1110,7 +1110,7 @@ ${isCorrect
 
                   borderRadius: 14,
 
-                  color: "#f1f5f9",
+                  color: "var(--c-f1f5f9)",
 
                   textAlign: "left",
 

@@ -3,21 +3,21 @@ import ReactionView from "./ReactionView.jsx";
 
 const PALETTES = {
   dark: {
-    text: "#e8eaf6",
-    muted: "#9e9e9e",
+    text: "var(--c-e8eaf6)",
+    muted: "var(--c-9e9e9e)",
     accent: "#7986cb",
-    codeBg: "#0d0f1f",
-    codeBorder: "#1e2140",
-    heading: "#f5f5f5",
-    mathColor: "#e8eaf6",
+    codeBg: "var(--c-0d0f1f)",
+    codeBorder: "var(--c-1e2140)",
+    heading: "var(--c-f5f5f5)",
+    mathColor: "var(--c-e8eaf6)",
     blockquoteBorder: "#7986cb",
     blockquoteBg: "rgba(121,134,203,0.08)",
-    blockquoteText: "#b0bec5",
-    codeText: "#b0bec5",
-    boldColor: "#f5f5f5",
-    italicColor: "#9fa8da",
+    blockquoteText: "var(--c-b0bec5)",
+    codeText: "var(--c-b0bec5)",
+    boldColor: "var(--c-f5f5f5)",
+    italicColor: "var(--c-9fa8da)",
     listBullet: "#7986cb",
-    headingBorder: "#1e2140",
+    headingBorder: "var(--c-1e2140)",
   },
   gold: {
     text: "var(--app-text)",
@@ -25,14 +25,14 @@ const PALETTES = {
     accent: "#FFD700",
     codeBg: "var(--app-surface)",
     codeBorder: "var(--app-tint-med)",
-    heading: "#F5F5F5",
+    heading: "var(--c-f5f5f5)",
     mathColor: "var(--app-text)",
     blockquoteBorder: "#FFD700",
     blockquoteBg: "rgba(255,215,0,0.07)",
-    blockquoteText: "#C9CFDB",
-    codeText: "#C9CFDB",
+    blockquoteText: "var(--c-c9cfdb)",
+    codeText: "var(--c-c9cfdb)",
     boldColor: "#FFD700",
-    italicColor: "#E8D9A0",
+    italicColor: "var(--c-e8d9a0)",
     listBullet: "#FFD700",
     headingBorder: "var(--app-tint-med)",
   },
@@ -376,9 +376,9 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
         if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
         const qt = trimmed.slice(2);
         const qStyle = /^⚠️|^⚠/.test(qt)
-          ? { background: "rgba(239,83,80,0.08)", borderLeft: "3px solid #EF5350", color: "#EF9A9A" }
+          ? { background: "rgba(239,83,80,0.08)", borderLeft: "3px solid #EF5350", color: "var(--c-ef9a9a)" }
           : /^💎/.test(qt)
-            ? { background: "rgba(255,215,0,0.10)", borderLeft: "3px solid #FFD700", color: "#E8D9A0" }
+            ? { background: "rgba(255,215,0,0.10)", borderLeft: "3px solid #FFD700", color: "var(--c-e8d9a0)" }
             : { background: P.blockquoteBg, borderLeft: `3px solid ${P.blockquoteBorder}`, color: P.blockquoteText };
         elements.push(<div key={elements.length} style={{ ...qStyle, borderRadius: "0 8px 8px 0", padding: "8px 12px", margin: "8px 0", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(qt, P, recallMode) }} />);
         i++;

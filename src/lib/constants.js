@@ -32,10 +32,10 @@ export const EMPTY_QUESTS = [
 // different scale, kept deliberately separate.
 export const LEAGUES = [
   { id: "bronze", name: "Bronze", icon: "🥉", minXP: 0, color: "#cd7f32" },
-  { id: "silver", name: "Silver", icon: "🥈", minXP: 200, color: "#c0c0c0" },
+  { id: "silver", name: "Silver", icon: "🥈", minXP: 200, color: "var(--c-c0c0c0)" },
   { id: "gold", name: "Gold", icon: "🥇", minXP: 500, color: "#ffd700" },
-  { id: "platinum", name: "Platinum", icon: "💎", minXP: 1000, color: "#e5e4e2" },
-  { id: "diamond", name: "Diamond", icon: "💠", minXP: 2500, color: "#b9f2ff" },
+  { id: "platinum", name: "Platinum", icon: "💎", minXP: 1000, color: "var(--c-e5e4e2)" },
+  { id: "diamond", name: "Diamond", icon: "💠", minXP: 2500, color: "var(--c-b9f2ff)" },
   { id: "champion", name: "Champion", icon: "👑", minXP: 5000, color: "#ff6b6b" },
 ];
 

@@ -351,7 +351,7 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
           display: "flex", 
           alignItems: "center", 
           gap: 8, 
-          background: "#1e3a5f", 
+          background: "var(--c-1e3a5f)", 
           color: "#60a5fa", 
           padding: "12px 16px", 
           borderRadius: 8,

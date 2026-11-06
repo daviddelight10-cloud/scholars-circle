@@ -129,7 +129,7 @@ export function GlobalSearchDropdown({ query, filter, subjects }) {
           <p
             style={{
               fontSize: 12,
-              color: "#d1d5db",
+              color: "var(--c-d1d5db)",
               marginBottom: 4,
               lineHeight: 1.4
             }}

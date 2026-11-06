@@ -150,7 +150,7 @@ export default function UniversitySelect({
             marginTop: 6,
             maxHeight: 260,
             overflowY: "auto",
-            background: "#12121f",
+            background: "var(--c-12121f)",
             border: "1px solid rgba(255,215,0,0.25)",
             borderRadius: 12,
             boxShadow: "0 12px 40px rgba(0,0,0,0.6), 0 0 1px rgba(255,215,0,0.1)",
@@ -187,7 +187,7 @@ export default function UniversitySelect({
                     alignItems: "center",
                     gap: 10,
                     fontSize: 14,
-                    color: "#e8eaf6",
+                    color: "var(--c-e8eaf6)",
                     background:
                       i === highlight
                         ? "rgba(255,215,0,0.08)"

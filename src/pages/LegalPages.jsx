@@ -14,24 +14,24 @@ const CSS = `
   .lg-title { font-size: 26px; font-weight: 800; margin: 0 0 4px; color: var(--app-text); font-family: 'Syne', 'Inter', sans-serif; }
   .lg-upd { font-size: 12px; color: var(--app-faint); margin-bottom: 24px; }
   .lg-h2 { font-size: 15px; font-weight: 800; color: #F5A623; margin: 26px 0 8px; letter-spacing: 0.02em; }
-  .lg-page p, .lg-page li { font-size: 14px; line-height: 1.75; color: #c9cede; margin: 0 0 10px; }
+  .lg-page p, .lg-page li { font-size: 14px; line-height: 1.75; color: var(--c-c9cede); margin: 0 0 10px; }
   .lg-page ul { padding-left: 20px; margin: 0 0 12px; }
   .lg-page li { margin-bottom: 5px; }
   .lg-page a { color: #FFD700; text-decoration: none; }
   .lg-page a:hover { text-decoration: underline; }
   .lg-card { background: var(--app-surface); border: 0.5px solid var(--app-tint-med); border-radius: 16px; padding: 18px; margin: 16px 0; }
-  .lg-note { background: rgba(245,166,35,0.08); border: 0.5px solid rgba(245,166,35,0.3); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #f0d9a8; line-height: 1.6; margin: 14px 0; }
+  .lg-note { background: rgba(245,166,35,0.08); border: 0.5px solid rgba(245,166,35,0.3); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: var(--c-f0d9a8); line-height: 1.6; margin: 14px 0; }
   .lg-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .lg-field label { font-size: 12px; font-weight: 700; color: var(--app-dim); letter-spacing: 0.04em; text-transform: uppercase; }
   .lg-field input, .lg-field textarea { background: var(--app-card); border: 0.5px solid var(--app-tint-med); border-radius: 10px; padding: 11px 13px; font-size: 14px; color: var(--app-text); font-family: inherit; outline: none; }
   .lg-field input:focus, .lg-field textarea:focus { border-color: #F5A623; }
   .lg-field textarea { min-height: 96px; resize: vertical; }
   .lg-hint { font-size: 12px; color: var(--app-faint); margin-top: -8px; margin-bottom: 14px; }
-  .lg-check { display: flex; gap: 10px; align-items: flex-start; background: var(--app-card); border: 0.5px solid var(--app-tint-med); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #c9cede; line-height: 1.55; cursor: pointer; }
+  .lg-check { display: flex; gap: 10px; align-items: flex-start; background: var(--app-card); border: 0.5px solid var(--app-tint-med); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: var(--c-c9cede); line-height: 1.55; cursor: pointer; }
   .lg-check input { margin-top: 3px; accent-color: #F5A623; }
   .lg-submit { width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 14px; font-weight: 800; font-family: inherit; letter-spacing: 0.03em; cursor: pointer; background: linear-gradient(135deg, #F5A623, #e08600); color: #14100a; transition: opacity 0.15s; }
   .lg-submit:disabled { opacity: 0.45; cursor: default; }
-  .lg-err { background: rgba(248,113,113,0.1); border: 0.5px solid rgba(248,113,113,0.35); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #f87171; margin-bottom: 14px; }
+  .lg-err { background: rgba(248,113,113,0.1); border: 0.5px solid rgba(248,113,113,0.35); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--c-f87171); margin-bottom: 14px; }
   .lg-done { background: rgba(45,212,160,0.08); border: 0.5px solid rgba(45,212,160,0.35); border-radius: 16px; padding: 24px 18px; text-align: center; margin: 20px 0; }
   .lg-done-t { font-size: 17px; font-weight: 800; color: #2dd4a0; margin-bottom: 6px; }
   .lg-done-p { font-size: 13px; color: var(--app-dim); line-height: 1.6; }

@@ -231,7 +231,7 @@
 .fd-chip.active {
   background: linear-gradient(135deg, rgba(108, 158, 255, 0.18), rgba(139, 108, 255, 0.14));
   border-color: rgba(108, 158, 255, 0.45);
-  color: #cddfff;
+  color: var(--c-cddfff);
   box-shadow: 0 2px 12px rgba(108, 158, 255, 0.15);
 }
 
@@ -1165,7 +1165,7 @@
 .fd-quiz .fd-join-btn.quiz {
   background: rgba(139, 108, 255, 0.14);
   border-color: rgba(139, 108, 255, 0.4);
-  color: #c0b2ff;
+  color: var(--c-c0b2ff);
 }
 .fd-quiz .fd-join-btn.quiz:hover { background: rgba(139, 108, 255, 0.22); }
 
@@ -1565,7 +1565,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 }
 .gv-res-sub { font-family: var(--fd-mono); font-size: 9px; opacity: 0.75; }
 .gv-res-open { font-size: 10px; font-weight: 800; color: var(--fd-blue); flex-shrink: 0; }
-.gv-bubble.me .gv-res-open { color: #ffe9a8; }
+.gv-bubble.me .gv-res-open { color: var(--c-ffe9a8); }
 
 /* Battle invite card inside a bubble */
 .gv-battle-card {
@@ -2037,7 +2037,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .fd-msg-row.them .fd-bubble-reactions { right: auto; left: 8px; }
 .fd-bubble-reactions i {
   font-style: normal; font-size: 11px; padding: 1px 6px;
-  background: #1b1b20; border: 1px solid var(--fd-card-border); border-radius: 999px;
+  background: var(--c-1b1b20); border: 1px solid var(--fd-card-border); border-radius: 999px;
 }
 .fd-msg-row { position: relative; }
 .fd-msg-row { padding-bottom: 2px; }

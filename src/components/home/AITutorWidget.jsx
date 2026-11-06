@@ -10,10 +10,10 @@ const MESSAGES = [
 ];
 
 const SUBJECTS = [
-  { label: "Biology",   Icon: Microscope,    color: "#4caf50", bg: "#0a1f10", border: "#1a4a25" },
-  { label: "Physics",   Icon: Zap,           color: "#ffb74d", bg: "#1f1000", border: "#4a2a00" },
-  { label: "Chemistry", Icon: FlaskConical,  color: "#81d4fa", bg: "#031623", border: "#0a3a55" },
-  { label: "Maths",     Icon: Calculator,    color: "#b39ddb", bg: "#120d2a", border: "#2d1f5e" },
+  { label: "Biology",   Icon: Microscope,    color: "#4caf50", bg: "var(--c-0a1f10)", border: "var(--c-1a4a25)" },
+  { label: "Physics",   Icon: Zap,           color: "#ffb74d", bg: "var(--c-1f1000)", border: "var(--c-4a2a00)" },
+  { label: "Chemistry", Icon: FlaskConical,  color: "var(--c-81d4fa)", bg: "var(--c-031623)", border: "var(--c-0a3a55)" },
+  { label: "Maths",     Icon: Calculator,    color: "var(--c-b39ddb)", bg: "var(--c-120d2a)", border: "var(--c-2d1f5e)" },
 ];
 
 // ─── Styles ────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function AIAvatar() {
       {/* Circle */}
       <div style={{
         width: 58, height: 58, borderRadius: "50%",
-        background: "#0f1240",
+        background: "var(--c-0f1240)",
         border: "1.5px solid #B8860B",
         display: "flex", alignItems: "center", justifyContent: "center",
         overflow: "hidden",
@@ -86,7 +86,7 @@ function AIAvatar() {
         position: "absolute", bottom: 2, right: 2,
         width: 10, height: 10, borderRadius: "50%",
         background: "#22c55e",
-        border: "1.5px solid #0d0f22",
+        border: "1.5px solid var(--c-0d0f22)",
         animation: "aitPulse 2s ease-in-out infinite",
       }} />
     </div>
@@ -136,8 +136,8 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
       {/* ── Main card ── */}
       <div style={{
         position: "relative",
-        background: "#0d0f22",
-        border: "0.5px solid #1e2140",
+        background: "var(--c-0d0f22)",
+        border: "0.5px solid var(--c-1e2140)",
         borderRadius: 18,
         padding: 14,
         overflow: "hidden",
@@ -180,7 +180,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
                 style={{
                   margin: 0,
                   fontSize: 13, fontWeight: 600,
-                  color: "#c5c9e8",
+                  color: "var(--c-c5c9e8)",
                   lineHeight: 1.5,
                   fontFamily: "Manrope, sans-serif",
                 }}
@@ -200,7 +200,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
                   background: "linear-gradient(135deg, #B8860B, #5c6bc0)",
                   border: "0.5px solid #5c6bc0",
                   fontSize: 12, fontWeight: 600,
-                  color: "#e8eaf6", cursor: "pointer",
+                  color: "var(--c-e8eaf6)", cursor: "pointer",
                   fontFamily: "Manrope, sans-serif",
                   transition: "filter 0.15s, transform 0.15s",
                 }}
@@ -214,10 +214,10 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "6px 14px", borderRadius: 20,
-                  background: "#0a1020",
+                  background: "var(--c-0a1020)",
                   border: "0.5px solid #ef5350",
                   fontSize: 12, fontWeight: 600,
-                  color: "#ef9a9a", cursor: "pointer",
+                  color: "var(--c-ef9a9a)", cursor: "pointer",
                   fontFamily: "Manrope, sans-serif",
                   transition: "filter 0.15s, transform 0.15s",
                 }}

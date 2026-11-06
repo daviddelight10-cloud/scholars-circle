@@ -2585,7 +2585,7 @@ function DueItemsSession({ subject, resourceIds, weakFirst, onBack, onStreakUpda
 
   if (failed || (items && items.length === 0)) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#060818', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: '#8b8fc0' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--c-060818)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: 'var(--c-8b8fc0)' }}>
         <div style={{ fontSize: 40 }}>✅</div>
         <div style={{ fontSize: 15, fontWeight: 600 }}>{failed ? 'Could not load review items' : 'Nothing due right now'}</div>
         <button onClick={onBack} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#DAA520', color: '#000', fontWeight: 700, cursor: 'pointer' }}>Back</button>
@@ -2594,7 +2594,7 @@ function DueItemsSession({ subject, resourceIds, weakFirst, onBack, onStreakUpda
   }
   if (!items) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#060818', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b8fc0' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--c-060818)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-8b8fc0)' }}>
         <div style={{ fontSize: 14 }}>Loading questions…</div>
       </div>
     );

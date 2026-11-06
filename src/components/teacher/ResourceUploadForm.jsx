@@ -301,7 +301,7 @@ export default function ResourceUploadForm() {
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
       <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#e8eaf6", marginBottom: "8px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--c-e8eaf6)", marginBottom: "8px" }}>
           Upload Resource
         </h1>
         <p style={{ fontSize: "14px", color: "#7b82b8" }}>Add study materials for students to discover and practice</p>
@@ -321,8 +321,8 @@ export default function ResourceUploadForm() {
             placeholder="e.g. PHY 111 Tutorial Questions Set 1"
             style={{
               width: "100%",
-              background: "#0a0c1e",
-              border: "0.5px solid #1e2245",
+              background: "var(--c-0a0c1e)",
+              border: "0.5px solid var(--c-1e2245)",
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
@@ -343,8 +343,8 @@ export default function ResourceUploadForm() {
             onChange={handleInputChange}
             style={{
               width: "100%",
-              background: "#0a0c1e",
-              border: "0.5px solid #1e2245",
+              background: "var(--c-0a0c1e)",
+              border: "0.5px solid var(--c-1e2245)",
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
@@ -372,8 +372,8 @@ export default function ResourceUploadForm() {
             onChange={handleInputChange}
             style={{
               width: "100%",
-              background: "#0a0c1e",
-              border: "0.5px solid #1e2245",
+              background: "var(--c-0a0c1e)",
+              border: "0.5px solid var(--c-1e2245)",
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
@@ -402,7 +402,7 @@ export default function ResourceUploadForm() {
               value={formData.courseCode}
               onChange={handleInputChange}
               placeholder="e.g. PHY 111"
-              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
+              style={{ width: "100%", background: "var(--c-0a0c1e)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
             />
           </div>
           <div style={{ flex: "1 1 300px" }}>
@@ -415,14 +415,14 @@ export default function ResourceUploadForm() {
               value={formData.tags}
               onChange={handleInputChange}
               placeholder="e.g. midterm, past-questions, cardiology"
-              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
+              style={{ width: "100%", background: "var(--c-0a0c1e)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
             />
           </div>
         </div>
 
         {/* University badge */}
         {userProfile?.universityId && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "var(--c-0a0c1e)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px" }}>
             <span style={{ fontSize: "11px", color: "#4a5080" }}>University:</span>
             <span style={{ fontSize: "12px", color: "#DAA520", fontWeight: 600 }}>
               {userProfile?.institution || "Your University"}
@@ -465,7 +465,7 @@ export default function ResourceUploadForm() {
               name="level"
               value={formData.level}
               onChange={handleInputChange}
-              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
+              style={{ width: "100%", background: "var(--c-0a0c1e)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
             >
               <option value="">Select level…</option>
               {levels.map((l) => <option key={l} value={l}>{l}</option>)}
@@ -479,7 +479,7 @@ export default function ResourceUploadForm() {
               name="semester"
               value={formData.semester}
               onChange={handleInputChange}
-              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
+              style={{ width: "100%", background: "var(--c-0a0c1e)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
             >
               <option value="">Select semester…</option>
               {semesters.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -498,8 +498,8 @@ export default function ResourceUploadForm() {
               onChange={(e) => setSelectedFolderId(e.target.value)}
               style={{
                 width: "100%",
-                background: "#0a0c1e",
-                border: "0.5px solid #1e2245",
+                background: "var(--c-0a0c1e)",
+                border: "0.5px solid var(--c-1e2245)",
                 borderRadius: "8px",
                 padding: "10px 14px",
                 fontSize: "14px",
@@ -524,7 +524,7 @@ export default function ResourceUploadForm() {
             <div
               onClick={() => document.getElementById("fileInput").click()}
               style={{
-                border: "1px dashed #2a2d4a",
+                border: "1px dashed var(--c-2a2d4a)",
                 borderRadius: "10px",
                 padding: files.length ? "16px" : "30px",
                 textAlign: "center",
@@ -551,7 +551,7 @@ export default function ResourceUploadForm() {
 
             {/* Duplicate warnings */}
             {dupWarnings.length > 0 && (
-              <div style={{ marginTop: 8, padding: "8px 12px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "8px", fontSize: "12px", color: "#ffcc80" }}>
+              <div style={{ marginTop: 8, padding: "8px 12px", background: "var(--c-1a1000)", border: "0.5px solid var(--c-3a2800)", borderRadius: "8px", fontSize: "12px", color: "var(--c-ffcc80)" }}>
                 ⚠️ Possible duplicates — {dupWarnings.map((f) => f.name).join(", ")} already exist in your uploads
               </div>
             )}
@@ -562,12 +562,12 @@ export default function ResourceUploadForm() {
                 {files.map((f, i) => {
                   const st = fileResults[f.name];
                   return (
-                    <div key={`${f.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "8px", fontSize: "12px" }}>
-                      <span style={{ flex: 1, color: "#c5c9e8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                    <div key={`${f.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "var(--c-0d0f20)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px", fontSize: "12px" }}>
+                      <span style={{ flex: 1, color: "var(--c-c5c9e8)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
                       <span style={{ color: "#4a5080", fontSize: "10px", flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)}MB</span>
                       {st === "uploading" && <span style={{ color: "#DAA520", fontSize: "11px" }}>⏳</span>}
-                      {st === "ok" && <span style={{ color: "#66bb6a", fontSize: "11px" }}>✓</span>}
-                      {st?.startsWith("err:") && <span style={{ color: "#ef9a9a", fontSize: "10px" }} title={st.slice(4)}>✗ failed</span>}
+                      {st === "ok" && <span style={{ color: "var(--c-66bb6a)", fontSize: "11px" }}>✓</span>}
+                      {st?.startsWith("err:") && <span style={{ color: "var(--c-ef9a9a)", fontSize: "10px" }} title={st.slice(4)}>✗ failed</span>}
                       {!uploading && (
                         <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#4a5080", cursor: "pointer", fontSize: "13px", padding: 0 }}>✕</button>
                       )}
@@ -581,7 +581,7 @@ export default function ResourceUploadForm() {
 
         {/* MCQ Builder (shown only for MCQ type) */}
         {isMcqType && (
-          <div style={{ background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "16px" }}>
+          <div style={{ background: "var(--c-0d0f20)", border: "0.5px solid var(--c-1e2245)", borderRadius: "12px", padding: "16px" }}>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
               Build MCQ Bank
             </label>
@@ -636,8 +636,8 @@ export default function ResourceUploadForm() {
                     placeholder="Type your question here…"
                     style={{
                       width: "100%",
-                      background: "#0a0c1e",
-                      border: "0.5px solid #1e2245",
+                      background: "var(--c-0a0c1e)",
+                      border: "0.5px solid var(--c-1e2245)",
                       borderRadius: "8px",
                       padding: "8px 12px",
                       fontSize: "12px",
@@ -656,8 +656,8 @@ export default function ResourceUploadForm() {
                           width: "22px",
                           height: "22px",
                           borderRadius: "6px",
-                          background: "#12142a",
-                          border: "0.5px solid #252860",
+                          background: "var(--c-12142a)",
+                          border: "0.5px solid var(--c-252860)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -675,8 +675,8 @@ export default function ResourceUploadForm() {
                         placeholder={`Option ${letter}`}
                         style={{
                           flex: 1,
-                          background: "#0a0c1e",
-                          border: "0.5px solid #1e2245",
+                          background: "var(--c-0a0c1e)",
+                          border: "0.5px solid var(--c-1e2245)",
                           borderRadius: "7px",
                           padding: "6px 10px",
                           fontSize: "11px",
@@ -703,8 +703,8 @@ export default function ResourceUploadForm() {
                     placeholder="Explain why the correct answer is right…"
                     style={{
                       width: "100%",
-                      background: "#0a0c1e",
-                      border: "0.5px solid #1e2245",
+                      background: "var(--c-0a0c1e)",
+                      border: "0.5px solid var(--c-1e2245)",
                       borderRadius: "8px",
                       padding: "8px 12px",
                       fontSize: "12px",
@@ -720,8 +720,8 @@ export default function ResourceUploadForm() {
                   style={{
                     width: "100%",
                     padding: "8px",
-                    background: "#111328",
-                    border: "0.5px solid #2a3080",
+                    background: "var(--c-111328)",
+                    border: "0.5px solid var(--c-2a3080)",
                     borderRadius: "8px",
                     fontSize: "11px",
                     fontWeight: 600,
@@ -746,8 +746,8 @@ export default function ResourceUploadForm() {
                     placeholder="e.g. 'Cardiac cycle and heart sounds' or paste lecture notes directly…"
                     style={{
                       width: "100%",
-                      background: "#0a0c1e",
-                      border: "0.5px solid #1e2245",
+                      background: "var(--c-0a0c1e)",
+                      border: "0.5px solid var(--c-1e2245)",
                       borderRadius: "8px",
                       padding: "8px 12px",
                       fontSize: "12px",
@@ -767,8 +767,8 @@ export default function ResourceUploadForm() {
                         width: "26px",
                         height: "26px",
                         borderRadius: "6px",
-                        background: "#12142a",
-                        border: "0.5px solid #252860",
+                        background: "var(--c-12142a)",
+                        border: "0.5px solid var(--c-252860)",
                         color: "#7b82b8",
                         cursor: "pointer",
                         fontSize: "14px",
@@ -788,9 +788,9 @@ export default function ResourceUploadForm() {
                         textAlign: "center",
                         fontSize: "13px",
                         fontWeight: 700,
-                        color: "#c5c9e8",
-                        background: "#12142a",
-                        border: "0.5px solid #252860",
+                        color: "var(--c-c5c9e8)",
+                        background: "var(--c-12142a)",
+                        border: "0.5px solid var(--c-252860)",
                         borderRadius: "6px",
                         padding: "4px",
                         outline: "none",
@@ -803,8 +803,8 @@ export default function ResourceUploadForm() {
                         width: "26px",
                         height: "26px",
                         borderRadius: "6px",
-                        background: "#12142a",
-                        border: "0.5px solid #252860",
+                        background: "var(--c-12142a)",
+                        border: "0.5px solid var(--c-252860)",
                         color: "#7b82b8",
                         cursor: "pointer",
                         fontSize: "14px",
@@ -841,11 +841,11 @@ export default function ResourceUploadForm() {
             {mcqBank.length > 0 && (
               <div style={{ marginTop: "16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                  <div style={{ flex: 1, height: "0.5px", background: "#1e2245" }} />
+                  <div style={{ flex: 1, height: "0.5px", background: "var(--c-1e2245)" }} />
                   <span style={{ fontSize: "10px", color: "#3a3d60", fontWeight: 600, whiteSpace: "nowrap" }}>
                     MCQ BANK PREVIEW
                   </span>
-                  <div style={{ flex: 1, height: "0.5px", background: "#1e2245" }} />
+                  <div style={{ flex: 1, height: "0.5px", background: "var(--c-1e2245)" }} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
                   <span style={{ fontSize: "10px" }}>📋</span>
@@ -858,8 +858,8 @@ export default function ResourceUploadForm() {
                     <div
                       key={i}
                       style={{
-                        background: "#0d0f20",
-                        border: "0.5px solid #1e2245",
+                        background: "var(--c-0d0f20)",
+                        border: "0.5px solid var(--c-1e2245)",
                         borderRadius: "10px",
                         padding: "10px 12px",
                         position: "relative",
@@ -868,7 +868,7 @@ export default function ResourceUploadForm() {
                       <div style={{ fontSize: "9px", color: "#3a3d60", fontWeight: 700, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                         Question {i + 1}
                       </div>
-                      <div style={{ fontSize: "11px", color: "#c5c9e8", lineHeight: 1.5, marginBottom: "8px" }}>
+                      <div style={{ fontSize: "11px", color: "var(--c-c5c9e8)", lineHeight: 1.5, marginBottom: "8px" }}>
                         {q.question}
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
@@ -903,14 +903,14 @@ export default function ResourceUploadForm() {
                           right: "8px",
                           width: "20px",
                           height: "20px",
-                          background: "#1a0a0a",
-                          border: "0.5px solid #3a1010",
+                          background: "var(--c-1a0a0a)",
+                          border: "0.5px solid var(--c-3a1010)",
                           borderRadius: "5px",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           cursor: "pointer",
-                          color: "#ef9a9a",
+                          color: "var(--c-ef9a9a)",
                           fontSize: "10px",
                         }}
                       >
@@ -937,8 +937,8 @@ export default function ResourceUploadForm() {
             placeholder="Brief description…"
             style={{
               width: "100%",
-              background: "#0a0c1e",
-              border: "0.5px solid #1e2245",
+              background: "var(--c-0a0c1e)",
+              border: "0.5px solid var(--c-1e2245)",
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
@@ -956,8 +956,8 @@ export default function ResourceUploadForm() {
             alignItems: "center",
             justifyContent: "space-between",
             padding: "10px 14px",
-            background: "#0a0c1e",
-            border: "0.5px solid #1e2245",
+            background: "var(--c-0a0c1e)",
+            border: "0.5px solid var(--c-1e2245)",
             borderRadius: "8px",
           }}
         >
@@ -991,7 +991,7 @@ export default function ResourceUploadForm() {
 
         {/* Error */}
         {error && (
-          <div style={{ background: "#1a0808", border: "0.5px solid #4a1010", borderRadius: "8px", padding: "10px 12px", fontSize: "12px", color: "#ef9a9a" }}>
+          <div style={{ background: "var(--c-1a0808)", border: "0.5px solid var(--c-4a1010)", borderRadius: "8px", padding: "10px 12px", fontSize: "12px", color: "var(--c-ef9a9a)" }}>
             {error}
           </div>
         )}
@@ -999,7 +999,7 @@ export default function ResourceUploadForm() {
         {/* Upload Progress */}
         {uploading && (
           <div>
-            <div style={{ height: "4px", background: "#1a1d35", borderRadius: "2px", marginBottom: "8px", overflow: "hidden" }}>
+            <div style={{ height: "4px", background: "var(--c-1a1d35)", borderRadius: "2px", marginBottom: "8px", overflow: "hidden" }}>
               <div style={{ height: "100%", background: "#B8860B", borderRadius: "2px", width: `${uploadProgress}%`, transition: "width 0.3s" }} />
             </div>
             <p style={{ fontSize: "12px", color: "#7b82b8", textAlign: "center" }}>Uploading… {uploadProgress}%</p>

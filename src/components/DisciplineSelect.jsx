@@ -126,7 +126,7 @@ export default function DisciplineSelect({ value, onChange, autoFocus }) {
             outline: "none",
           }}
         />
-        <span style={{ color: "#8B8D97", fontSize: 12, flexShrink: 0 }}>▾</span>
+        <span style={{ color: "var(--c-8b8d97)", fontSize: 12, flexShrink: 0 }}>▾</span>
       </div>
 
       {open && (
@@ -140,7 +140,7 @@ export default function DisciplineSelect({ value, onChange, autoFocus }) {
             marginTop: 6,
             maxHeight: 300,
             overflowY: "auto",
-            background: "#12121f",
+            background: "var(--c-12121f)",
             border: "1px solid rgba(255,215,0,0.25)",
             borderRadius: 12,
             boxShadow: "0 12px 40px rgba(0,0,0,0.6), 0 0 1px rgba(255,215,0,0.1)",
@@ -163,10 +163,10 @@ export default function DisciplineSelect({ value, onChange, autoFocus }) {
                     fontWeight: 700,
                     letterSpacing: 1.5,
                     textTransform: "uppercase",
-                    color: "#8B8D97",
+                    color: "var(--c-8b8d97)",
                     position: "sticky",
                     top: 0,
-                    background: "#12121f",
+                    background: "var(--c-12121f)",
                     zIndex: 1,
                   }}
                 >
@@ -192,7 +192,7 @@ export default function DisciplineSelect({ value, onChange, autoFocus }) {
                         alignItems: "center",
                         gap: 10,
                         fontSize: 14,
-                        color: "#e8eaf6",
+                        color: "var(--c-e8eaf6)",
                         background: idx === highlight ? "rgba(255,215,0,0.08)" : "transparent",
                         transition: "background 0.12s",
                       }}

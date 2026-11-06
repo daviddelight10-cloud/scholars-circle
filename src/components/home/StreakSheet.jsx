@@ -176,7 +176,7 @@ function StreakSheet({ open, onClose, streak, longestStreak, freezes, save, onBu
 
         {/* Freeze shop row */}
         <div className="hm-sh-row" style={{ marginTop: 14 }}>
-          <div className="hm-sh-ic" style={{ background: "rgba(124,199,255,.1)", color: "#7CC7FF" }}>
+          <div className="hm-sh-ic" style={{ background: "rgba(124,199,255,.1)", color: "var(--c-7cc7ff)" }}>
             <HIcon name="freeze" size={18} />
           </div>
           <div className="hm-sh-info">

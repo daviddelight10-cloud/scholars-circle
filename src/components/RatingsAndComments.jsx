@@ -83,8 +83,8 @@ export default function RatingsAndComments({ resourceId }) {
   };
 
   return (
-    <div style={{ background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "18px", marginTop: "16px" }}>
-      <div style={{ fontSize: "14px", fontWeight: 700, color: "#c5c9e8", marginBottom: "14px" }}>Ratings & Comments</div>
+    <div style={{ background: "var(--c-0d0f20)", border: "0.5px solid var(--c-1e2245)", borderRadius: "12px", padding: "18px", marginTop: "16px" }}>
+      <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--c-c5c9e8)", marginBottom: "14px" }}>Ratings & Comments</div>
 
       {/* Star Rating */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
@@ -112,7 +112,7 @@ export default function RatingsAndComments({ resourceId }) {
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
           placeholder="Write a comment..."
-          style={{ flex: 1, background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}
+          style={{ flex: 1, background: "var(--c-0a0c1e)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}
           onKeyDown={(e) => { if (e.key === "Enter" && !submitting) submitComment(); }}
         />
         <button
@@ -131,16 +131,16 @@ export default function RatingsAndComments({ resourceId }) {
           ⚑ Flag as outdated or wrong
         </button>
       ) : (
-        <div style={{ marginBottom: "14px", padding: "12px", background: "#1a0808", border: "0.5px solid #4a1010", borderRadius: "8px" }}>
+        <div style={{ marginBottom: "14px", padding: "12px", background: "var(--c-1a0808)", border: "0.5px solid var(--c-4a1010)", borderRadius: "8px" }}>
           <textarea
             value={flagText}
             onChange={(e) => setFlagText(e.target.value)}
             placeholder="What's wrong with this resource?"
-            style={{ width: "100%", background: "#0d0f20", border: "0.5px solid #2a2d4a", borderRadius: "6px", padding: "8px", fontSize: "12px", color: "#DAA520", outline: "none", resize: "vertical", minHeight: "50px", marginBottom: "8px" }}
+            style={{ width: "100%", background: "var(--c-0d0f20)", border: "0.5px solid var(--c-2a2d4a)", borderRadius: "6px", padding: "8px", fontSize: "12px", color: "#DAA520", outline: "none", resize: "vertical", minHeight: "50px", marginBottom: "8px" }}
           />
           <div style={{ display: "flex", gap: "8px" }}>
-            <button onClick={() => { setShowFlagBox(false); setFlagText(""); }} style={{ flex: 1, padding: "8px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "6px", fontSize: "12px", color: "#7986cb", cursor: "pointer" }}>Cancel</button>
-            <button onClick={submitFlag} disabled={submitting || !flagText.trim()} style={{ flex: 1, padding: "8px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "6px", fontSize: "12px", color: "#ef9a9a", cursor: "pointer", opacity: submitting || !flagText.trim() ? 0.5 : 1 }}>Submit Flag</button>
+            <button onClick={() => { setShowFlagBox(false); setFlagText(""); }} style={{ flex: 1, padding: "8px", background: "var(--c-111328)", border: "0.5px solid var(--c-2a2d4a)", borderRadius: "6px", fontSize: "12px", color: "#7986cb", cursor: "pointer" }}>Cancel</button>
+            <button onClick={submitFlag} disabled={submitting || !flagText.trim()} style={{ flex: 1, padding: "8px", background: "var(--c-2a0a0a)", border: "0.5px solid var(--c-4a1010)", borderRadius: "6px", fontSize: "12px", color: "var(--c-ef9a9a)", cursor: "pointer", opacity: submitting || !flagText.trim() ? 0.5 : 1 }}>Submit Flag</button>
           </div>
         </div>
       )}
@@ -153,12 +153,12 @@ export default function RatingsAndComments({ resourceId }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {comments.map((c) => (
-            <div key={c.id} style={{ padding: "10px 12px", background: "#0a0c1e", border: c.flagged ? "0.5px solid #4a1010" : "0.5px solid #1e2245", borderRadius: "8px" }}>
+            <div key={c.id} style={{ padding: "10px 12px", background: "var(--c-0a0c1e)", border: c.flagged ? "0.5px solid #4a1010" : "0.5px solid #1e2245", borderRadius: "8px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
                 <span style={{ fontSize: "12px", fontWeight: 600, color: "#7986cb" }}>{c.user?.fullName || c.user?.username || "Anonymous"}</span>
                 {c.flagged && <span style={{ fontSize: "10px", color: "#ff5470" }}>⚑ Flagged</span>}
               </div>
-              <div style={{ fontSize: "13px", color: "#c5c9e8", lineHeight: 1.4 }}>{c.text}</div>
+              <div style={{ fontSize: "13px", color: "var(--c-c5c9e8)", lineHeight: 1.4 }}>{c.text}</div>
             </div>
           ))}
         </div>

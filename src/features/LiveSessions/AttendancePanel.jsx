@@ -39,9 +39,9 @@ export function AttendancePanel({ classroomId, isHost, token }) {
       )}
       {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>Loading attendance…</div>}
       {error && (
-        <div className="cr-glass" style={{ padding: 12, color: "#f87171", marginBottom: 8 }}>
+        <div className="cr-glass" style={{ padding: 12, color: "var(--c-f87171)", marginBottom: 8 }}>
           Failed: {error}
-          <button className="cr-btn-outline" onClick={fetchData} style={{ marginLeft: 8, padding: "2px 8px", fontSize: 11, borderColor: "rgba(239,68,68,0.4)", color: "#f87171" }}>Retry</button>
+          <button className="cr-btn-outline" onClick={fetchData} style={{ marginLeft: 8, padding: "2px 8px", fontSize: 11, borderColor: "rgba(239,68,68,0.4)", color: "var(--c-f87171)" }}>Retry</button>
         </div>
       )}
       {!loading && !error && data && (isHost ? <FacultyView data={data} /> : <StudentView data={data} />)}
@@ -101,7 +101,7 @@ function FacultyView({ data }) {
           <tbody>
             {data.rows.map((r) => (
               <tr key={r.student.id} className="cr-tr">
-                <td className="cr-td"><b style={{ color: "#f1f5f9" }}>{r.student.username}</b></td>
+                <td className="cr-td"><b style={{ color: "var(--c-f1f5f9)" }}>{r.student.username}</b></td>
                 {r.cells.map((c, i) => (
                   <td key={i} className="cr-td">
                     {c.attended ? (
@@ -140,7 +140,7 @@ function StudentView({ data }) {
         <div key={r.id} className="cr-glass-flat" style={{ marginBottom: 6, borderLeft: `3px solid ${r.attended ? "#10b981" : "#64748b"}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
             <div>
-              <b style={{ color: "#f1f5f9", fontSize: 13, fontFamily: "Syne, sans-serif" }}>{r.title}</b>
+              <b style={{ color: "var(--c-f1f5f9)", fontSize: 13, fontFamily: "Syne, sans-serif" }}>{r.title}</b>
               <div style={{ fontSize: 11, color: "var(--app-dim)" }}>{new Date(r.scheduledFor).toLocaleString()}</div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -150,7 +150,7 @@ function StudentView({ data }) {
                   <div style={{ fontSize: 11, color: "var(--app-dim)" }}>{Math.round((r.durationS || 0) / 60)} min</div>
                 </>
               ) : (
-                <span style={{ color: "#f87171" }}>✗ Absent</span>
+                <span style={{ color: "var(--c-f87171)" }}>✗ Absent</span>
               )}
             </div>
           </div>

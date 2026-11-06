@@ -106,7 +106,7 @@ const CORE_DISCIPLINES = [
     id: "general",
     label: "General Medical",
     icon: "🎓",
-    color: "#a78bfa",
+    color: "var(--c-a78bfa)",
     examples: ["Study skills", "Exam preparation", "Cross-disciplinary medical topics"],
     style: "Use clear plain language. Adapt examples to medical context. Provide structured explanations with headings. Emphasize clinical relevance."
   }

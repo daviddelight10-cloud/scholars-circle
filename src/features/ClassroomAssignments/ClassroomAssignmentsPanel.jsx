@@ -42,7 +42,7 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9" }}>📝 Assignments</h3>
+        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "var(--c-f1f5f9)" }}>📝 Assignments</h3>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {isHost && (
             <>
@@ -86,7 +86,7 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
           >
             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", fontFamily: "Syne, sans-serif" }}>{a.title}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--c-f1f5f9)", fontFamily: "Syne, sans-serif" }}>{a.title}</div>
                 {a.description && <div style={{ fontSize: 12, color: "var(--app-dim)", marginTop: 2, maxHeight: 36, overflow: "hidden" }}>{a.description}</div>}
                 <div style={{ fontSize: 11, color: "#FFD700", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
                   {due && <span style={{ color: isOverdue ? "#f87171" : "#FFD700" }}>📅 Due {due.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>}
@@ -198,8 +198,8 @@ function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
     <div>
       <button className="cr-btn-outline" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
       <div className="cr-glass">
-        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9" }}>{data.title}</h3>
-        {data.description && <p style={{ color: "#cbd5e1", whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>{data.description}</p>}
+        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "var(--c-f1f5f9)" }}>{data.title}</h3>
+        {data.description && <p style={{ color: "var(--c-cbd5e1)", whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>{data.description}</p>}
         <div style={{ display: "flex", gap: 16, fontSize: 11, color: "#FFD700", flexWrap: "wrap" }}>
           {data.dueAt && <span>📅 Due {new Date(data.dueAt).toLocaleString()}</span>}
           <span>🎯 {data.points} pts</span>
@@ -212,7 +212,7 @@ function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
 
       {data.isHost && (
         <div style={{ marginTop: 12 }}>
-          <h4 style={{ fontFamily: "Syne, sans-serif", fontSize: 14, color: "#f1f5f9" }}>Submissions ({data.submissions.length})</h4>
+          <h4 style={{ fontFamily: "Syne, sans-serif", fontSize: 14, color: "var(--c-f1f5f9)" }}>Submissions ({data.submissions.length})</h4>
           {data.submissions.length === 0 && <p style={{ color: "var(--app-dim)", fontSize: 12 }}>No submissions yet.</p>}
           {data.submissions.map((s) => (
             <SubmissionRow key={s.id} submission={s} maxPoints={data.points} token={token} onGraded={load} />
@@ -248,13 +248,13 @@ function SubmissionForm({ assignment, mySubmission, token, onSubmitted }) {
 
   return (
     <form onSubmit={submit} className="cr-glass" style={{ marginTop: 12 }}>
-      <h4 style={{ marginTop: 0, fontFamily: "Syne, sans-serif", fontSize: 14, color: "#f1f5f9" }}>{mySubmission ? "📤 Update Submission" : "📤 Submit Your Work"}</h4>
+      <h4 style={{ marginTop: 0, fontFamily: "Syne, sans-serif", fontSize: 14, color: "var(--c-f1f5f9)" }}>{mySubmission ? "📤 Update Submission" : "📤 Submit Your Work"}</h4>
       {mySubmission?.grade !== null && mySubmission?.grade !== undefined && (
         <div style={{ padding: 12, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 8, marginBottom: 12 }}>
           <div style={{ fontWeight: 700, color: "#10b981" }}>
             Graded: {mySubmission.grade} / {assignment.points} ({Math.round(mySubmission.grade / assignment.points * 100)}%)
           </div>
-          {mySubmission.feedback && <div style={{ color: "#cbd5e1", marginTop: 6, whiteSpace: "pre-wrap" }}>💬 {mySubmission.feedback}</div>}
+          {mySubmission.feedback && <div style={{ color: "var(--c-cbd5e1)", marginTop: 6, whiteSpace: "pre-wrap" }}>💬 {mySubmission.feedback}</div>}
         </div>
       )}
       {showText && (
@@ -269,7 +269,7 @@ function SubmissionForm({ assignment, mySubmission, token, onSubmitted }) {
       )}
       {showFile && (
         <div style={{ marginBottom: 8 }}>
-          <input type="file" onChange={(e) => setFile(e.target.files[0])} style={{ color: "#cbd5e1" }} />
+          <input type="file" onChange={(e) => setFile(e.target.files[0])} style={{ color: "var(--c-cbd5e1)" }} />
           {mySubmission?.fileName && <div style={{ fontSize: 12, color: "#FFD700", marginTop: 4 }}>Current: {mySubmission.fileName}</div>}
         </div>
       )}
@@ -307,7 +307,7 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
     <div className="cr-glass-flat" style={{ marginBottom: 6, padding: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <div>
-          <b style={{ color: "#f1f5f9", fontSize: 13 }}>{submission.student?.username || "Unknown"}</b>
+          <b style={{ color: "var(--c-f1f5f9)", fontSize: 13 }}>{submission.student?.username || "Unknown"}</b>
           <span style={{ color: "var(--app-dim)", fontSize: 11, marginLeft: 8 }}>
             Submitted {new Date(submission.submittedAt).toLocaleString()}
           </span>
@@ -420,7 +420,7 @@ function Gradebook({ classroomId, token, onBack }) {
         <button className="cr-btn-outline" onClick={onBack}>← Back</button>
         <button className="cr-btn" onClick={exportCSV}>📥 Export CSV</button>
       </div>
-      <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9", marginBottom: 12 }}>📊 Gradebook</h3>
+      <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: 16, color: "var(--c-f1f5f9)", marginBottom: 12 }}>📊 Gradebook</h3>
       {data.assignments.length === 0 ? (
         <p style={{ color: "var(--app-dim)", fontSize: 12 }}>No assignments yet.</p>
       ) : (
@@ -438,7 +438,7 @@ function Gradebook({ classroomId, token, onBack }) {
             <tbody>
               {data.rows.map((r) => (
                 <tr key={r.student.id} className="cr-tr">
-                  <td className="cr-td"><b style={{ color: "#f1f5f9" }}>{r.student.username}</b></td>
+                  <td className="cr-td"><b style={{ color: "var(--c-f1f5f9)" }}>{r.student.username}</b></td>
                   {r.cells.map((c, i) => (
                     <td key={i} className="cr-td">
                       {c.grade !== null && c.grade !== undefined ? (

@@ -71,7 +71,7 @@ export default function UniversityManager() {
   };
 
   const inputStyle = {
-    width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
+    width: "100%", background: "var(--c-0a0c1e)", border: "0.5px solid var(--c-1e2245)", borderRadius: "8px",
     padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none",
   };
   const labelStyle = {
@@ -83,7 +83,7 @@ export default function UniversityManager() {
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#e8eaf6", marginBottom: "4px" }}>
+          <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--c-e8eaf6)", marginBottom: "4px" }}>
             Universities
           </h1>
           <p style={{ fontSize: "14px", color: "#7b82b8" }}>Manage available universities and schools</p>
@@ -112,7 +112,7 @@ export default function UniversityManager() {
       {/* Add/Edit Form */}
       {(showAddForm || editingId) && (
         <form onSubmit={editingId ? handleEdit : handleAdd} style={{
-          background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px",
+          background: "var(--c-0d0f20)", border: "0.5px solid var(--c-1e2245)", borderRadius: "12px",
           padding: "20px", marginBottom: "20px", display: "flex", flexDirection: "column", gap: "16px",
         }}>
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
@@ -142,7 +142,7 @@ export default function UniversityManager() {
                 placeholder="e.g. Lagos" style={inputStyle} />
             </div>
           </div>
-          {saveError && <div style={{ fontSize: "12px", color: "#ef9a9a" }}>{saveError}</div>}
+          {saveError && <div style={{ fontSize: "12px", color: "var(--c-ef9a9a)" }}>{saveError}</div>}
           <button type="submit" style={{
             padding: "10px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
             background: "linear-gradient(135deg, #B8860B, #DAA520)", color: "var(--app-ink)",
@@ -157,7 +157,7 @@ export default function UniversityManager() {
       {loading ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#4a5080" }}>Loading…</div>
       ) : error ? (
-        <div style={{ textAlign: "center", padding: "40px", color: "#ef9a9a" }}>{error}</div>
+        <div style={{ textAlign: "center", padding: "40px", color: "var(--c-ef9a9a)" }}>{error}</div>
       ) : universities.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#4a5080" }}>No universities found</div>
       ) : (
@@ -165,7 +165,7 @@ export default function UniversityManager() {
           {universities.map((uni) => (
             <div key={uni.id} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "14px 18px",
+              background: "var(--c-0d0f20)", border: "0.5px solid var(--c-1e2245)", borderRadius: "10px", padding: "14px 18px",
             }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "14px", fontWeight: 600, color: "#DAA520", marginBottom: "2px" }}>
@@ -184,7 +184,7 @@ export default function UniversityManager() {
                   padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600,
                   background: editingId === uni.id ? "var(--app-card)" : "#111328",
                   color: editingId === uni.id ? "#7b82b8" : "#7986cb",
-                  border: "0.5px solid #252860", cursor: "pointer", flexShrink: 0,
+                  border: "0.5px solid var(--c-252860)", cursor: "pointer", flexShrink: 0,
                 }}
               >
                 {editingId === uni.id ? "Cancel" : "Edit"}

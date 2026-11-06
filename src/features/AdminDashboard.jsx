@@ -9,8 +9,8 @@ const D = {
   line: "var(--app-border)",
   gold: "#DAA520",
   goldBright: "#FFD700",
-  text: "#F2F0EA",
-  muted: "#8A8F9C",
+  text: "var(--c-f2f0ea)",
+  muted: "var(--c-8a8f9c)",
   hint: "#5B606C",
   green: "#34d399",
   red: "#f87171",
@@ -39,7 +39,7 @@ const CSS = `
   .ad-card { background:${D.card}; border:0.5px solid ${D.line}; border-radius:16px; padding:16px; margin-bottom:14px; }
   .ad-title { font-size:11px; font-weight:700; color:${D.gold}; letter-spacing:0.08em; text-transform:uppercase; font-family:'Syne',sans-serif; margin-bottom:12px; }
   .ad-row { animation:ad-in 0.25s ease forwards; transition:background 0.15s; }
-  .ad-row:hover { background:#1B1B20 !important; }
+  .ad-row:hover { background:var(--c-1b1b20) !important; }
   .ad-row.clickable { cursor:pointer; }
   .ad-pill { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; border-radius:6px; padding:2.5px 8px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Manrope',sans-serif; }
   .ad-btn { border:none; border-radius:9px; padding:8px 16px; font-size:11.5px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.04em; cursor:pointer; transition:all 0.15s; }
@@ -117,7 +117,7 @@ function DualChart({ days, a, b, labelA, labelB }) {
     <div>
       <div style={{ display: "flex", gap: 14, marginBottom: 12, fontSize: 10, color: D.muted }}>
         <span><span style={{ color: D.goldBright }}>■</span> {labelA}</span>
-        <span><span style={{ color: "#8A8F9C" }}>■</span> {labelB}</span>
+        <span><span style={{ color: "var(--c-8a8f9c)" }}>■</span> {labelB}</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 90 }}>
         {days.map((day, i) => {
@@ -640,7 +640,7 @@ export default function AdminDashboard({ token }) {
       </div>
 
       {!token && (
-        <div style={{ background: "#1a1000", border: "0.5px solid #4a3a00", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#ffb74d" }}>
+        <div style={{ background: "var(--c-1a1000)", border: "0.5px solid var(--c-4a3a00)", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#ffb74d" }}>
           ⚠️ Backend token missing — log in via backend to see live data.
         </div>
       )}

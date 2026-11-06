@@ -17,12 +17,12 @@ export async function copyShareToken(token) {
 export function getSubjectBadgeColor(subject) {
   const colors = {
     PHY: { bg: "var(--app-card)", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
-    BIO: { bg: "#0f2a1a", text: "#66bb6a", border: "#2a6a3a" },
-    ANA: { bg: "#2a0a0a", text: "#ef9a9a", border: "#4a1010" },
-    CHM: { bg: "#1a1000", text: "#ffb74d", border: "#3a2800" },
-    Cardiology: { bg: "#2a0a0a", text: "#ef9a9a", border: "#4a1010" },
+    BIO: { bg: "var(--c-0f2a1a)", text: "var(--c-66bb6a)", border: "#2a6a3a" },
+    ANA: { bg: "var(--c-2a0a0a)", text: "var(--c-ef9a9a)", border: "var(--c-4a1010)" },
+    CHM: { bg: "var(--c-1a1000)", text: "#ffb74d", border: "var(--c-3a2800)" },
+    Cardiology: { bg: "var(--c-2a0a0a)", text: "var(--c-ef9a9a)", border: "var(--c-4a1010)" },
     GST: { bg: "var(--app-card)", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
-    HEE: { bg: "#0f2a1a", text: "#66bb6a", border: "#2a6a3a" },
+    HEE: { bg: "var(--c-0f2a1a)", text: "var(--c-66bb6a)", border: "#2a6a3a" },
   };
   return colors[subject] || { bg: "var(--app-card)", text: "var(--app-dim)", border: "var(--app-border)" };
 }

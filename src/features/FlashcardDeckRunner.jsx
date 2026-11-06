@@ -26,7 +26,7 @@ function getAuthHeaders() {
 const GRADE_CONFIG = [
   { grade: 1, label: "Again", icon: "😵", color: "#ef5350", bg: "rgba(239,83,80,0.12)", border: "rgba(239,83,80,0.4)", interval: "<1m" },
   { grade: 2, label: "Hard", icon: "😬", color: "#ffb74d", bg: "rgba(255,183,77,0.12)", border: "rgba(255,183,77,0.4)", interval: "~6m" },
-  { grade: 3, label: "Good", icon: "😊", color: "#66bb6a", bg: "rgba(102,187,106,0.12)", border: "rgba(102,187,106,0.4)", interval: "~1d" },
+  { grade: 3, label: "Good", icon: "😊", color: "var(--c-66bb6a)", bg: "rgba(102,187,106,0.12)", border: "rgba(102,187,106,0.4)", interval: "~1d" },
   { grade: 4, label: "Easy", icon: "🎉", color: "#FFD700", bg: "rgba(255,215,0,0.12)", border: "rgba(255,215,0,0.4)", interval: "~3d" },
 ];
 
@@ -650,7 +650,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Loading ──
   if (loading) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#060818", display: "flex", alignItems: "center", justifyContent: "center", color: "#7b82b8", fontFamily: "Manrope, sans-serif" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--c-060818)", display: "flex", alignItems: "center", justifyContent: "center", color: "#7b82b8", fontFamily: "Manrope, sans-serif" }}>
         Loading…
       </div>
     );
@@ -659,10 +659,10 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Empty state ──
   if (totalCards === 0) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#060818", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, fontFamily: "Manrope, sans-serif" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--c-060818)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, fontFamily: "Manrope, sans-serif" }}>
         <div style={{ fontSize: 40 }}>📭</div>
         <div style={{ color: "#7b82b8", fontSize: 15 }}>No flashcards available</div>
-        <button onClick={onBack} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid var(--app-tint-med)", background: "transparent", color: "#9aa2d8", cursor: "pointer", fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>← Back</button>
+        <button onClick={onBack} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid var(--app-tint-med)", background: "transparent", color: "var(--c-9aa2d8)", cursor: "pointer", fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>← Back</button>
       </div>
     );
   }
@@ -935,7 +935,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                     }}>
                       Front
                     </div>
-                    <div style={{ fontSize: 22, fontWeight: 600, color: "#eef0fb", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
+                    <div style={{ fontSize: 22, fontWeight: 600, color: "var(--c-eef0fb)", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
                       {card.front}
                     </div>
                     <div className="fc-bounce-hint" style={{ fontSize: 13, color: "#565c8f", marginTop: 28, fontWeight: 500 }}>
@@ -963,14 +963,14 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                     boxShadow: "inset 0 1px 0 var(--app-tint-soft), 0 0 30px rgba(102,187,106,0.12)",
                   }}>
                     <div style={{
-                      fontSize: 11, color: "#66bb6a", marginBottom: 20,
+                      fontSize: 11, color: "var(--c-66bb6a)", marginBottom: 20,
                       textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700,
                       padding: "5px 14px", borderRadius: "999px",
                       background: "rgba(102,187,106,0.12)", border: "0.5px solid rgba(102,187,106,0.35)",
                     }}>
                       Back
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 500, color: "#b9e8bb", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
+                    <div style={{ fontSize: 18, fontWeight: 500, color: "var(--c-b9e8bb)", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
                       {card.back}
                     </div>
                     {rating == null && (
@@ -990,7 +990,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                 background: "rgba(var(--app-glass-rgb),0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
                 border: "0.5px solid var(--app-tint-soft)",
               }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#9aa2d8", textAlign: "center", marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-9aa2d8)", textAlign: "center", marginBottom: 14 }}>
                   How well did you know this?
                 </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
@@ -1073,12 +1073,12 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                   <div style={{ position: "relative", width: "100%", minHeight: "320px", transformStyle: "preserve-3d", transition: "transform 0.5s cubic-bezier(0.4,0.0,0.2,1)", transform: reviewingFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
                     <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", background: "rgba(15,17,36,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: `0.5px solid ${sc.border}`, borderLeft: `4px solid ${sc.accent}`, borderRadius: "24px", padding: "48px 36px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
                       <div style={{ fontSize: 11, color: sc.text, marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, padding: "5px 14px", borderRadius: "999px", background: sc.bg, border: `0.5px solid ${sc.border}` }}>Front</div>
-                      <div style={{ fontSize: 22, fontWeight: 600, color: "#eef0fb", lineHeight: 1.65 }}>{reviewingCard.card.front}</div>
+                      <div style={{ fontSize: 22, fontWeight: 600, color: "var(--c-eef0fb)", lineHeight: 1.65 }}>{reviewingCard.card.front}</div>
                       <div style={{ fontSize: 13, color: "#565c8f", marginTop: 28 }}>👆 Tap to flip</div>
                     </div>
                     <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "rgba(var(--app-glass-rgb),0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: `0.5px solid ${sc.border}`, borderLeft: `4px solid ${sc.accent}`, borderRadius: "24px", padding: "48px 36px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-                      <div style={{ fontSize: 11, color: "#66bb6a", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, padding: "5px 14px", borderRadius: "999px", background: "rgba(102,187,106,0.12)", border: "0.5px solid rgba(102,187,106,0.35)" }}>Back</div>
-                      <div style={{ fontSize: 18, fontWeight: 500, color: "#b9e8bb", lineHeight: 1.65 }}>{reviewingCard.card.back}</div>
+                      <div style={{ fontSize: 11, color: "var(--c-66bb6a)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, padding: "5px 14px", borderRadius: "999px", background: "rgba(102,187,106,0.12)", border: "0.5px solid rgba(102,187,106,0.35)" }}>Back</div>
+                      <div style={{ fontSize: 18, fontWeight: 500, color: "var(--c-b9e8bb)", lineHeight: 1.65 }}>{reviewingCard.card.back}</div>
                       {reviewingCard.rating != null && (
                         <div style={{ marginTop: 20, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.color || textDim, padding: "4px 12px", borderRadius: 8, background: (GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.bg || "var(--app-tint-soft)"), border: `1px solid ${GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.border || cardBorder}` }}>
                           {GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.icon} {GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.label}

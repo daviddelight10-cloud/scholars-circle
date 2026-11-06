@@ -129,7 +129,7 @@ export default function DepartmentManager() {
   }
 
   const baseCard = {
-    background: "#0a0b18", border: "0.5px solid #1e2245", borderRadius: "12px",
+    background: "var(--c-0a0b18)", border: "0.5px solid var(--c-1e2245)", borderRadius: "12px",
     padding: "12px 14px", marginBottom: "7px", display: "flex", alignItems: "center", gap: "12px",
   };
 
@@ -144,17 +144,17 @@ export default function DepartmentManager() {
           padding: "12px 20px", borderRadius: "10px", fontWeight: 600, fontSize: "14px",
           background: toast.type === "error" ? "#2a0a0a" : "#0f2a1a",
           color: toast.type === "error" ? "#ef9a9a" : "#a5d6a7",
-          border: `0.5px solid ${toast.type === "error" ? "#4a1010" : "#1a5a2a"}`,
+          border: `0.5px solid ${toast.type === "error" ? "var(--c-4a1010)" : "#1a5a2a"}`,
           boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
         }}>{toast.msg}</div>
       )}
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-        <h2 style={{ color: "#e8eaf6", fontSize: "18px", fontWeight: 700, margin: 0 }}>Departments & Courses</h2>
+        <h2 style={{ color: "var(--c-e8eaf6)", fontSize: "18px", fontWeight: 700, margin: 0 }}>Departments & Courses</h2>
         <button onClick={() => setShowAddDept(true)} style={{
           padding: "9px 16px", background: "var(--app-card)", border: "none", borderRadius: "10px",
-          color: "#e8eaf6", fontWeight: 600, fontSize: "13px", cursor: "pointer",
+          color: "var(--c-e8eaf6)", fontWeight: 600, fontSize: "13px", cursor: "pointer",
         }}>+ Add Department</button>
       </div>
 
@@ -179,7 +179,7 @@ export default function DepartmentManager() {
             >
               <span style={{ fontSize: "22px" }}>{d.icon || "🏛️"}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ color: "#e8eaf6", fontWeight: 600, fontSize: "14px" }}>{d.name}</div>
+                <div style={{ color: "var(--c-e8eaf6)", fontWeight: 600, fontSize: "14px" }}>{d.name}</div>
                 <div style={{ color: "#4a5080", fontSize: "12px" }}>{deptCount(d.id)} courses</div>
               </div>
               <button onClick={e => { e.stopPropagation(); setShowEditDept(d); }}
@@ -207,10 +207,10 @@ export default function DepartmentManager() {
               )}
 
               {deptCourses.map(s => (
-                <div key={s.id} style={{ ...baseCard, background: "#0a1a10", border: "0.5px solid #1a4a2a" }}>
+                <div key={s.id} style={{ ...baseCard, background: "var(--c-0a1a10)", border: "0.5px solid var(--c-1a4a2a)" }}>
                   <span style={{ fontSize: "18px" }}>{s.icon || "📚"}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: "#a5d6a7", fontWeight: 600, fontSize: "14px" }}>{s.label}</div>
+                    <div style={{ color: "var(--c-a5d6a7)", fontWeight: 600, fontSize: "14px" }}>{s.label}</div>
                     <div style={{ color: "#4a5080", fontSize: "12px" }}>
                       Year {s.yearLevel || "?"} · {s.questions?.length || 0}Q
                       {getSubjectDeptIds(s).length > 1 && (
@@ -228,8 +228,8 @@ export default function DepartmentManager() {
                     disabled={saving === s.id}
                     onClick={() => quickToggleDept(s, activeDeptId)}
                     style={{
-                      padding: "5px 10px", borderRadius: "7px", border: "0.5px solid #4a1010",
-                      background: "#1a0808", color: "#ef9a9a", fontSize: "12px", fontWeight: 600,
+                      padding: "5px 10px", borderRadius: "7px", border: "0.5px solid var(--c-4a1010)",
+                      background: "var(--c-1a0808)", color: "var(--c-ef9a9a)", fontSize: "12px", fontWeight: 600,
                       cursor: "pointer", whiteSpace: "nowrap",
                     }}
                   >{saving === s.id ? "…" : "✕ Remove"}</button>
@@ -237,7 +237,7 @@ export default function DepartmentManager() {
               ))}
 
               {/* Divider */}
-              <div style={{ borderTop: "0.5px solid #1e2245", margin: "16px 0 12px" }} />
+              <div style={{ borderTop: "0.5px solid var(--c-1e2245)", margin: "16px 0 12px" }} />
 
               {/* Available courses to add */}
               <div style={{ color: "#7b82b8", fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "10px" }}>
@@ -251,7 +251,7 @@ export default function DepartmentManager() {
                   placeholder="Search courses…"
                   style={{
                     width: "100%", padding: "8px 12px", borderRadius: "8px", marginBottom: "10px",
-                    background: "#0a0b18", border: "0.5px solid #1e2245", color: "#e8eaf6",
+                    background: "var(--c-0a0b18)", border: "0.5px solid var(--c-1e2245)", color: "var(--c-e8eaf6)",
                     fontSize: "13px", outline: "none", boxSizing: "border-box",
                   }}
                 />
@@ -265,7 +265,7 @@ export default function DepartmentManager() {
                 <div key={s.id} style={{ ...baseCard }}>
                   <span style={{ fontSize: "18px" }}>{s.icon || "📚"}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: "#c5c9e8", fontSize: "14px" }}>{s.label}</div>
+                    <div style={{ color: "var(--c-c5c9e8)", fontSize: "14px" }}>{s.label}</div>
                     <div style={{ color: "#4a5080", fontSize: "12px" }}>
                       Year {s.yearLevel || "?"}
                       {getSubjectDeptIds(s).length > 0 && (
@@ -283,8 +283,8 @@ export default function DepartmentManager() {
                     disabled={saving === s.id}
                     onClick={() => quickToggleDept(s, activeDeptId)}
                     style={{
-                      padding: "5px 10px", borderRadius: "7px", border: "0.5px solid #1e3a1e",
-                      background: "#0a1a0a", color: "#a5d6a7", fontSize: "12px", fontWeight: 600,
+                      padding: "5px 10px", borderRadius: "7px", border: "0.5px solid var(--c-1e3a1e)",
+                      background: "var(--c-0a1a0a)", color: "var(--c-a5d6a7)", fontSize: "12px", fontWeight: 600,
                       cursor: "pointer", whiteSpace: "nowrap",
                     }}
                   >{saving === s.id ? "…" : "+ Add"}</button>
@@ -319,14 +319,14 @@ function DeptForm({ existing, onSave, onClose }) {
   const [icon, setIcon] = useState(existing?.icon || EMOJI_OPTIONS[0]);
 
   const overlay = { position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
-  const card = { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "360px" };
+  const card = { background: "var(--c-0d0f20)", border: "0.5px solid var(--c-1e2245)", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "360px" };
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={card}>
-        <h3 style={{ color: "#e8eaf6", fontWeight: 700, margin: "0 0 16px" }}>{existing ? "Edit" : "New"} Department</h3>
+        <h3 style={{ color: "var(--c-e8eaf6)", fontWeight: 700, margin: "0 0 16px" }}>{existing ? "Edit" : "New"} Department</h3>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Department name"
-          style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", marginBottom: "12px", background: "#0a0b18", border: "0.5px solid #1e2245", color: "#e8eaf6", fontSize: "15px", outline: "none", boxSizing: "border-box" }} />
+          style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", marginBottom: "12px", background: "var(--c-0a0b18)", border: "0.5px solid var(--c-1e2245)", color: "var(--c-e8eaf6)", fontSize: "15px", outline: "none", boxSizing: "border-box" }} />
         <div style={{ marginBottom: "16px" }}>
           <div style={{ color: "#7b82b8", fontSize: "12px", marginBottom: "8px" }}>Icon</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
@@ -340,8 +340,8 @@ function DeptForm({ existing, onSave, onClose }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "11px", background: "#0a0b18", border: "0.5px solid #1e2245", borderRadius: "10px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
-          <button onClick={() => name.trim() && onSave(name.trim(), icon)} style={{ flex: 2, padding: "11px", background: "var(--app-card)", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "11px", background: "var(--c-0a0b18)", border: "0.5px solid var(--c-1e2245)", borderRadius: "10px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => name.trim() && onSave(name.trim(), icon)} style={{ flex: 2, padding: "11px", background: "var(--app-card)", border: "none", borderRadius: "10px", color: "var(--c-e8eaf6)", fontWeight: 600, cursor: "pointer" }}>
             {existing ? "Save Changes" : "Create"}
           </button>
         </div>
@@ -365,13 +365,13 @@ function CourseForm({ course, departments, onSave, onClose }) {
   }
 
   const overlay = { position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
-  const card = { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "380px" };
-  const inp = { width: "100%", padding: "10px 14px", borderRadius: "10px", marginBottom: "12px", background: "#0a0b18", border: "0.5px solid #1e2245", color: "#e8eaf6", fontSize: "15px", outline: "none", boxSizing: "border-box" };
+  const card = { background: "var(--c-0d0f20)", border: "0.5px solid var(--c-1e2245)", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "380px" };
+  const inp = { width: "100%", padding: "10px 14px", borderRadius: "10px", marginBottom: "12px", background: "var(--c-0a0b18)", border: "0.5px solid var(--c-1e2245)", color: "var(--c-e8eaf6)", fontSize: "15px", outline: "none", boxSizing: "border-box" };
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={card}>
-        <h3 style={{ color: "#e8eaf6", fontWeight: 700, margin: "0 0 4px" }}>Edit Course</h3>
+        <h3 style={{ color: "var(--c-e8eaf6)", fontWeight: 700, margin: "0 0 4px" }}>Edit Course</h3>
         <p style={{ color: "#7b82b8", fontSize: "13px", margin: "0 0 16px" }}>{course.label}</p>
 
         {/* Department checkboxes */}
@@ -386,7 +386,7 @@ function CourseForm({ course, departments, onSave, onClose }) {
                 display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px",
                 borderRadius: "8px", cursor: "pointer",
                 background: checked ? "#0a1535" : "#0a0b18",
-                border: `1px solid ${checked ? "#B8860B" : "#1e2245"}`,
+                border: `1px solid ${checked ? "#B8860B" : "var(--c-1e2245)"}`,
                 transition: "all 0.15s",
               }}>
                 <input type="checkbox" checked={checked} onChange={() => toggleDept(d.id)}
@@ -400,7 +400,7 @@ function CourseForm({ course, departments, onSave, onClose }) {
         </div>
 
         {selectedDeptIds.length === 0 && (
-          <div style={{ background: "#1a0a0a", border: "0.5px solid #4a1010", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px", color: "#ef9a9a", fontSize: "12px" }}>
+          <div style={{ background: "var(--c-1a0a0a)", border: "0.5px solid var(--c-4a1010)", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px", color: "var(--c-ef9a9a)", fontSize: "12px" }}>
             ⚠️ No departments selected — saving will fully unassign this course.
           </div>
         )}
@@ -417,10 +417,10 @@ function CourseForm({ course, departments, onSave, onClose }) {
           style={{ ...inp, width: "64px", textAlign: "center", fontSize: "22px", marginBottom: "18px" }} />
 
         <div style={{ display: "flex", gap: "8px" }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "11px", background: "#0a0b18", border: "0.5px solid #1e2245", borderRadius: "10px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
+          <button onClick={onClose} style={{ flex: 1, padding: "11px", background: "var(--c-0a0b18)", border: "0.5px solid var(--c-1e2245)", borderRadius: "10px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
           <button
             onClick={() => onSave({ departmentIds: selectedDeptIds, departmentId: selectedDeptIds[0] ?? null, yearLevel, icon })}
-            style={{ flex: 2, padding: "11px", background: "var(--app-card)", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}
+            style={{ flex: 2, padding: "11px", background: "var(--app-card)", border: "none", borderRadius: "10px", color: "var(--c-e8eaf6)", fontWeight: 600, cursor: "pointer" }}
           >Save Changes</button>
         </div>
       </div>

@@ -8,8 +8,8 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(1100px 600px at 50% -10%, #141410 0%, var(--app-bg) 60%);
-  color: #d3d1c7;
+  background: radial-gradient(1100px 600px at 50% -10%, var(--c-141410) 0%, var(--app-bg) 60%);
+  color: var(--c-d3d1c7);
   font-family: Manrope, Inter, Segoe UI, Roboto, Arial, sans-serif;
   overflow: hidden;
 }
@@ -109,15 +109,15 @@
 .ob-acard {
   background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 16px; padding: 4px 16px;
 }
-.ob-acard > * + * { border-top: 1px solid #1c2029; }
-.ob-afeat { display: flex; align-items: center; gap: 11px; padding: 13px 0; font-size: 13.5px; color: #d3d1c7; }
+.ob-acard > * + * { border-top: 1px solid var(--c-1c2029); }
+.ob-afeat { display: flex; align-items: center; gap: 11px; padding: 13px 0; font-size: 13.5px; color: var(--c-d3d1c7); }
 .ob-afact { display: flex; align-items: center; gap: 11px; padding: 11px 0; font-size: 13px; }
 .ob-adot {
   width: 18px; height: 18px; border-radius: 50%;
-  border: 1.5px dashed #3a3d46;
+  border: 1.5px dashed var(--c-3a3d46);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.ob-adot.done { background: #064e3b; border: 1.5px solid #10b981; }
+.ob-adot.done { background: var(--c-064e3b); border: 1.5px solid #10b981; }
 .ob-alab { color: var(--app-dim); font-size: 12px; flex-shrink: 0; }
 .ob-aval {
   margin-left: auto; font-size: 13px; font-weight: 600; text-align: right;
@@ -155,14 +155,14 @@
 .ob-btnP.grow { flex: 1.7; }
 .ob-btnS {
   flex: 1; padding: 15px; border-radius: 14px;
-  border: 1px solid #3a3d46; background: transparent; color: #d3d1c7;
+  border: 1px solid var(--c-3a3d46); background: transparent; color: var(--c-d3d1c7);
   font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer;
   transition: border-color 0.15s;
 }
 
 .ob-tile {
   cursor: pointer; border: 1px solid var(--app-border); border-radius: 14px;
-  background: transparent; color: #d3d1c7; font-family: inherit;
+  background: transparent; color: var(--c-d3d1c7); font-family: inherit;
   transition: border-color 0.15s, background 0.15s, transform 0.06s;
   position: relative;
 }
@@ -257,10 +257,10 @@
 .ob-reveal-item {
   display: flex; align-items: center; gap: 10px;
   opacity: 0; animation: obFadeUp 0.4s ease forwards;
-  color: #d3d1c7; font-size: 13.5px;
+  color: var(--c-d3d1c7); font-size: 13.5px;
 }
 .ob-check-dot {
-  width: 20px; height: 20px; border-radius: 50%; background: #064e3b;
+  width: 20px; height: 20px; border-radius: 50%; background: var(--c-064e3b);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .ob-xp-card {
@@ -298,11 +298,11 @@
   padding: 11px 8px; margin: 0 -8px; border-radius: 10px;
   cursor: pointer; background: none; border: none; width: calc(100% + 16px);
   font-family: inherit; text-align: left;
-  border-top: 1px solid #1c2029;
+  border-top: 1px solid var(--c-1c2029);
 }
 .ob-task:first-of-type { border-top: none; }
 .ob-task-ic { font-size: 17px; flex-shrink: 0; }
-.ob-task-body { flex: 1; font-size: 13.5px; color: #d3d1c7; min-width: 0; }
+.ob-task-body { flex: 1; font-size: 13.5px; color: var(--c-d3d1c7); min-width: 0; }
 .ob-task-type { color: var(--app-dim); font-size: 11px; }
 .ob-task-mins { color: var(--app-dim); font-size: 11px; flex-shrink: 0; }
 .ob-note { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }

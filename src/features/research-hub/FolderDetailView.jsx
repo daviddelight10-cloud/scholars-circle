@@ -394,7 +394,7 @@ export default function FolderDetailView({
       {!generatingId && genError && genErrorId && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#1a0808", borderColor: "rgba(255,84,112,0.4)", color: "#ff9aa8", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
+          style={{ background: "var(--c-1a0808)", borderColor: "rgba(255,84,112,0.4)", color: "var(--c-ff9aa8)", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
           role="alert"
         >
           <span className="truncate">{genError}</span>
@@ -402,7 +402,7 @@ export default function FolderDetailView({
             <button
               onClick={onRetry}
               className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold"
-              style={{ background: "rgba(255,84,112,0.15)", border: "0.5px solid rgba(255,84,112,0.4)", color: "#ff9aa8" }}
+              style={{ background: "rgba(255,84,112,0.15)", border: "0.5px solid rgba(255,84,112,0.4)", color: "var(--c-ff9aa8)" }}
             >
               Retry
             </button>
@@ -412,7 +412,7 @@ export default function FolderDetailView({
               onClick={onDismissGenError}
               aria-label="Dismiss"
               className="shrink-0 text-[15px] leading-none"
-              style={{ background: "none", border: "none", color: "#ff9aa8", cursor: "pointer", padding: "0 2px" }}
+              style={{ background: "none", border: "none", color: "var(--c-ff9aa8)", cursor: "pointer", padding: "0 2px" }}
             >
               ✕
             </button>

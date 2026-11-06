@@ -188,7 +188,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
   return (
     <div className="cr-shell" style={{ flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#f1f5f9", fontFamily: "Syne, sans-serif", flex: 1 }}>🏫 Classroom</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "var(--c-f1f5f9)", fontFamily: "Syne, sans-serif", flex: 1 }}>🏫 Classroom</div>
         {teacherMode
           ? <button className="cr-btn-outline" onClick={() => setShowCreateClass(true)}>+ New Class</button>
           : <button className="cr-btn-outline" onClick={() => setShowJoinClass(true)}>🔗 Join Class</button>
@@ -368,7 +368,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                           return (
                             <div key={a.id} className="cr-glass-flat" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 7 }}>
                               <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9" }}>{a.title}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-f1f5f9)" }}>{a.title}</div>
                                 <div style={{ fontSize: 10, color: "var(--app-dim)" }}>{subj?.label || ""}{a.due ? ` · Due ${a.due}` : ""}</div>
                               </div>
                               <button className={a.done ? "cr-btn-outline" : "cr-btn"} style={a.done ? { borderColor: "rgba(16,185,129,0.4)", color: "#10b981" } : {}} onClick={() => onComplete(a.id)}>
@@ -412,7 +412,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                         <div key={doc.id} className="cr-doc-card">
                           <span style={{ fontSize: 18 }}>{doc.fileType === "pdf" ? "📕" : doc.fileType === "docx" ? "📘" : "📄"}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--c-f1f5f9)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
                             <div style={{ fontSize: 10, color: "var(--app-dim)" }}>{doc.fileType?.toUpperCase()} · {(doc.fileSize / 1024).toFixed(1)} KB</div>
                           </div>
                           <button className="cr-btn-outline" style={{ borderColor: "rgba(16,185,129,0.3)", color: "#10b981" }} onClick={async () => {

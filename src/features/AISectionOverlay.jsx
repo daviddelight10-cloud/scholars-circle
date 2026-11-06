@@ -328,22 +328,22 @@ function TypingDots() {
 function VideoLesson({ video, defaultExpanded = false }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   return (
-    <div style={{ borderRadius: 10, overflow: "hidden", border: "0.5px solid #2a1515" }}>
+    <div style={{ borderRadius: 10, overflow: "hidden", border: "0.5px solid var(--c-2a1515)" }}>
       {/* Thumbnail / embed toggle row */}
       <div
         onClick={() => setExpanded(o => !o)}
         style={{
           display: "flex", alignItems: "center", gap: 9, padding: "8px 10px",
-          background: "#100808", cursor: "pointer",
+          background: "var(--c-100808)", cursor: "pointer",
         }}
       >
         <div style={{
-          width: 42, height: 30, background: "#1a0808", border: "0.5px solid #3a1010",
+          width: 42, height: 30, background: "var(--c-1a0808)", border: "0.5px solid var(--c-3a1010)",
           borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 16, flexShrink: 0, color: "#ef5350",
         }}>▶</div>
         <div style={{ flex: 1, overflow: "hidden" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#e57373", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-e57373)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {video.title}
           </div>
           <div style={{ fontSize: 10, color: "#5a3030", marginTop: 2 }}>{video.channel}</div>
@@ -914,7 +914,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
                   borderRadius: 8, padding: "9px 11px", marginTop: 8,
                   fontSize: 11, color: D.muted, lineHeight: 1.55, fontFamily: "Manrope,sans-serif",
                 }}>
-                  <strong style={{ color: "#a5d6a7" }}>Explanation: </strong>
+                  <strong style={{ color: "var(--c-a5d6a7)" }}>Explanation: </strong>
                   <MarkdownText theme="gold">{q.explanation || q.explain}</MarkdownText>
                 </div>
               )}
@@ -931,7 +931,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
                       ✦ AI{aiExpl[qi].streaming ? " — writing…" : ""}
                     </div>
                     {aiExpl[qi].error
-                      ? <span style={{ color: "#ef9a9a" }}>{aiExpl[qi].error}</span>
+                      ? <span style={{ color: "var(--c-ef9a9a)" }}>{aiExpl[qi].error}</span>
                       : aiExpl[qi].text
                         ? <MarkdownText theme="gold">{aiExpl[qi].text}</MarkdownText>
                         : <TypingDots />}
@@ -1187,9 +1187,9 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
                   onClick={e => { e.stopPropagation(); onDelete(c.id); }}
                   style={{
                     opacity: 0, width: 26, height: 26, borderRadius: 6, flexShrink: 0,
-                    background: "#2a0f0f", border: "0.5px solid #4a1010",
+                    background: "var(--c-2a0f0f)", border: "0.5px solid var(--c-4a1010)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", fontSize: 12, color: "#ef9a9a",
+                    cursor: "pointer", fontSize: 12, color: "var(--c-ef9a9a)",
                     transition: "opacity 0.15s",
                   }}
                   title="Delete"
@@ -1395,7 +1395,7 @@ function FlashcardPractice({ cards, onBack }) {
           >
             <div style={{ fontSize: 9.5, color: D.faint, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>
               {flipped ? "ANSWER" : "QUESTION"} · {idx + 1} / {total}
-              {known.has(order[idx]) && <span style={{ color: "#66bb6a" }}> · ✓ known</span>}
+              {known.has(order[idx]) && <span style={{ color: "var(--c-66bb6a)" }}> · ✓ known</span>}
             </div>
             <div style={{ fontSize: 16, lineHeight: 1.6, color: flipped ? D.accent2 : D.text, fontWeight: 500 }}>
               {flipped ? card?.back : card?.front}
@@ -1649,7 +1649,7 @@ function InputBar({ value, onChange, onSend, loading, onStop, placeholder = "Ask
           <>
             <style>{`
               @keyframes scPulse{0%,100%{box-shadow:0 0 0 0 #ef444466}50%{box-shadow:0 0 0 6px #ef444400}}
-              .sc-mic-active{animation:scPulse 1s infinite;background:#2a0a0a!important;border-color:#ef4444!important;color:#ef4444!important}
+              .sc-mic-active{animation:scPulse 1s infinite;background:var(--c-2a0a0a)!important;border-color:#ef4444!important;color:#ef4444!important}
             `}</style>
             <button
               onClick={voice.toggle}
@@ -2376,7 +2376,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         .sc-ol .sc-menu-item{display:block;width:100%;padding:8px 11px;border-radius:7px;background:transparent;border:none;font-size:11.5px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;text-align:left;font-weight:600;transition:all .12s}
         .sc-ol .sc-menu-item:hover{background:var(--app-card2);color:var(--app-text)}
         .sc-ol .sc-menu-item:disabled{opacity:.6;cursor:default}
-        .sc-ol .sc-skel{height:10px;border-radius:5px;background:linear-gradient(90deg,#17171b 25%,#232329 50%,#17171b 75%);background-size:200% 100%;animation:scShimmer 1.3s linear infinite}
+        .sc-ol .sc-skel{height:10px;border-radius:5px;background:linear-gradient(90deg,var(--c-17171b) 25%,var(--c-232329) 50%,var(--c-17171b) 75%);background-size:200% 100%;animation:scShimmer 1.3s linear infinite}
         @keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
         .sc-ol .sc-newpill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:6px 15px;border-radius:16px;background:var(--app-card2);border:0.5px solid rgba(255,215,0,.45);color:#FFD700;font-size:11px;font-weight:700;cursor:pointer;font-family:Manrope,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:5;animation:scFadeUp .2s ease both}
         @media (prefers-reduced-motion:reduce){.sc-ol .sc-extras,.sc-ol .sc-newpill,.sc-ol .sc-menu{animation:none}.sc-ol .sc-skel{animation:none;opacity:.6}}
@@ -2614,13 +2614,13 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                             width: 28, height: 28, borderRadius: 9, flexShrink: 0, marginTop: 2,
                             background: "rgba(239,68,68,0.12)", border: "0.5px solid rgba(239,68,68,0.4)",
                             display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 13, color: "#fca5a5",
+                            fontSize: 13, color: "var(--c-fca5a5)",
                           }}>⚠</div>
                           <div>
                             <div style={{
                               padding: "10px 14px", borderRadius: "4px 14px 14px 14px",
                               background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)",
-                              fontSize: 13, color: "#fca5a5", fontFamily: "Manrope,sans-serif", lineHeight: 1.55,
+                              fontSize: 13, color: "var(--c-fca5a5)", fontFamily: "Manrope,sans-serif", lineHeight: 1.55,
                             }}>
                               {m.text}
                             </div>
@@ -2630,7 +2630,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                                 style={{
                                   marginTop: 6, padding: "5px 12px", borderRadius: 8,
                                   background: "transparent", border: "0.5px solid rgba(239,68,68,0.4)",
-                                  color: "#fca5a5", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                                  color: "var(--c-fca5a5)", fontSize: 11, fontWeight: 600, cursor: "pointer",
                                   fontFamily: "Manrope,sans-serif",
                                 }}
                               >↻ Try again</button>
@@ -2724,7 +2724,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                     display: "inline-flex", alignItems: "center", gap: 7,
                     padding: "4px 10px", borderRadius: 14,
                     background: "rgba(239,83,80,0.10)", border: "0.5px solid rgba(239,83,80,0.35)",
-                    fontSize: 10.5, color: "#e57373", fontFamily: "Manrope,sans-serif",
+                    fontSize: 10.5, color: "var(--c-e57373)", fontFamily: "Manrope,sans-serif",
                   }}>
                     <span style={{ fontSize: 11 }}>▶️</span>
                     <span style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2734,7 +2734,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                       <a
                         href={activeVideo.url} target="_blank" rel="noopener noreferrer"
                         title="Open on YouTube"
-                        style={{ color: "#e57373", fontSize: 10, opacity: 0.75, textDecoration: "none" }}
+                        style={{ color: "var(--c-e57373)", fontSize: 10, opacity: 0.75, textDecoration: "none" }}
                       >open ↗</a>
                     )}
                     <button

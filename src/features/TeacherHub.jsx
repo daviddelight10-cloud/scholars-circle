@@ -21,7 +21,7 @@ function NoteCard({ note, onCopy, copied }) {
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
         <div style={{ flex:1 }}>
           <span className="pill" style={{ background:`${c}15`, color:c, border:`1px solid ${c}30`, marginBottom:10 }}>{note.subject}</span>
-          <div className="syne" style={{ fontWeight:700, fontSize:15, color:"#E8E9F0", marginTop:8 }}>{note.title}</div>
+          <div className="syne" style={{ fontWeight:700, fontSize:15, color:"var(--c-e8e9f0)", marginTop:8 }}>{note.title}</div>
         </div>
         <div style={{ display:"flex", gap:7, flexShrink:0 }}>
           <button className="btn btn-ghost btn-xs" onClick={() => onCopy(note)}>
@@ -34,7 +34,7 @@ function NoteCard({ note, onCopy, copied }) {
       </div>
       {open && (
         <div className="fade" style={{ borderTop:"1px solid var(--app-tint-soft)", marginTop:14, paddingTop:14,
-          fontSize:13.5, lineHeight:1.85, color:"#9899A6", whiteSpace:"pre-wrap", fontFamily:"'Manrope',sans-serif" }}>
+          fontSize:13.5, lineHeight:1.85, color:"var(--c-9899a6)", whiteSpace:"pre-wrap", fontFamily:"'Manrope',sans-serif" }}>
           {note.content}
         </div>
       )}
@@ -60,7 +60,7 @@ function QuizModal({ q, onClose, onShare, shared }) {
         </div>
 
         {/* Question */}
-        <div className="syne" style={{ fontWeight:700, fontSize:16.5, lineHeight:1.55, marginBottom:22, color:"#E8E9F0" }}>
+        <div className="syne" style={{ fontWeight:700, fontSize:16.5, lineHeight:1.55, marginBottom:22, color:"var(--c-e8e9f0)" }}>
           {q.question}
         </div>
 
@@ -90,7 +90,7 @@ function QuizModal({ q, onClose, onShare, shared }) {
         {revealed && q.explanation && (
           <div className="fade" style={{ background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.18)", borderRadius:10, padding:"13px 15px", marginBottom:16 }}>
             <div style={{ fontSize:10, color:"#22C55E", fontFamily:"'Syne',sans-serif", fontWeight:700, letterSpacing:"0.1em", marginBottom:7 }}>EXPLANATION</div>
-            <div style={{ fontSize:13.5, color:"#9899A6", lineHeight:1.7, fontFamily:"'Manrope',sans-serif" }}>{q.explanation}</div>
+            <div style={{ fontSize:13.5, color:"var(--c-9899a6)", lineHeight:1.7, fontFamily:"'Manrope',sans-serif" }}>{q.explanation}</div>
           </div>
         )}
 
@@ -349,7 +349,7 @@ export default function TeacherHub({ token, auth }) {
     .mtab { background:transparent; border:none; color:var(--app-faint); cursor:pointer; padding:9px 20px; font-family:'Syne',sans-serif; font-size:12px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; border-bottom:2px solid transparent; transition:all 0.18s; }
     .mtab.on { color:#FFD700; border-bottom-color:#FFD700; }
     .mtab.gold.on { color:#F5A623; border-bottom-color:#F5A623; }
-    .mtab:hover:not(.on) { color:#aaa; }
+    .mtab:hover:not(.on) { color:var(--c-aaaaaa); }
 
     .btn { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.05em; text-transform:uppercase; border:none; cursor:pointer; padding:9px 20px; border-radius:9px; background:linear-gradient(135deg,#FFD700,#6C63FF); color:var(--app-text); transition:all 0.18s; }
     .btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 5px 18px rgba(79,142,247,0.3); }
@@ -366,14 +366,14 @@ export default function TeacherHub({ token, auth }) {
 
     .pill { display:inline-flex; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.08em; text-transform:uppercase; }
 
-    input, textarea, select { background:var(--app-tint-soft); border:1px solid var(--app-tint-med); border-radius:9px; color:#E8E9F0; font-family:'Manrope',sans-serif; font-size:13px; outline:none; transition:border-color 0.2s; padding:10px 13px; width:100%; }
+    input, textarea, select { background:var(--app-tint-soft); border:1px solid var(--app-tint-med); border-radius:9px; color:var(--c-e8e9f0); font-family:'Manrope',sans-serif; font-size:13px; outline:none; transition:border-color 0.2s; padding:10px 13px; width:100%; }
     input:focus, textarea:focus, select:focus { border-color:rgba(79,142,247,0.45); }
-    select option { background:#0D0E1A; }
+    select option { background:var(--c-0d0e1a); }
     ::placeholder { color: var(--app-faint); }
     textarea { resize:vertical; }
 
     .overlay { position:fixed; inset:0; background:rgba(var(--app-glass-rgb),0.9); display:flex; align-items:center; justify-content:center; z-index:999; padding:20px; backdrop-filter:blur(10px); }
-    .modal { background:#0D0E1A; border:1px solid var(--app-tint-med); border-radius:20px; width:100%; max-width:500px; max-height:88vh; overflow-y:auto; padding:26px 22px; }
+    .modal { background:var(--c-0d0e1a); border:1px solid var(--app-tint-med); border-radius:20px; width:100%; max-width:500px; max-height:88vh; overflow-y:auto; padding:26px 22px; }
 
     .filter-btn { background:transparent; border:1px solid var(--app-tint-med); color:var(--app-faint); border-radius:20px; padding:5px 13px; font-size:11px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.06em; cursor:pointer; transition:all 0.18s; }
     .filter-btn.on { background:rgba(79,142,247,0.12); border-color:rgba(79,142,247,0.3); color:#FFD700; }
@@ -398,7 +398,7 @@ export default function TeacherHub({ token, auth }) {
   `;
 
   return (
-    <div style={{ minHeight:"100dvh", background:"var(--app-bg)", color:"#E8E9F0", fontFamily:"'Manrope',sans-serif" }}>
+    <div style={{ minHeight:"100dvh", background:"var(--app-bg)", color:"var(--c-e8e9f0)", fontFamily:"'Manrope',sans-serif" }}>
       <style>{CSS}</style>
 
       {/* ── TOP HEADER ── */}
@@ -496,7 +496,7 @@ export default function TeacherHub({ token, auth }) {
                             <span className="pill" style={{ background:`${c}15`, color:c, border:`1px solid ${c}30` }}>{q.subject}</span>
                             <span style={{ fontSize:10, color:"#444", fontFamily:"'Syne',sans-serif" }}>{q.id}</span>
                           </div>
-                          <div style={{ fontSize:13.5, fontWeight:600, lineHeight:1.6, marginBottom:14, color:"#C8C9D5",
+                          <div style={{ fontSize:13.5, fontWeight:600, lineHeight:1.6, marginBottom:14, color:"var(--c-c8c9d5)",
                             display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
                             {q.question}
                           </div>
@@ -656,7 +656,7 @@ export default function TeacherHub({ token, auth }) {
                   return (
                     <div key={q.id} className="card" style={{ padding:"11px 16px", marginBottom:8, display:"flex", alignItems:"center", gap:10 }}>
                       <span className="pill" style={{ background:`${c}15`, color:c, border:`1px solid ${c}30`, flexShrink:0 }}>{q.subject}</span>
-                      <div style={{ flex:1, fontSize:13, color:"#C0C1CC", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.question}</div>
+                      <div style={{ flex:1, fontSize:13, color:"var(--c-c0c1cc)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.question}</div>
                       <span style={{ fontSize:10, color:"#444", flexShrink:0, fontFamily:"'Syne',sans-serif" }}>{q.id}</span>
                       <button className="btn btn-red btn-xs" onClick={() => delQ(q.id)}>Del</button>
                     </div>
@@ -670,7 +670,7 @@ export default function TeacherHub({ token, auth }) {
                     <div key={n.id} className="card" style={{ padding:"11px 16px", marginBottom:8, display:"flex", alignItems:"center", gap:10 }}>
                       <span className="pill" style={{ background:`${c}15`, color:c, border:`1px solid ${c}30`, flexShrink:0 }}>{n.subject}</span>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:"#C0C1CC" }}>{n.title}</div>
+                        <div style={{ fontSize:13, fontWeight:600, color:"var(--c-c0c1cc)" }}>{n.title}</div>
                       </div>
                       <button className="btn btn-red btn-xs" onClick={() => delN(n.id)}>Del</button>
                     </div>
@@ -741,7 +741,7 @@ export default function TeacherHub({ token, auth }) {
                 </div>
                 <div style={{ color:"var(--app-faint)", fontSize:12, marginBottom:22 }}>≈ ₦50/day · Cancel anytime</div>
                 {["Unlimited AI tutor","Generate flashcards from notes","Full MCQ question bank","Spaced repetition quiz","Progress analytics dashboard","Priority support"].map(f => (
-                  <div key={f} style={{ display:"flex", gap:9, alignItems:"center", marginBottom:10, fontSize:13, color:"#C0C1CC" }}>
+                  <div key={f} style={{ display:"flex", gap:9, alignItems:"center", marginBottom:10, fontSize:13, color:"var(--c-c0c1cc)" }}>
                     <span style={{ color:"#FFD700" }}>✓</span>{f}
                   </div>
                 ))}

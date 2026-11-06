@@ -332,7 +332,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
                     style={{
                       textAlign: "left", padding: "9px 12px", borderRadius: 10, cursor: "pointer",
                       background: "rgba(255,215,0,0.06)", border: `0.5px solid rgba(255,215,0,0.2)`,
-                      color: "#E8D9A0", fontSize: 12, fontWeight: 600, fontFamily: "Manrope,sans-serif",
+                      color: "var(--c-e8d9a0)", fontSize: 12, fontWeight: 600, fontFamily: "Manrope,sans-serif",
                     }}
                   >{s}</button>
                 ))}
@@ -354,7 +354,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
               <div style={{ alignSelf: "flex-start", padding: "8px 11px", fontSize: 12.5, color: D.hint }}>Thinking…</div>
             )}
             {chatError && (
-              <div style={{ fontSize: 11.5, color: "#ef9a9a", padding: "4px 2px" }}>{chatError}</div>
+              <div style={{ fontSize: 11.5, color: "var(--c-ef9a9a)", padding: "4px 2px" }}>{chatError}</div>
             )}
             <div ref={chatEndRef} />
           </div>

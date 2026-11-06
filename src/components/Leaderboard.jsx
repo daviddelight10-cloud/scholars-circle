@@ -4,11 +4,11 @@ import { Avatar } from "../features/feed/feedUi.jsx";
 import { levelProgress } from "../features/streak-survival/survivalStore.js";
 
 const TIER_META = {
-  bronze:   { icon: "🥉", color: "#C9824A" },
-  silver:   { icon: "🥈", color: "#A8B0BE" },
+  bronze:   { icon: "🥉", color: "var(--c-c9824a)" },
+  silver:   { icon: "🥈", color: "var(--c-a8b0be)" },
   gold:     { icon: "🥇", color: "#F5C542" },
-  platinum: { icon: "💠", color: "#7CC7FF" },
-  diamond:  { icon: "💎", color: "#C0B2FF" },
+  platinum: { icon: "💠", color: "var(--c-7cc7ff)" },
+  diamond:  { icon: "💎", color: "var(--c-c0b2ff)" },
 };
 
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);

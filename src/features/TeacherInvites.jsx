@@ -193,7 +193,7 @@ export function TeacherInvitesPanel({ token }) {
         </div>
       </div>
 
-      {error && <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+      {error && <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "var(--c-f87171)", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
 
       {/* Invite list — stable container prevents scroll jumps on refresh */}
       <div className="card" style={{ padding: 0, position: "relative", minHeight: 200 }}>
@@ -267,7 +267,7 @@ export function TeacherInvitesPanel({ token }) {
                       )}
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 12, color: "#cbd5e1" }}>{new Date(i.createdAt).toLocaleDateString()}</span>
+                      <span style={{ fontSize: 12, color: "var(--c-cbd5e1)" }}>{new Date(i.createdAt).toLocaleDateString()}</span>
                     </td>
                     <td style={tdStyle}>
                       {i.expiresAt ? (
@@ -290,7 +290,7 @@ export function TeacherInvitesPanel({ token }) {
                         <button
                           onClick={() => revoke(i.id)}
                           title="Revoke"
-                          style={{ ...iconBtn, color: "#f87171" }}
+                          style={{ ...iconBtn, color: "var(--c-f87171)" }}
                         >
                           🗑️
                         </button>

@@ -87,7 +87,7 @@ export function LecturerDirectory({ token, onSelect, onMessage }) {
           <div style={{ padding: 40, textAlign: "center", color: "var(--app-dim)" }}>Loading lecturers...</div>
         )}
         {error && (
-          <div style={{ padding: 16, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8 }}>{error}</div>
+          <div style={{ padding: 16, background: "rgba(239,68,68,0.1)", color: "var(--c-f87171)", borderRadius: 8 }}>{error}</div>
         )}
         {!loading && !error && lecturers.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "var(--app-dim)" }}>
@@ -150,7 +150,7 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
       </div>
 
       {lecturer.bio && (
-        <div style={{ fontSize: 12, color: "#cbd5e1", marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        <div style={{ fontSize: 12, color: "var(--c-cbd5e1)", marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
           {lecturer.bio}
         </div>
       )}

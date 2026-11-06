@@ -326,7 +326,7 @@ export default function AuthPages() {
             </p>
           </div>
 
-          {error && <p style={{ color: '#f87171', fontSize: '0.9rem', marginTop: 16, textAlign: 'center' }}>{error}</p>}
+          {error && <p style={{ color: 'var(--c-f87171)', fontSize: '0.9rem', marginTop: 16, textAlign: 'center' }}>{error}</p>}
           {info && <p style={{ color: '#34d399', fontSize: '0.9rem', marginTop: 16, textAlign: 'center' }}>{info}</p>}
         </div>
       </main>
@@ -392,7 +392,7 @@ export default function AuthPages() {
           border-radius: 10px; padding: 10px 14px; font-size: 0.86rem; line-height: 1.45;
           font-family: 'Manrope', sans-serif;
         }
-        .auth-banner-err { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5; }
+        .auth-banner-err { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--c-fca5a5); }
         .auth-banner-ok { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: #34d399; }
         .auth-expander {
           display: flex; flex-direction: column; align-items: center; gap: 2px;

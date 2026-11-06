@@ -267,17 +267,17 @@ export default function PostSessionInsights({ analytics, session, results, quest
                   background: r.correct ? "rgba(34, 197, 94, 0.05)" : "rgba(239, 68, 68, 0.05)",
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", flex: 1 }}>Q{i + 1}: {q.q}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-f1f5f9)", flex: 1 }}>Q{i + 1}: {q.q}</span>
                     <span style={{ fontSize: 16, marginLeft: 8 }}>{r.correct ? "✅" : "❌"}</span>
                   </div>
                   {!r.correct && (
                     <>
-                      <div style={{ fontSize: 12, color: "#f87171" }}>Your answer: {q.options?.[r.selected] || "—"}</div>
+                      <div style={{ fontSize: 12, color: "var(--c-f87171)" }}>Your answer: {q.options?.[r.selected] || "—"}</div>
                       <div style={{ fontSize: 12, color: "#4ade80" }}>Correct: {q.options?.[q.answer] || "—"}</div>
                     </>
                   )}
                   {q.explanation && (
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>💡 {q.explanation}</div>
+                    <div style={{ fontSize: 11, color: "var(--c-94a3b8)", marginTop: 6 }}>💡 {q.explanation}</div>
                   )}
                 </div>
               );

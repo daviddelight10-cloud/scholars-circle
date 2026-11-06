@@ -364,17 +364,17 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               borderRadius: "12px",
               padding: "18px 20px",
               fontSize: "14px",
-              color: "var(--text-secondary, #9AA3B5)",
+              color: "var(--text-secondary, var(--c-9aa3b5))",
               lineHeight: 1.7,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 16 }}>✨</span>
-              <strong style={{ color: "var(--text-primary, #EDEFF5)", fontSize: "15px" }}>{resource.title}</strong>
+              <strong style={{ color: "var(--text-primary, var(--c-edeff5))", fontSize: "15px" }}>{resource.title}</strong>
             </div>
             {resource.fileUrl ? (
               <>
-                {resource.description && <p style={{ marginTop: 8, marginBottom: 8, color: "var(--text-muted, #9AA3B5)" }}>{resource.description}</p>}
+                {resource.description && <p style={{ marginTop: 8, marginBottom: 8, color: "var(--text-muted, var(--c-9aa3b5))" }}>{resource.description}</p>}
                 <iframe
                   src={`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}&token=${encodeURIComponent(authJwt)}`}
                   title={resource.title}
@@ -487,7 +487,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       </div>
     );
     const errorBanner = authError && (
-      <div style={{ fontSize: "12px", color: "#fca5a5", background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: "8px", padding: "8px 10px", marginBottom: "10px" }}>{authError}</div>
+      <div style={{ fontSize: "12px", color: "var(--c-fca5a5)", background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: "8px", padding: "8px 10px", marginBottom: "10px" }}>{authError}</div>
     );
     const primaryBtn = (label) => (
       <button
@@ -638,7 +638,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   if (error) {
     return (
       <div style={{ padding: "40px", textAlign: "center" }}>
-        <div style={{ fontSize: "16px", color: "#fca5a5", marginBottom: "12px" }}>{error}</div>
+        <div style={{ fontSize: "16px", color: "var(--c-fca5a5)", marginBottom: "12px" }}>{error}</div>
         <button
           onClick={handleBack}
           style={{
@@ -759,7 +759,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
       {/* Premium paywall — non-activated user trying to view a premium resource */}
       {authCase === "loggedin" && isPremiumResource && !allowed && (
-        <div style={{ background: "linear-gradient(135deg,#0d0820,#1a0828)", border: "0.5px solid #5c35a0", borderRadius: "14px", padding: "28px 24px", marginBottom: "16px", textAlign: "center" }}>
+        <div style={{ background: "linear-gradient(135deg,var(--c-0d0820),var(--c-1a0828))", border: "0.5px solid #5c35a0", borderRadius: "14px", padding: "28px 24px", marginBottom: "16px", textAlign: "center" }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔒</div>
           <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--app-text)", marginBottom: "8px" }}>Premium Material</div>
           <div style={{ fontSize: "13px", color: "#FFB300", marginBottom: "8px", lineHeight: 1.6 }}>
@@ -842,7 +842,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
       {/* Error */}
       {error && (
-        <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "#fca5a5", marginTop: "16px" }}>
+        <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "var(--c-fca5a5)", marginTop: "16px" }}>
           {error}
         </div>
       )}
@@ -855,9 +855,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             bottom: "24px",
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#0f2a1a",
+            background: "var(--c-0f2a1a)",
             border: "0.5px solid #2a6a3a",
-            color: "#a5d6a7",
+            color: "var(--c-a5d6a7)",
             padding: "10px 20px",
             borderRadius: "20px",
             fontSize: "13px",

@@ -232,7 +232,7 @@ export const SHOP = {
 export const THEMES = [
   { id: 'cyan',   name: 'Cyan',   color: '#00E5FF', deep: '#0aa8c4', cost: 0 },
   { id: 'gold',   name: 'Gold',   color: '#FFB627', deep: '#c78c12', cost: 25 },
-  { id: 'violet', name: 'Violet', color: '#B388FF', deep: '#7c5cd6', cost: 25 },
+  { id: 'violet', name: 'Violet', color: 'var(--c-b388ff)', deep: '#7c5cd6', cost: 25 },
 ];
 
 // Spend gems if the balance covers it. Returns true on success — atomic

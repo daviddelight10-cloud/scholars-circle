@@ -11,8 +11,8 @@ export const D = {
   blue: "#4F8EF7",
   green: "#3DD68C",
   coral: "#FF5470",
-  textHi: "#F3F5F8",
-  textMid: "#9199A8",
+  textHi: "var(--c-f3f5f8)",
+  textMid: "var(--c-9199a8)",
   textLow: "#5D6472",
 };
 

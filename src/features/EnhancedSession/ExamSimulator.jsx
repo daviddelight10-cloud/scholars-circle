@@ -233,7 +233,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
           {/* Exit */}
           <button onClick={() => { if (window.confirm("Exit exam? Progress will be lost.")) onExit(); }} style={{
             padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(239, 68, 68, 0.3)",
-            background: "rgba(239, 68, 68, 0.1)", color: "#f87171", fontSize: 12, cursor: "pointer", fontWeight: 600,
+            background: "rgba(239, 68, 68, 0.1)", color: "var(--c-f87171)", fontSize: 12, cursor: "pointer", fontWeight: 600,
           }}>✕</button>
         </div>
       </div>
@@ -301,7 +301,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
             color: flagged.has(idx) ? "#fbbf24" : "#FFD700",
           }}>{flagged.has(idx) ? "🚩" : "🏳️"}</button>
 
-          <div style={{ fontSize: 16, lineHeight: 1.7, color: "#f1f5f9", paddingRight: 44 }}>
+          <div style={{ fontSize: 16, lineHeight: 1.7, color: "var(--c-f1f5f9)", paddingRight: 44 }}>
             {current?.q}
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
                 padding: "14px 18px", borderRadius: 12, textAlign: "left",
                 background: isSelected ? "rgba(255, 215, 0, 0.15)" : "rgba(var(--app-glass-rgb),0.6)",
                 border: `2px solid ${isSelected ? "rgba(255, 215, 0, 0.5)" : "rgba(255, 215, 0, 0.12)"}`,
-                color: "#f1f5f9", fontSize: 14, cursor: "pointer", transition: "all 0.2s",
+                color: "var(--c-f1f5f9)", fontSize: 14, cursor: "pointer", transition: "all 0.2s",
                 transform: isSelected ? "scale(1.01)" : "scale(1)",
                 boxShadow: isSelected ? "0 4px 12px rgba(255, 215, 0, 0.2)" : "none",
               }}>

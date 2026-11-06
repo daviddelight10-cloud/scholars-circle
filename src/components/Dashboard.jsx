@@ -389,10 +389,10 @@ export default function Dashboard({
 
   const reasonTag = (f) => {
     switch (f._reason) {
-      case "weak": return { icon: "trendUpAlt", color: "#F9A8D4", label: "Matches your weak topic" };
+      case "weak": return { icon: "trendUpAlt", color: "var(--c-f9a8d4)", label: "Matches your weak topic" };
       case "dept": return { icon: "trendUp", color: "#FFC55C", label: "Popular with your department" };
-      case "uni": return { icon: "trendUp", color: "#6EE7A0", label: "Trending in your university" };
-      default: return { icon: "trendUp", color: "#6EE7A0", label: "Trending on Scholars Circle" };
+      case "uni": return { icon: "trendUp", color: "var(--c-6ee7a0)", label: "Trending in your university" };
+      default: return { icon: "trendUp", color: "var(--c-6ee7a0)", label: "Trending on Scholars Circle" };
     }
   };
 

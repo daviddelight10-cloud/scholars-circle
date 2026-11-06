@@ -810,7 +810,7 @@ function PhotoThumb({ file, index, total, onMove, onRemove }) {
     <div style={{ position: "relative", flexShrink: 0, width: 64 }}>
       <div style={{
         width: 64, height: 80, borderRadius: 8, overflow: "hidden",
-        border: "1px solid var(--hub-border, #2a2f4a)", background: "#0a0c1e",
+        border: "1px solid var(--hub-border, var(--c-2a2f4a))", background: "var(--c-0a0c1e)",
       }}>
         {url && <img src={url} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
       </div>

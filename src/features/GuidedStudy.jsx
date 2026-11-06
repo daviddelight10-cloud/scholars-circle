@@ -460,8 +460,8 @@ function Btn({ children, onClick, variant = "primary", disabled, style: extra })
   const variants = {
     primary:  { background: D.accent, border:`0.5px solid ${D.border}`, color:"#FFD700" },
     ghost:    { background:"transparent", border:`0.5px solid ${D.line}`, color:D.muted },
-    red:      { background:"#1a0808", border:"0.5px solid #4a1010", color:"#ef9a9a" },
-    green:    { background:"#0a1f10", border:"0.5px solid #1a4a25", color:"#81c784" },
+    red:      { background:"var(--c-1a0808)", border:"0.5px solid var(--c-4a1010)", color:"var(--c-ef9a9a)" },
+    green:    { background:"var(--c-0a1f10)", border:"0.5px solid var(--c-1a4a25)", color:"var(--c-81c784)" },
     yellow:   { background:"rgba(255,215,0,0.08)", border:"0.5px solid rgba(255,215,0,0.35)", color:"#FFD700" },
   };
   return (
@@ -1153,7 +1153,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       {/* Offline banner */}
       {!isOnline && (
         <div style={{
-          background:"#1a1000", border:"0.5px solid #f57c00", borderRadius:12,
+          background:"var(--c-1a1000)", border:"0.5px solid #f57c00", borderRadius:12,
           padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8,
         }}>
           <span style={{ fontSize:16 }}>📶</span>
@@ -1164,11 +1164,11 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       {/* Auto-error banner */}
       {autoError && (
         <div style={{
-          background:"#1a0a0a", border:"0.5px solid #e53935", borderRadius:12,
+          background:"var(--c-1a0a0a)", border:"0.5px solid #e53935", borderRadius:12,
           padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8,
         }}>
           <span style={{ fontSize:16 }}>⚠️</span>
-          <span style={{ fontSize:12, color:"#ef9a9a", fontFamily:"Manrope,sans-serif", flex:1 }}>{autoError}</span>
+          <span style={{ fontSize:12, color:"var(--c-ef9a9a)", fontFamily:"Manrope,sans-serif", flex:1 }}>{autoError}</span>
           <button
             onClick={() => { setAutoError(""); isAutoLaunch && (topic.trim() ? handleRoadmap() : null); }}
             style={{ background:"#e53935", border:"none", borderRadius:8, padding:"4px 10px", fontSize:11, color:"var(--app-text)", cursor:"pointer", fontFamily:"Manrope,sans-serif", fontWeight:600 }}
@@ -1368,7 +1368,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
       {loading && <Spinner message={loadingMsg} />}
       {autoError && (
-        <div style={{ marginTop:10, fontSize:12, color:"#ef9a9a", fontFamily:"Manrope,sans-serif" }}>{autoError}</div>
+        <div style={{ marginTop:10, fontSize:12, color:"var(--c-ef9a9a)", fontFamily:"Manrope,sans-serif" }}>{autoError}</div>
       )}
     </>
   );
@@ -1413,7 +1413,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                 style={{
                   flexShrink:0, background:"rgba(255,215,0,0.08)", border:"0.5px solid rgba(255,215,0,0.3)",
                   borderRadius:999, padding:"4px 11px", cursor:"pointer",
-                  fontSize:10, fontWeight:600, color:"#E8D9A0", fontFamily:"Manrope,sans-serif",
+                  fontSize:10, fontWeight:600, color:"var(--c-e8d9a0)", fontFamily:"Manrope,sans-serif",
                 }}
               >
                 📄 Source p.{srcRef.page} ↗
@@ -1440,7 +1440,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                   <div className="gs-animate" style={{
                     background:"rgba(255,215,0,0.06)", border:"0.5px solid rgba(255,215,0,0.3)",
                     borderRadius:12, padding:"10px 14px", marginBottom:14,
-                    fontSize:12, color:"#E8D9A0", lineHeight:1.6, fontFamily:"Manrope,sans-serif",
+                    fontSize:12, color:"var(--c-e8d9a0)", lineHeight:1.6, fontFamily:"Manrope,sans-serif",
                   }}>
                     <span style={{ fontWeight:700, color:"#FFD700", fontSize:10, letterSpacing:"0.08em" }}>TL;DR — </span>
                     <MarkdownText plain>{sectionData.tldr}</MarkdownText>
@@ -1590,10 +1590,10 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                 <div className="gs-animate" style={{ marginBottom:12 }}>
                   <div style={{ fontSize:10, color:D.hint, fontFamily:"Manrope,sans-serif", marginBottom:6 }}>Your answer:</div>
                   <div style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", fontStyle:"italic", marginBottom:12 }}>"{userAnswer}"</div>
-                  <div style={{ fontSize:10, color:"#81c784", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
+                  <div style={{ fontSize:10, color:"var(--c-81c784)", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
                     ✦ AI Feedback
                   </div>
-                  <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.75, fontFamily:"Manrope,sans-serif", padding:"4px 0" }}>
+                  <div style={{ fontSize:13, color:"var(--c-c8e6c9)", lineHeight:1.75, fontFamily:"Manrope,sans-serif", padding:"4px 0" }}>
                     <MarkdownText theme="gold">{feedback}</MarkdownText>
                   </div>
                 </div>

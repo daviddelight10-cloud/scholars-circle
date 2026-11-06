@@ -35,13 +35,13 @@ export class ErrorBoundary extends Component {
           textAlign: "center",
           background: "var(--card-bg, var(--app-card2))",
           borderRadius: "12px",
-          border: "1px solid var(--border-color, #3a3a40)",
+          border: "1px solid var(--border-color, var(--c-3a3a40))",
         }}>
           <div style={{ fontSize: "64px", marginBottom: "16px" }}>⚠️</div>
-          <h2 style={{ color: "var(--text-primary, #f1f5f9)", marginBottom: "12px" }}>
+          <h2 style={{ color: "var(--text-primary, var(--c-f1f5f9))", marginBottom: "12px" }}>
             Something went wrong
           </h2>
-          <p style={{ color: "var(--text-secondary, #cbd5e1)", marginBottom: "24px", maxWidth: "400px" }}>
+          <p style={{ color: "var(--text-secondary, var(--c-cbd5e1))", marginBottom: "24px", maxWidth: "400px" }}>
             An unexpected error occurred. Please try again or refresh the page.
           </p>
           {this.state.error && (
@@ -58,7 +58,7 @@ export class ErrorBoundary extends Component {
                 Error Details
               </summary>
               <pre style={{
-                color: "var(--text-secondary, #cbd5e1)",
+                color: "var(--text-secondary, var(--c-cbd5e1))",
                 fontSize: "12px",
                 overflow: "auto",
                 maxHeight: "200px",

@@ -65,7 +65,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
     display: "flex", alignItems: "flex-end", justifyContent: "center",
   };
   const sheet = {
-    background: "#0d0f20", borderRadius: "20px 20px 0 0", border: "0.5px solid #1e2245",
+    background: "var(--c-0d0f20)", borderRadius: "20px 20px 0 0", border: "0.5px solid var(--c-1e2245)",
     padding: "24px 20px 40px", width: "100%", maxWidth: "480px", maxHeight: "88vh", overflowY: "auto",
   };
   const tabBtn = (active) => ({
@@ -77,19 +77,19 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
   const row = (enabled) => ({
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "12px 14px", borderRadius: "10px", marginBottom: "6px",
-    background: "#0a0b18", border: "0.5px solid #1e2245",
+    background: "var(--c-0a0b18)", border: "0.5px solid var(--c-1e2245)",
   });
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={sheet}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-          <h2 style={{ color: "#e8eaf6", fontSize: "17px", fontWeight: 700, margin: 0 }}>My Courses</h2>
+          <h2 style={{ color: "var(--c-e8eaf6)", fontSize: "17px", fontWeight: 700, margin: 0 }}>My Courses</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#7b82b8", fontSize: "22px", cursor: "pointer" }}>×</button>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", background: "#0a0b18", borderRadius: "10px", padding: "4px", marginBottom: "16px" }}>
+        <div style={{ display: "flex", background: "var(--c-0a0b18)", borderRadius: "10px", padding: "4px", marginBottom: "16px" }}>
           <button style={tabBtn(tab === "mine")} onClick={() => setTab("mine")}>My Courses</button>
           <button style={tabBtn(tab === "other")} onClick={() => setTab("other")}>Other Departments</button>
         </div>
@@ -107,7 +107,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <span style={{ fontSize: "20px" }}>{s.icon || "📚"}</span>
                   <div>
-                    <div style={{ color: "#e8eaf6", fontWeight: 600, fontSize: "14px" }}>{s.label}</div>
+                    <div style={{ color: "var(--c-e8eaf6)", fontWeight: 600, fontSize: "14px" }}>{s.label}</div>
                     {s.description && <div style={{ color: "#4a5080", fontSize: "12px" }}>{s.description}</div>}
                   </div>
                 </div>
@@ -144,7 +144,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
                   }}>
                     <span style={{ fontSize: "22px" }}>{d.icon || "🏛️"}</span>
                     <div>
-                      <div style={{ color: "#e8eaf6", fontWeight: 600 }}>{d.name}</div>
+                      <div style={{ color: "var(--c-e8eaf6)", fontWeight: 600 }}>{d.name}</div>
                       <div style={{ color: "#4a5080", fontSize: "12px" }}>{d._count?.subjects || 0} courses</div>
                     </div>
                     <span style={{ marginLeft: "auto", color: "#4a5080" }}>›</span>
@@ -159,7 +159,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
                 }}>
                   ← Back to departments
                 </button>
-                <div style={{ color: "#e8eaf6", fontWeight: 700, marginBottom: "12px" }}>
+                <div style={{ color: "var(--c-e8eaf6)", fontWeight: 700, marginBottom: "12px" }}>
                   {browseDept?.icon} {browseDept?.name}
                 </div>
                 {otherCourses.length === 0 && (
@@ -170,7 +170,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <span style={{ fontSize: "18px" }}>{s.icon || "📚"}</span>
                       <div>
-                        <div style={{ color: "#e8eaf6", fontWeight: 600, fontSize: "14px" }}>{s.label}</div>
+                        <div style={{ color: "var(--c-e8eaf6)", fontWeight: 600, fontSize: "14px" }}>{s.label}</div>
                         <div style={{ color: "#4a5080", fontSize: "12px" }}>Year {s.yearLevel || "?"}</div>
                       </div>
                     </div>

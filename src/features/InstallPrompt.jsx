@@ -114,7 +114,7 @@ export function InstallPrompt() {
       zIndex: 1090,
       padding: 12,
       borderRadius: 12,
-      background: "linear-gradient(135deg, #0f172a, var(--app-card2))",
+      background: "linear-gradient(135deg, var(--c-0f172a), var(--app-card2))",
       border: "1px solid rgba(255,215,0,0.4)",
       boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
       color: "var(--app-text)",
@@ -127,7 +127,7 @@ export function InstallPrompt() {
           <div style={{ fontWeight: 700, fontSize: 14 }}>
             Install Scholar's Circle
           </div>
-          <div style={{ fontSize: 12, color: "#cbd5e1", marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: "var(--c-cbd5e1)", marginTop: 2 }}>
             {ios && "Tap Share → Add to Home Screen for the best experience + push notifications."}
             {android && deferredPrompt && "One-tap install for quick access and offline study."}
             {!ios && !android && "Install for quick access from your desktop or app drawer."}
@@ -171,7 +171,7 @@ const secondaryBtn = {
   borderRadius: 8,
   border: "1px solid var(--app-tint-strong)",
   background: "transparent",
-  color: "#cbd5e1",
+  color: "var(--c-cbd5e1)",
   fontSize: 13,
   cursor: "pointer"
 };

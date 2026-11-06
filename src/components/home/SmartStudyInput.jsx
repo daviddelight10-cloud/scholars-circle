@@ -4,11 +4,11 @@ import { downscaleImage, readFileAsDataUrl } from "../../lib/imageUtils.js";
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
   bg:     "var(--app-bg)",
-  card:   "#0d0f1f",
+  card:   "var(--c-0d0f1f)",
   accent: "var(--app-card)",
   border: "#B8860B",
-  line:   "#1e2140",
-  text:   "#e8eaf6",
+  line:   "var(--c-1e2140)",
+  text:   "var(--c-e8eaf6)",
   muted:  "#7b82b8",
   hint:   "#4a5080",
   faint:  "#1a1d35",
@@ -54,8 +54,8 @@ const CSS = `
 
 const ACTIONS = [
   { mode: "auto-roadmap", icon: "📋", label: "Build Roadmap",  bg: D.accent,   border: D.border, color: "#FFD700" },
-  { mode: "explain",      icon: "📖", label: "Explain this",   bg: "#0b1e3a",  border: "#1e4a7a", color: "#90caf9" },
-  { mode: "quiz",         icon: "🎯", label: "Quiz me",        bg: "#0a1f10",  border: "#1a4a25", color: "#81c784" },
+  { mode: "explain",      icon: "📖", label: "Explain this",   bg: "var(--c-0b1e3a)",  border: "#1e4a7a", color: "var(--c-90caf9)" },
+  { mode: "quiz",         icon: "🎯", label: "Quiz me",        bg: "var(--c-0a1f10)",  border: "var(--c-1a4a25)", color: "var(--c-81c784)" },
 ];
 
 const PLACEHOLDERS = [
@@ -71,7 +71,7 @@ function AIAvatar() {
     <div style={{ position: "relative", width: 44, height: 44, flexShrink: 0 }}>
       <div style={{
         width: 44, height: 44, borderRadius: "50%",
-        background: "#0f1240", border: "1.5px solid #B8860B",
+        background: "var(--c-0f1240)", border: "1.5px solid #B8860B",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
@@ -86,7 +86,7 @@ function AIAvatar() {
       <div style={{
         position: "absolute", bottom: 1, right: 1,
         width: 9, height: 9, borderRadius: "50%",
-        background: "#22c55e", border: "1.5px solid #0d0f22",
+        background: "#22c55e", border: "1.5px solid var(--c-0d0f22)",
         animation: "ssi-pulse 2s ease-in-out infinite",
       }} />
     </div>
@@ -154,7 +154,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
 
       {/* ── Main card ── */}
       <div style={{
-        background: "#0d0f22",
+        background: "var(--c-0d0f22)",
         border: `0.5px solid ${D.line}`,
         borderRadius: 18,
         padding: "14px 14px 12px",
@@ -179,7 +179,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
             }}>
               AI Study Assistant · Online
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#c5c9e8", lineHeight: 1.4, fontFamily: "Manrope, sans-serif" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--c-c5c9e8)", lineHeight: 1.4, fontFamily: "Manrope, sans-serif" }}>
               What do you want to learn today?
             </div>
           </div>
@@ -189,7 +189,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
         {attachment && (
           <div className="ssi-animate" style={{
             display: "flex", alignItems: "center", gap: 8,
-            background: "#0a0c1e", border: `0.5px solid ${D.line}`,
+            background: "var(--c-0a0c1e)", border: `0.5px solid ${D.line}`,
             borderRadius: 10, padding: "7px 12px", marginBottom: 8,
           }}>
             {attachment.type === "img"
@@ -222,7 +222,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
             rows={3}
             style={{
               width: "100%", boxSizing: "border-box", resize: "none",
-              background: "#080a18", border: `0.5px solid ${hasContent ? D.border : D.line}`,
+              background: "var(--c-080a18)", border: `0.5px solid ${hasContent ? D.border : D.line}`,
               borderRadius: 13, padding: "11px 14px 11px 14px",
               paddingBottom: 36,
               fontSize: 13, color: D.text,
@@ -239,7 +239,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
             <button
               className="ssi-upload-btn"
               onClick={() => docRef.current?.click()}
-              style={{ background: "#0f1230", color: D.muted }}
+              style={{ background: "var(--c-0f1230)", color: D.muted }}
               title="Upload document"
             >
               📄 <span style={{ fontSize: 10 }}>Doc</span>
@@ -247,7 +247,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
             <button
               className="ssi-upload-btn"
               onClick={() => imgRef.current?.click()}
-              style={{ background: "#0f1230", color: D.muted }}
+              style={{ background: "var(--c-0f1230)", color: D.muted }}
               title="Upload image"
             >
               🖼 <span style={{ fontSize: 10 }}>Image</span>
@@ -296,8 +296,8 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
               className="ssi-action-btn"
               onClick={() => onOpenLearn?.()}
               style={{
-                background: "#0a1020", border: "0.5px solid #ef5350",
-                color: "#ef9a9a",
+                background: "var(--c-0a1020)", border: "0.5px solid #ef5350",
+                color: "var(--c-ef9a9a)",
               }}
             >
               ▶ Video Lesson

@@ -131,7 +131,7 @@ const DeskCard = memo(function DeskCard({
             style={{
               background: visibility === "private" ? "#1a0808" : "#0f2a1a",
               color: visibility === "private" ? "#ef9a9a" : "#a5d6a7",
-              border: `0.5px solid ${visibility === "private" ? "#4a1010" : "#2a6a3a"}`,
+              border: `0.5px solid ${visibility === "private" ? "var(--c-4a1010)" : "#2a6a3a"}`,
             }}
           >
             {visibility === "private" ? "🔒 Private" : visibility === "link" ? "🔗 Link" : "👥 Shared"}

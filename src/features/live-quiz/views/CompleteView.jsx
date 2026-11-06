@@ -11,7 +11,7 @@ function initials(name) {
 const AWARD_STYLE = {
   lucky: { Icon: IconClover, color: "#3DD68C", bg: "rgba(61,214,140,0.12)" },
   speed: { Icon: IconBolt, color: "#F5C542", bg: "rgba(245,197,66,0.12)" },
-  brain: { Icon: IconBrain, color: "#7FADF5", bg: "rgba(79,142,247,0.12)" },
+  brain: { Icon: IconBrain, color: "var(--c-7fadf5)", bg: "rgba(79,142,247,0.12)" },
   clutch: { Icon: IconZap, color: "#FF9F43", bg: "rgba(255,159,67,0.12)" },
 };
 
@@ -78,7 +78,7 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
         }}>
           <IconTrophy size={32} style={{ color: "#F5C542" }} />
         </div>
-        <p style={{ fontFamily: "Georgia, serif", fontSize: 22, fontWeight: 700, color: "#F3F4F6", margin: 0 }}>
+        <p style={{ fontFamily: "Georgia, serif", fontSize: 22, fontWeight: 700, color: "var(--c-f3f4f6)", margin: 0 }}>
           Session Complete
         </p>
         <p style={{ fontSize: 13, color: "#3DD68C", fontWeight: 600, marginTop: 6 }}>
@@ -199,7 +199,7 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
             <span className="lq-sc-badge" style={{ color: "#F5C542" }}>⚡ SCHOLAR'S CIRCLE</span>
             <span className="lq-sc-live"><span className="lq-sc-live-dot" />LIVE QUIZ</span>
           </div>
-          <p style={{ fontFamily: "Georgia, serif", fontSize: 44, fontWeight: 700, color: "#F3F4F6", margin: 0, lineHeight: 1.2 }}>{room.title}</p>
+          <p style={{ fontFamily: "Georgia, serif", fontSize: 44, fontWeight: 700, color: "var(--c-f3f4f6)", margin: 0, lineHeight: 1.2 }}>{room.title}</p>
           <div className="lq-sc-ranks">
             {c.leaderboard.slice(0, 5).map((u, i) => (
               <div className={`lq-sc-row${u.userId === myId ? " me" : ""}`} key={u.userId}>

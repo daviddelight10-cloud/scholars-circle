@@ -9,18 +9,18 @@ export const THEMES = {
     shadow: "rgba(var(--app-glass-rgb),0.14)", chipBg: "#EBE8DE",
   },
   dark: {
-    bg: "#1a1a2e", toolbar: "#16213e", border: "#0f3460", text: "#e0e0e0",
-    muted: "#8892b0", accent: "#e94560", hover: "rgba(233,69,96,0.15)",
-    inputBg: "#0f1626", chatBot: "#16213e", thumbBg: "#16213e",
-    shadow: "rgba(0,0,0,0.40)", chipBg: "#1a1a2e",
+    bg: "var(--c-1a1a2e)", toolbar: "#16213e", border: "var(--c-0f3460)", text: "var(--c-e0e0e0)",
+    muted: "var(--c-8892b0)", accent: "#e94560", hover: "rgba(233,69,96,0.15)",
+    inputBg: "var(--c-0f1626)", chatBot: "#16213e", thumbBg: "var(--c-16213e)",
+    shadow: "rgba(0,0,0,0.40)", chipBg: "var(--c-1a1a2e)",
   },
   // "dim" — image-safe night reading: the page is dimmed, not inverted, so
   // diagrams, photos and scans keep their true colors.
   dim: {
-    bg: "#101014", toolbar: "#17171c", border: "#2a2a33", text: "#d8d8dc",
-    muted: "#8f8f9a", accent: "#f0a500", hover: "rgba(240,165,0,0.14)",
-    inputBg: "#1d1d24", chatBot: "#1d1d24", thumbBg: "#17171c",
-    shadow: "rgba(0,0,0,0.45)", chipBg: "#1d1d24",
+    bg: "var(--c-101014)", toolbar: "#17171c", border: "var(--c-2a2a33)", text: "var(--c-d8d8dc)",
+    muted: "var(--c-8f8f9a)", accent: "#f0a500", hover: "rgba(240,165,0,0.14)",
+    inputBg: "var(--c-1d1d24)", chatBot: "#1d1d24", thumbBg: "var(--c-17171c)",
+    shadow: "rgba(0,0,0,0.45)", chipBg: "var(--c-1d1d24)",
   },
   sepia: {
     bg: "#F5EFDD", toolbar: "#EFE8D3", border: "#DED2B0", text: "#3A3A3A",

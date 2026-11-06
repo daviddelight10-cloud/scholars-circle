@@ -1608,7 +1608,9 @@ function App() {
 
 
 
-        if (parsed.appearance) { setAppearancePref(parsed.appearance); setAppearance(parsed.appearance); setDarkMode(resolveAppearance() === "dark"); }
+        // NOTE: appearance is NOT restored from this blob — sc-appearance (set by
+        // the boot script in index.html and the Settings toggle) is the single
+        // local source of truth. Only the server progress load syncs cross-device.
 
 
 
@@ -1710,7 +1712,9 @@ function App() {
 
         setCustomQuestions(parsed.customQuestions ?? []);
 
-        if (parsed.appearance) { setAppearancePref(parsed.appearance); setAppearance(parsed.appearance); setDarkMode(resolveAppearance() === "dark"); }
+        // NOTE: appearance is NOT restored from this blob — sc-appearance (set by
+        // the boot script in index.html and the Settings toggle) is the single
+        // local source of truth. Only the server progress load syncs cross-device.
 
         setLastStudied(parsed.lastStudied ?? null);
 
@@ -2121,7 +2125,9 @@ function App() {
 
         setCustomQuestions(parsed.customQuestions ?? []);
 
-        if (parsed.appearance) { setAppearancePref(parsed.appearance); setAppearance(parsed.appearance); setDarkMode(resolveAppearance() === "dark"); }
+        // NOTE: appearance is NOT restored from this blob — sc-appearance (set by
+        // the boot script in index.html and the Settings toggle) is the single
+        // local source of truth. Only the server progress load syncs cross-device.
 
         setLastStudied(parsed.lastStudied ?? null);
 
@@ -2572,10 +2578,6 @@ function App() {
 
 
 
-        appearance,
-
-
-
         lastStudied,
 
         lastActivity,
@@ -2723,10 +2725,6 @@ function App() {
 
 
 
-          appearance,
-
-
-
           themePack,
 
 
@@ -2792,8 +2790,6 @@ function App() {
 
 
     darkMode,
-
-    appearance,
 
 
 
@@ -6369,7 +6365,7 @@ function App() {
                         type="email"
                         onKeyDown={(e) => { if (e.key === 'Enter') login(); }}
                       />
-                      {loginEmailError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{loginEmailError}</p>}
+                      {loginEmailError && <p style={{ color: 'var(--c-f87171)', fontSize: '0.78rem', marginTop: 6 }}>{loginEmailError}</p>}
                     </div>
 
                     <div>
@@ -6395,7 +6391,7 @@ function App() {
                           {showLoginPassword ? 'Hide' : 'Show'}
                         </button>
                       </div>
-                      {loginPasswordError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{loginPasswordError}</p>}
+                      {loginPasswordError && <p style={{ color: 'var(--c-f87171)', fontSize: '0.78rem', marginTop: 6 }}>{loginPasswordError}</p>}
                     </div>
 
                     <div style={{ textAlign: 'right', marginTop: -4 }}>
@@ -6474,7 +6470,7 @@ function App() {
                         type="email"
                         autoComplete="email"
                       />
-                      {signupEmailError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{signupEmailError}</p>}
+                      {signupEmailError && <p style={{ color: 'var(--c-f87171)', fontSize: '0.78rem', marginTop: 6 }}>{signupEmailError}</p>}
                     </div>
 
                     <div>
@@ -6499,7 +6495,7 @@ function App() {
                           {showSignupPassword ? 'Hide' : 'Show'}
                         </button>
                       </div>
-                      {signupPasswordError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{signupPasswordError}</p>}
+                      {signupPasswordError && <p style={{ color: 'var(--c-f87171)', fontSize: '0.78rem', marginTop: 6 }}>{signupPasswordError}</p>}
                     </div>
 
                     <div>
@@ -6608,7 +6604,7 @@ function App() {
 
               {auth.error && (
                 <div style={{ marginTop: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
-                  <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
+                  <p style={{ margin: 0, color: 'var(--c-f87171)', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
                 </div>
               )}
 
@@ -6746,7 +6742,7 @@ function App() {
 
                 border: "none",
 
-                color: "#94a3b8",
+                color: "var(--c-94a3b8)",
 
                 cursor: "pointer",
 
@@ -6938,7 +6934,7 @@ function App() {
 
                 border: "none",
 
-                color: "#94a3b8",
+                color: "var(--c-94a3b8)",
 
                 cursor: "pointer",
 
@@ -7192,7 +7188,7 @@ function App() {
 
               border: "none",
 
-              color: "#94a3b8",
+              color: "var(--c-94a3b8)",
 
               cursor: "pointer",
 
@@ -7498,7 +7494,7 @@ function App() {
 
               border: "none",
 
-              color: "#94a3b8",
+              color: "var(--c-94a3b8)",
 
               cursor: "pointer",
 
@@ -7637,7 +7633,7 @@ function App() {
                         <div><strong>Name:</strong> Zibiri-David Delight Aluaye</div>
                         <div><strong>Amount:</strong> {naira(getPlan(selectedPlan)?.price)}</div>
                       </div>
-                      <div style={{ fontSize: 11, color: "#9fa8da", marginBottom: 8, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "var(--c-9fa8da)", marginBottom: 8, textAlign: "center" }}>
                         Activation key: <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fbbf24", letterSpacing: 1 }}>{auth.user?.activationKey || "N/A"}</span>
                       </div>
                       <a
@@ -7994,7 +7990,7 @@ function App() {
 
             background: darkMode ? "var(--app-card2)" : "var(--app-card)",
 
-            color: darkMode ? "white" : "black",
+            color: "var(--app-text)",
 
             padding: 24,
 
@@ -9437,8 +9433,8 @@ function App() {
         <Suspense fallback={<TabSkeleton />}>
         <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
           <div style={{ marginBottom: 20 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#F2F0EA", marginBottom: 6 }}>📊 Your Impact</h1>
-            <p style={{ fontSize: 13, color: "#8A8F9C" }}>How students are engaging with your materials</p>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--c-f2f0ea)", marginBottom: 6 }}>📊 Your Impact</h1>
+            <p style={{ fontSize: 13, color: "var(--c-8a8f9c)" }}>How students are engaging with your materials</p>
           </div>
           <LecturerInsights token={token} />
         </div>
@@ -9530,7 +9526,7 @@ function App() {
             <h3 style={{ textAlign: "center", fontSize: 18, fontWeight: 700, margin: "0 0 12px 0" }}>
               Install Scholar's Circle
             </h3>
-            <p style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", margin: "0 0 20px 0" }}>
+            <p style={{ fontSize: 13, color: "var(--c-94a3b8)", textAlign: "center", margin: "0 0 20px 0" }}>
               Add the app to your Home Screen for the best experience.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

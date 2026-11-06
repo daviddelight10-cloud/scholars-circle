@@ -128,11 +128,11 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "#0f172a", display: "flex", flexDirection: "column"
+      background: "var(--c-0f172a)", display: "flex", flexDirection: "column"
     }}>
       <div style={{
         padding: "10px 16px",
-        background: "linear-gradient(135deg, var(--app-card2), #0f172a)",
+        background: "linear-gradient(135deg, var(--app-card2), var(--c-0f172a))",
         borderBottom: "1px solid rgba(255,215,0,0.3)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
         flexWrap: "wrap", gap: 8
@@ -215,7 +215,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
       )}
 
       {error && (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#f87171", padding: 40, textAlign: "center" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--c-f87171)", padding: 40, textAlign: "center" }}>
           ⚠️ Failed to connect: {error}<br />
           Please check your internet connection and refresh.
         </div>

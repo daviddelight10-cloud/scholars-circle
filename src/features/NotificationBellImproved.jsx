@@ -11,7 +11,7 @@ const T = {
   borderB: "var(--app-tint-soft)",
   blue:    "#3D7EFF",
   blueG:   "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
-  text:    "#F1F5F9",
+  text:    "var(--c-f1f5f9)",
   muted:   "#64748B",
   dim:     "#3a3a40",
   syne:    "Syne,sans-serif",

@@ -674,7 +674,7 @@ export default function EmbeddedRoadmapView({
         placeholder="e.g. MED301"
         autoFocus
         style={{
-          background: "#0D1220", border: `0.5px solid ${D.gold}44`, borderRadius: 8,
+          background: "var(--c-0d1220)", border: `0.5px solid ${D.gold}44`, borderRadius: 8,
           padding: "8px 12px", fontSize: 13, color: D.textHi, fontFamily: FONTS.body,
           width: 140, outline: "none", textTransform: "uppercase",
         }}
@@ -882,7 +882,7 @@ export default function EmbeddedRoadmapView({
                 }
               }} style={{
                 background: "rgba(255,84,112,0.08)", border: "0.5px solid rgba(255,84,112,0.25)", borderRadius: 10,
-                padding: "12px 20px", fontSize: 13, fontWeight: 500, color: "#FF8098",
+                padding: "12px 20px", fontSize: 13, fontWeight: 500, color: "var(--c-ff8098)",
                 cursor: "pointer", fontFamily: FONTS.body,
               }}>
                 ♻️ Rebuild from scratch
@@ -1300,7 +1300,7 @@ export default function EmbeddedRoadmapView({
         <FdSheet title="Exam date" onClose={() => setExamOpen(false)}
           footer={<button className="tp-save" onClick={handleExamSave}>Save</button>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={{ fontSize: 12, color: "#8A8F9C", fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 12, color: "var(--c-8a8f9c)", fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.6 }}>
               Set your {courseCode} exam date to see a weekly pace suggestion on the roadmap.
             </p>
             <input
@@ -1332,7 +1332,7 @@ export default function EmbeddedRoadmapView({
             </button>
           }>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={{ fontSize: 12, color: "#8A8F9C", fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 12, color: "var(--c-8a8f9c)", fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.6 }}>
               Paste an exported roadmap JSON. Topics are added after your existing ones.
             </p>
             <textarea

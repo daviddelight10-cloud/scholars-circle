@@ -6,7 +6,7 @@ import McIcon from "./research-hub/McIcon.jsx";
 
 const C = {
   bg: "var(--app-bg)", card: "var(--app-card)", line: "var(--app-border)",
-  text: "#F2F0EA", muted: "#8A8F9C", hint: "#5B606C",
+  text: "var(--c-f2f0ea)", muted: "var(--c-8a8f9c)", hint: "#5B606C",
   gold: "#DAA520", goldBright: "#FFD700",
   green: "#34d399", red: "#f87171", orange: "#fb923c", purple: "#c084fc", teal: "#5eead4", pink: "#f48fb1",
 };

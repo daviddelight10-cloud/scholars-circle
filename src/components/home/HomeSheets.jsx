@@ -68,7 +68,7 @@ export function ShopSheet({ open, onClose, save, onBuyFreeze }) {
       <p className="hm-sh-sub">Spend gems you earn from questions, quests and achievements.</p>
 
       <div className="hm-sh-row">
-        <div className="hm-sh-ic" style={{ background: "rgba(124,199,255,.1)", color: "#7CC7FF" }}>
+        <div className="hm-sh-ic" style={{ background: "rgba(124,199,255,.1)", color: "var(--c-7cc7ff)" }}>
           <HIcon name="freeze" size={18} />
         </div>
         <div className="hm-sh-info">
@@ -95,7 +95,7 @@ export function ShopSheet({ open, onClose, save, onBuyFreeze }) {
       </div>
 
       <div className="hm-sh-row">
-        <div className="hm-sh-ic" style={{ background: "rgba(139,108,255,.12)", color: "#C0B2FF" }}>
+        <div className="hm-sh-ic" style={{ background: "rgba(139,108,255,.12)", color: "var(--c-c0b2ff)" }}>
           <HIcon name="bolt" size={18} />
         </div>
         <div className="hm-sh-info">

@@ -4302,7 +4302,7 @@ Passage:
         <div
           style={{
             position: "fixed", bottom: isMobile ? 160 : 80, left: "50%", transform: "translateX(-50%)",
-            zIndex: 400, background: "#123a24", color: "var(--app-text)", padding: "9px 16px", borderRadius: 999,
+            zIndex: 400, background: "var(--c-123a24)", color: "var(--app-text)", padding: "9px 16px", borderRadius: 999,
             fontSize: 12, fontWeight: 600, boxShadow: "0 8px 26px rgba(0,0,0,0.4)",
             display: "flex", alignItems: "center", gap: 8, maxWidth: "92vw",
           }}

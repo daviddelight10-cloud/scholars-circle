@@ -110,11 +110,11 @@ export function KeyManagement({ token }) {
                   </td>
                   <td style={{ padding: "8px 6px" }}>
                     {s.isExpired ? (
-                      <span style={{ color: "#f87171", fontWeight: 600 }}>● Expired</span>
+                      <span style={{ color: "var(--c-f87171)", fontWeight: 600 }}>● Expired</span>
                     ) : s.isActivated ? (
                       <span style={{ color: "#34d399", fontWeight: 600 }}>● Active</span>
                     ) : (
-                      <span style={{ color: "#f87171", fontWeight: 600 }}>○ Pending</span>
+                      <span style={{ color: "var(--c-f87171)", fontWeight: 600 }}>○ Pending</span>
                     )}
                   </td>
                   <td style={{ padding: "8px 6px" }}>
@@ -124,7 +124,7 @@ export function KeyManagement({ token }) {
                         border: "1px solid rgba(239, 68, 68, 0.4)",
                         padding: "4px 8px",
                         borderRadius: 6,
-                        color: "#f87171",
+                        color: "var(--c-f87171)",
                         fontWeight: 700,
                         fontSize: 12
                       }}>Expired</span>
