@@ -162,7 +162,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
         <span className={`gv-signal-chip ${pulse?.streak > 0 ? "hot" : ""}`}>🔥 {pulse?.streak ?? "…"}d streak</span>
         <span className={`gv-signal-chip ${pulse?.activeNow > 0 ? "live" : ""}`}>🟢 {pulse?.activeNow ?? "…"} studying</span>
         <span className={`gv-signal-chip ${pulse?.liveBattles > 0 ? "battle" : ""}`}>⚔️ {pulse?.liveBattles ?? "…"} live</span>
-        {group.joinCode && (
+        {group.joinCode && !menuOpen && (
           <button className="gv-invite-pill" onClick={() => copy("link")} title="Copy invite link">
             🔑 {group.joinCode} {copied ? "✓" : "⧉"}
           </button>
