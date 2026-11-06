@@ -3,7 +3,7 @@
    Fonts: Syne (display) · Manrope (body) · JetBrains Mono (meta).      */
 
 .hm-root {
-  --hm-screen: var(--app-bg); --hm-card: var(--app-tint-soft); --hm-card-2: var(--app-tint-med);
+  --hm-screen: var(--app-bg); --hm-card: var(--app-card); --hm-card-2: var(--app-card2);
   --hm-stroke: var(--app-line); --hm-stroke-soft: var(--app-tint-med);
   --hm-text: var(--app-text); --hm-muted: var(--app-dim); --hm-faint: var(--app-faint);
   --hm-amber: #FFB547; --hm-blue: #6C9EFF; --hm-green: #4ADE80; --hm-violet: #8B6CFF;
@@ -106,8 +106,9 @@
 /* hero */
 .hm-hero {
   position: relative; margin-top: 14px; border-radius: 20px; padding: 14px;
-  background: linear-gradient(160deg, rgba(255,181,71,.06), rgba(108,158,255,.04) 55%, var(--app-tint-soft));
+  background: linear-gradient(160deg, rgba(255,181,71,.06), rgba(108,158,255,.04) 55%, var(--hm-card));
   border: 1px solid var(--hm-stroke);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
 }
 .hm-hero-top { display: flex; justify-content: space-between; align-items: center; }
 .hm-tag {
@@ -136,6 +137,7 @@
 .hm-quests {
   border-radius: 16px; background: var(--hm-card);
   border: 1px solid var(--hm-stroke-soft); overflow: hidden;
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
 }
 .hm-quest {
   display: flex; align-items: center; gap: 11px; padding: 11px 13px;
@@ -252,6 +254,7 @@
 .hm-doc {
   flex: 0 0 74%; border-radius: 16px; padding: 12px; background: var(--hm-card);
   border: 1px solid var(--hm-stroke-soft); cursor: pointer;
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
 }
 .hm-doc .hm-badge {
   display: inline-flex; font-size: 8.5px; font-weight: 700; letter-spacing: 1px;
@@ -287,6 +290,7 @@
   position: relative; flex: 0 0 80%; border-radius: 15px; padding: 11px 11px 10px 15px;
   background: var(--hm-card); border: 1px solid var(--hm-stroke-soft); cursor: pointer;
   overflow: hidden; text-align: left; font-family: inherit; color: inherit; width: 80%;
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
 }
 .hm-folder::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--hm-accent, var(--hm-amber)); }
 .hm-f-head { display: flex; align-items: center; gap: 9px; }
@@ -322,9 +326,10 @@
 /* library */
 .hm-lib { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
 .hm-lib-card {
-  border-radius: 16px; padding: 12px; background: var(--app-tint-soft);
+  border-radius: 16px; padding: 12px; background: var(--hm-card);
   border: 1px solid var(--hm-stroke-soft); cursor: pointer; text-align: left;
   font-family: inherit; color: inherit;
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
 }
 .hm-lib-ic { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .hm-lib-ic.blue { background: rgba(108,158,255,.12); color: var(--c-9db8e8); }
@@ -345,8 +350,9 @@
 
 /* study circle */
 .hm-board {
-  border-radius: 16px; padding: 14px; background: var(--app-tint-soft);
+  border-radius: 16px; padding: 14px; background: var(--hm-card);
   border: 1px solid var(--hm-stroke-soft); text-align: center;
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
 }
 .hm-stack { display: flex; justify-content: center; margin-bottom: 10px; }
 .hm-stack .hm-p {
@@ -491,7 +497,7 @@
 .hm-xp-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .hm-an-chart.many { gap: 2px; }
 .hm-an-chart.many .hm-an-col i { border-radius: 3px 3px 2px 2px; }
-.hm-subj { margin-top: 12px; border: 1px solid var(--hm-stroke-soft); background: var(--hm-card); border-radius: 13px; overflow: hidden; }
+.hm-subj { margin-top: 12px; border: 1px solid var(--hm-stroke-soft); background: var(--hm-card); border-radius: 13px; overflow: hidden; box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04); }
 .hm-subj-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
 .hm-subj-row + .hm-subj-row { border-top: 1px solid var(--hm-stroke-soft); }
 .hm-subj-name { flex: 1; min-width: 0; }
@@ -506,6 +512,7 @@
   width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 14px;
   border-radius: 15px; background: var(--hm-card); border: 1px solid var(--hm-stroke-soft);
   cursor: pointer; margin-top: 9px; transition: .15s; text-align: left;
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   font-family: inherit; color: inherit;
 }
 .hm-goal-opt .hm-g-num { font-family: var(--hm-font-display); font-size: 19px; font-weight: 800; color: var(--hm-text); width: 34px; }
