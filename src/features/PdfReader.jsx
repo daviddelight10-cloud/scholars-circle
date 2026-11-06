@@ -61,9 +61,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Theme
   // Default: dim (image-safe night mode) at max brightness. Stored choices win.
+  // "light" chrome was removed — the reader keeps its own dark-glass colors
+  // and the page keeps its natural colors, so migrate any stored "light".
   const [theme, setTheme] = useState(() => {
-    const t = loadStored("sc_pdf_theme", "light");
-    return THEMES[t] ? t : "light";
+    const t = loadStored("sc_pdf_theme", "dim");
+    return THEMES[t] && t !== "light" ? t : "dim";
   });
   const [readerBrightness, setReaderBrightness] = useState(() => loadStored("sc_pdf_bright", 1.1));
   const T = THEMES[theme];
@@ -1379,7 +1381,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       if (e.key === "+" || e.key === "=") { handleZoomIn(); }
       if (e.key === "-" || e.key === "_") { handleZoomOut(); }
       if (e.key === "b") toggleBookmark();
-      if (e.key === "t") setTheme((t) => t === "light" ? "dim" : t === "dim" ? "dark" : t === "dark" ? "sepia" : "light");
+      if (e.key === "t") setTheme((t) => t === "dim" ? "dark" : t === "dark" ? "sepia" : "dim");
       if (e.key === "f") setFullscreen((v) => !v);
       if (e.key === "h") toggleTool("highlight");
     };
@@ -3828,18 +3830,6 @@ Passage:
                 <div style={{ ...s.overflowItem, cursor: "default", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
                   <span style={{ fontSize: 11, color: T.muted, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: "0.04em" }}>READING THEME</span>
                   <div style={s.themeSwatchRow}>
-                    <button
-                      style={{
-                        ...s.themeSwatch,
-                        background: THEMES.light.bg,
-                        color: THEMES.light.text,
-                        borderColor: theme === "light" ? CHROME.blue : "var(--app-tint-med)",
-                        boxShadow: theme === "light" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
-                      }}
-                      onClick={() => { setTheme("light"); }}
-                    >
-                      Aa
-                    </button>
                     <button
                       style={{
                         ...s.themeSwatch,
