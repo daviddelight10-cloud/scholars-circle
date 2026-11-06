@@ -10,7 +10,6 @@ import {
   pendingExpiry,
   sweepBattles,
   hydrateLineups,
-  MAX_LINEUP,
 } from "../lib/battles.js";
 import { normalizeMcqData, shuffle, identityFor } from "./liveQuiz.js";
 import { generateTicket } from "./voiceSession.js";
@@ -362,11 +361,10 @@ router.post("/:id/accept", requireAuth, async (req, res) => {
     }
 
     const ranked = b.mode === "ranked";
+    // Asymmetric: the defending lineup is independently sized (1..MAX_LINEUP).
+    // Scoring is per-participant average, so headcount is not an advantage.
     const lineupCheck = await validateLineup(b.challengedId, lineupIds, { ranked });
     if (!lineupCheck.ok) return res.status(400).json({ error: lineupCheck.error });
-    if (lineupCheck.lineup.length !== (b.lineupA || []).length) {
-      return res.status(400).json({ error: `Lineup must match their ${(b.lineupA || []).length} players — no headcount advantage` });
-    }
     if (ranked) {
       const guard = await rankedGuards(b.challengerId, b.challengedId);
       if (!guard.ok) return res.status(400).json({ error: guard.error });

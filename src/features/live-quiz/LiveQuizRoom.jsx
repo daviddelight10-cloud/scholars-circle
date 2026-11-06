@@ -49,23 +49,24 @@ function ParticipantRail({ room, myId, voice }) {
   );
 }
 
-// Group-vs-group battle: persistent team scoreboard under the header. The
-// winner is the summed lineup points — individual play is unchanged.
+// Group-vs-group battle: persistent team scoreboard under the header. Lineups
+// can be asymmetric, so each side's score is the average of its players who
+// answered — headcount doesn't move the bar, quality per player does.
 function BattleBar({ battle }) {
   if (!battle) return null;
   const { a, b, scores, myTeam, mode } = battle;
   const sa = scores?.a || 0;
   const sb = scores?.b || 0;
   return (
-    <div className="lq-battlebar" role="status" aria-label="Battle score">
+    <div className="lq-battlebar" role="status" aria-label="Battle score (average points per player)">
       <span className={`lq-battlebar-team${myTeam === "a" ? " me" : ""}${sa > sb ? " ahead" : ""}`}>
-        <b>{a?.name}</b><em>{sa}</em>
+        <b>{a?.name}</b><em>{sa}<i className="lq-battlebar-avg">avg</i></em>
       </span>
       <span className="lq-battlebar-mid">
         {mode === "ranked" ? "🏅 RANKED" : "⚔️ VS"}
       </span>
       <span className={`lq-battlebar-team right${myTeam === "b" ? " me" : ""}${sb > sa ? " ahead" : ""}`}>
-        <em>{sb}</em><b>{b?.name}</b>
+        <em>{sb}<i className="lq-battlebar-avg">avg</i></em><b>{b?.name}</b>
       </span>
     </div>
   );

@@ -94,11 +94,13 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
           <p className="lq-card-label">{c.battle.mode === "ranked" ? "🏅 RANKED CLAN BATTLE" : "⚔️ CLAN BATTLE"}</p>
           <div className="lq-battlebar big">
             <span className={`lq-battlebar-team${c.battle.winnerId === c.battle.a.classroomId ? " ahead" : ""}`}>
-              <b>{c.battle.a.name}</b><em>{c.battle.a.score}</em>
+              <b>{c.battle.a.name}{c.battle.a.size ? <small className="lq-battlebar-size">×{c.battle.a.size}</small> : null}</b>
+              <em>{c.battle.a.score}<i className="lq-battlebar-avg">avg</i></em>
             </span>
             <span className="lq-battlebar-mid">{c.battle.winnerId ? "VS" : "DRAW"}</span>
             <span className={`lq-battlebar-team right${c.battle.winnerId === c.battle.b.classroomId ? " ahead" : ""}`}>
-              <em>{c.battle.b.score}</em><b>{c.battle.b.name}</b>
+              <em>{c.battle.b.score}<i className="lq-battlebar-avg">avg</i></em>
+              <b>{c.battle.b.name}{c.battle.b.size ? <small className="lq-battlebar-size">×{c.battle.b.size}</small> : null}</b>
             </span>
           </div>
           <p className="lq-battle-verdict">

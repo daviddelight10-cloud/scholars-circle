@@ -473,6 +473,15 @@
 .lq-battlebar-team em {
   font-style: normal; font-weight: 900; font-size: 16px;
   color: var(--app-text); font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: baseline; gap: 3px;
+}
+.lq-battlebar-avg {
+  font-style: normal; font-weight: 700; font-size: 8.5px;
+  color: var(--app-dim); letter-spacing: 0.06em; text-transform: uppercase;
+}
+.lq-battlebar-size {
+  font-style: normal; font-weight: 800; font-size: 10px;
+  color: var(--app-dim); margin-left: 3px;
 }
 .lq-battlebar-team.ahead em { color: #F5A623; }
 .lq-battlebar-team.me b { color: #F5A623; }

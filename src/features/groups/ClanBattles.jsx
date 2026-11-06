@@ -52,11 +52,11 @@ function BattleRow({ b, onAccept, onDecline, onJoin, onRing, ringState, busy }) 
         </div>
         <div className="gv-battle-row-meta">
           {b.status === "completed"
-            ? `${scoreline(b)}${winner ? ` — ${winner === b.a.id ? b.a.name : b.b.name} wins` : " — draw"}`
+            ? `${b.a.size}v${b.b.size} · ${scoreline(b)} avg${winner ? ` — ${winner === b.a.id ? b.a.name : b.b.name} wins` : " — draw"}`
             : b.status === "pending" && b.needsLineup
-              ? `challenges your clan — ${b.a.size}v${b.a.size}, ${b.numQuestions} questions`
+              ? `challenges your clan — they field ${b.a.size}, you pick your side · ${b.numQuestions} questions`
               : b.status === "pending"
-                ? `waiting for ${b.b.name} to answer · ${b.a.size}v${b.a.size}`
+                ? `waiting for ${b.b.name} to answer · your ${b.a.size} players`
                 : b.status === "active"
                   ? `${b.title || "battle"} · ${b.players} in lobby`
                   : STATUS_LABEL[b.status] || b.status}
@@ -88,7 +88,7 @@ function BattleRow({ b, onAccept, onDecline, onJoin, onRing, ringState, busy }) 
           className="fd-follow-btn"
           title="Share result"
           onClick={() => {
-            const text = `⚔️ ${scoreline(b)} on Scholar's Circle${winner ? ` — ${winner === b.a.id ? b.a.name : b.b.name} takes it!` : " — draw!"}`;
+            const text = `⚔️ ${b.a.size}v${b.b.size}: ${scoreline(b)} on Scholar's Circle${winner ? ` — ${winner === b.a.id ? b.a.name : b.b.name} takes it!` : " — draw!"}`;
             window.open(`https://wa.me/?text=${encodeURIComponent(text + " " + window.location.origin)}`, "_blank");
           }}
         >⧉</button>
@@ -97,14 +97,15 @@ function BattleRow({ b, onAccept, onDecline, onJoin, onRing, ringState, busy }) 
   );
 }
 
-// Pick exactly `needed` players from a member list.
-function LineupSheet({ title, hint, members, needed, busy, error, onConfirm, onClose }) {
+// Pick 1..max players from a member list. Lineups can be asymmetric — battles
+// are scored on per-participant average, so headcount is not an advantage.
+function LineupSheet({ title, hint, members, max = 15, busy, error, onConfirm, onClose }) {
   const [picked, setPicked] = useState([]);
   const toggle = (id) =>
-    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < needed ? [...p, id] : p));
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < max ? [...p, id] : p));
   return (
     <FdSheet title={title} onClose={onClose}>
-      <div className="fd-sheet-sub">{hint} — pick {needed} player{needed === 1 ? "" : "s"} ({picked.length}/{needed})</div>
+      <div className="fd-sheet-sub">{hint} — pick 1–{max} players ({picked.length}/{max})</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10, maxHeight: 300, overflowY: "auto" }}>
         {members.map((m) => {
           const on = picked.includes(m.user?.id);
@@ -133,10 +134,10 @@ function LineupSheet({ title, hint, members, needed, busy, error, onConfirm, onC
       <button
         className="fd-go-btn"
         style={{ width: "100%", marginTop: 12 }}
-        disabled={picked.length !== needed || busy}
+        disabled={picked.length < 1 || busy}
         onClick={() => onConfirm(picked)}
       >
-        {busy ? "Working…" : `Lock lineup (${picked.length}/${needed})`}
+        {busy ? "Working…" : `Lock lineup (${picked.length}/${max})`}
       </button>
     </FdSheet>
   );
@@ -177,7 +178,7 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   }
 
   const toggleLineup = (id) =>
-    setLineup((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < 5 ? [...p, id] : p));
+    setLineup((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < 15 ? [...p, id] : p));
 
   const canAdvance = !!opponent && !!material;
 
@@ -280,7 +281,7 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
         <>
           <button className="fd-link" style={{ marginBottom: 8 }} onClick={() => setStep(1)}>← Back</button>
 
-          <div className="fd-sheet-sub">Your lineup ({lineup.length}/5)</div>
+          <div className="fd-sheet-sub">Your lineup ({lineup.length}/15)</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, maxHeight: 200, overflowY: "auto" }}>
             {dedupedMembers.map((m) => {
               const on = lineup.includes(m.user?.id);
@@ -319,7 +320,7 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
             disabled={lineup.length < 1 || busy}
             onClick={submit}
           >
-            {busy ? "Sending…" : `Send ${mode} challenge (${lineup.length}v${lineup.length})`}
+            {busy ? "Sending…" : `Send ${mode} challenge (${lineup.length} players)`}
           </button>
         </>
       )}
@@ -487,9 +488,9 @@ export function ClanBattles({ token, me, onJoinQuiz }) {
       {accepting && acceptMembers && (
         <LineupSheet
           title={`Accept — ${accepting.a.name} vs ${accepting.b.name}`}
-          hint={accepting.mode === "ranked" ? "Ranked — lineup locked once the battle starts" : "Pick who defends your clan"}
+          hint={`They field ${accepting.a.size} — ${accepting.mode === "ranked" ? "ranked, lineup locked once it starts" : "pick who defends your clan"}`}
           members={acceptMembers}
-          needed={(accepting.lineupASize || accepting.a.size || 1)}
+          max={15}
           busy={busy}
           error={actionError}
           onConfirm={confirmAccept}
@@ -573,7 +574,7 @@ export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQ
       <div className="gv-battles-hero">
         <div className="gv-battles-hero-text">
           <b>Clan battles</b>
-          <span>Challenge another group — same questions, same clock, the clan's summed points win{group.rating != null ? ` · 🏅 ${group.rating} rating` : ""}.</span>
+          <span>Challenge another group — same questions, same clock; the higher per-player average wins, so any lineup size works{group.rating != null ? ` · 🏅 ${group.rating} rating` : ""}.</span>
         </div>
         {isCaptain && (
           <button className="fd-go-btn" onClick={() => setChallengeOpen(true)}>⚔️ Challenge</button>
@@ -633,9 +634,9 @@ export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQ
       {accepting && (
         <LineupSheet
           title={`Accept — ${accepting.a.name} vs ${accepting.b.name}`}
-          hint="Pick who defends your clan"
+          hint={`They field ${accepting.a.size} — pick who defends your clan`}
           members={dedupedMembers}
-          needed={accepting.a.size || 1}
+          max={15}
           busy={busy}
           error={actionError}
           onConfirm={confirmAccept}

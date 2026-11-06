@@ -119,6 +119,7 @@ export async function unsubscribeFromPush(token) {
     if (messaging) {
       const currentToken = await getToken(messaging, {
         vapidKey: cachedFcmConfig?.vapidKey,
+        serviceWorkerRegistration: await navigator.serviceWorker.ready,
       }).catch(() => null);
 
       if (currentToken) {
@@ -175,7 +176,10 @@ export async function hasActiveSubscription() {
     if (!messaging) return false;
     const config = await fetchFcmConfig().catch(() => null);
     if (!config) return false;
-    const token = await getToken(messaging, { vapidKey: config.vapidKey }).catch(() => null);
+    const token = await getToken(messaging, {
+      vapidKey: config.vapidKey,
+      serviceWorkerRegistration: await navigator.serviceWorker.ready,
+    }).catch(() => null);
     return !!token;
   } catch {
     return false;

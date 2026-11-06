@@ -3,7 +3,7 @@ import { WebSocket } from "ws";
 import { prisma } from "../db.js";
 import { addLeagueXP, awardBadge } from "./badges.js";
 import { updateUniversalStreak } from "./streak.js";
-import { finalizeBattle, cancelBattle } from "./battles.js";
+import { finalizeBattle, cancelBattle, teamPoints } from "./battles.js";
 
 // ── In-memory live-quiz room manager ─────────────────────────────────────────
 // Live room state is ephemeral (like voice sessions); a LiveQuizSession DB row
@@ -83,8 +83,8 @@ function connectedParticipants(room) {
 }
 
 // Group battles: room.battle = { id, mode, a:{classroomId,name,lineup:[ids]},
-// b:{...} }. Points per side are the summed leaderboard points of joined
-// lineup members — same questions/clock, server-side scoring.
+// b:{...} }. Lineups can differ in size — each side's score is the average
+// leaderboard points of its members who answered (see teamPoints in battles.js).
 function battleTeam(room, userId) {
   if (!room.battle) return null;
   if (room.battle.a.lineup.includes(userId)) return "a";
@@ -92,13 +92,20 @@ function battleTeam(room, userId) {
   return null;
 }
 
+// Live team scoreline — same per-participant average as finalizeBattle uses,
+// so the in-room leader never disagrees with the official result.
 function teamScores(room) {
   const s = { a: 0, b: 0 };
   if (!room.battle) return s;
+  const t = { a: { total: 0, n: 0 }, b: { total: 0, n: 0 } };
   for (const p of room.participants.values()) {
-    if (p.team === "a") s.a += p.points || 0;
-    else if (p.team === "b") s.b += p.points || 0;
+    const side = p.team === "a" ? t.a : p.team === "b" ? t.b : null;
+    if (!side || !(p.stats?.answered > 0)) continue;
+    side.total += p.points || 0;
+    side.n += 1;
   }
+  s.a = t.a.n ? Math.round(t.a.total / t.a.n) : 0;
+  s.b = t.b.n ? Math.round(t.b.total / t.b.n) : 0;
   return s;
 }
 
@@ -859,12 +866,15 @@ async function completeSession(room) {
   // Idempotent inside finalizeBattle (only the first completion lands).
   if (room.battle) {
     const scores = teamScores(room);
-    const winnerId = scores.a === scores.b ? null : scores.a > scores.b ? room.battle.a.classroomId : room.battle.b.classroomId;
+    // Winner on the precise (unrounded) averages — same math as finalizeBattle,
+    // so the verdict shown in-room always matches the persisted result.
+    const raw = teamPoints(room);
+    const winnerId = raw.a === raw.b ? null : raw.a > raw.b ? room.battle.a.classroomId : room.battle.b.classroomId;
     room.results.battle = {
       id: room.battle.id,
       mode: room.battle.mode,
-      a: { classroomId: room.battle.a.classroomId, name: room.battle.a.name, score: scores.a },
-      b: { classroomId: room.battle.b.classroomId, name: room.battle.b.name, score: scores.b },
+      a: { classroomId: room.battle.a.classroomId, name: room.battle.a.name, score: scores.a, size: room.battle.a.lineup?.length || 0 },
+      b: { classroomId: room.battle.b.classroomId, name: room.battle.b.name, score: scores.b, size: room.battle.b.lineup?.length || 0 },
       winnerId,
     };
     finalizeBattle(room).catch((e) => console.warn("[battle] finalize failed:", e?.message));

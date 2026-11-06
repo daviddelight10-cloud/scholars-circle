@@ -7,7 +7,7 @@ import { AUTHOR_SELECT, publicUser } from "./social.js";
 // room engine calls finalizeBattle() on completion and cancelBattle() when the
 // host ends early — ratings/XP/badges are written here, never by the client.
 
-export const MAX_LINEUP = 5;
+export const MAX_LINEUP = 15;
 export const MIN_LINEUP = 1;
 const ELO_K = 32;
 const BATTLE_XP_WIN = 30;  // group-XP bonus per winning lineup member who played
@@ -38,8 +38,8 @@ export async function isGroupCaptain(classroomId, userId) {
   return m?.role === "captain";
 }
 
-// 1..5 unique userIds, all members of the group. Ranked lineups must also
-// have been members for RANKED_MEMBER_AGE_MS (blocks ring-ins for point runs).
+// 1..MAX_LINEUP unique userIds, all members of the group. Ranked lineups must
+// also have been members for RANKED_MEMBER_AGE_MS (blocks ring-ins for runs).
 export async function validateLineup(classroomId, ids, { ranked = false } = {}) {
   if (!Array.isArray(ids) || ids.length < MIN_LINEUP || ids.length > MAX_LINEUP) {
     return { ok: false, error: `Lineup must be ${MIN_LINEUP}–${MAX_LINEUP} players` };
@@ -116,13 +116,19 @@ export async function rankedGuards(fromId, toId) {
 
 // ── Finalization (called by the room engine) ─────────────────────────────────
 
-function teamPoints(room) {
-  const s = { a: 0, b: 0 };
+// Asymmetric lineups are allowed, so scoring must not reward raw headcount:
+// each side's score is the AVERAGE points of its members who actually played
+// (answered ≥1 question). Joined-but-idle players don't count. A side with
+// zero participants scores 0 → forfeit; both-zero → draw via the caller.
+export function teamPoints(room) {
+  const s = { a: { total: 0, n: 0 }, b: { total: 0, n: 0 } };
   for (const p of room.participants.values()) {
-    if (p.team === "a") s.a += p.points || 0;
-    else if (p.team === "b") s.b += p.points || 0;
+    const t = p.team === "a" ? s.a : p.team === "b" ? s.b : null;
+    if (!t || !(p.stats?.answered > 0)) continue;
+    t.total += p.points || 0;
+    t.n += 1;
   }
-  return s;
+  return { a: s.a.n ? s.a.total / s.a.n : 0, b: s.b.n ? s.b.total / s.b.n : 0 };
 }
 
 function eloDelta(ra, rb, scoreA) {
@@ -135,9 +141,12 @@ function eloDelta(ra, rb, scoreA) {
 export async function finalizeBattle(room) {
   const b = room.battle;
   if (!b) return;
-  const scores = teamPoints(room);
+  const avg = teamPoints(room);
+  // Winner on the precise average; scoreA/scoreB columns are Int, so the
+  // stored/displayed scoreline is the rounded average.
+  const scores = { a: Math.round(avg.a), b: Math.round(avg.b) };
   const winnerId =
-    scores.a === scores.b ? null : scores.a > scores.b ? b.a.classroomId : b.b.classroomId;
+    avg.a === avg.b ? null : avg.a > avg.b ? b.a.classroomId : b.b.classroomId;
 
   const claimed = await prisma.groupBattle.updateMany({
     where: { id: b.id, status: "active" },
