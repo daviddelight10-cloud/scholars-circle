@@ -1249,11 +1249,12 @@
 }
 @keyframes fd-bubble-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
 .fd-bubble.them {
-  background: var(--app-tint-med); border: 1px solid var(--fd-card-border);
+  background: var(--app-card); border: 1px solid var(--fd-card-border);
   border-bottom-left-radius: 6px;
+  box-shadow: 0 1px 2px rgba(var(--app-tint-rgb), 0.07);
 }
 .fd-bubble.me {
-  background: linear-gradient(135deg, #4f8ef7, #7b6cf0); color: var(--app-text);
+  background: linear-gradient(135deg, #4f8ef7, #7b6cf0); color: #fff;
   border-bottom-right-radius: 6px;
   box-shadow: 0 3px 14px rgba(108, 158, 255, 0.22);
 }
@@ -1449,6 +1450,25 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   font-family: var(--fd-display);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
+/* Sub-segment: Groups / Compete / Discover */
+.gv-subseg {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--app-tint-soft); border-radius: 14px;
+  margin-bottom: 12px;
+}
+.gv-subseg-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 8px 10px; border-radius: 10px; border: none;
+  background: transparent; color: var(--fd-faint);
+  font-family: var(--fd-sans); font-size: 12.5px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+}
+.gv-subseg-btn.active {
+  background: var(--app-card); color: var(--fd-text);
+  box-shadow: 0 1px 4px rgba(var(--app-tint-rgb), 0.10);
+}
+.gv-subseg-btn .fd-tab-badge { margin-left: 0; }
+
 /* Compact single-line group status (replaces the chip row) */
 .gv-status {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -1549,8 +1569,9 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   position: relative;
   padding: 8px 11px 6px;
   border-radius: 16px 16px 16px 5px;
-  background: var(--app-tint-med);
+  background: var(--app-card);
   border: 1px solid var(--fd-card-border);
+  box-shadow: 0 1px 2px rgba(var(--app-tint-rgb), 0.07);
   display: flex; flex-direction: column; gap: 5px;
   max-width: 100%;
 }
@@ -1558,7 +1579,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .gv-msg.cont .gv-bubble { border-radius: 5px 16px 16px 16px; }
 .gv-bubble.me {
   background: linear-gradient(135deg, #4f8ef7, #7b6cf0);
-  border: none; color: var(--app-text);
+  border: none; color: #fff;
   border-radius: 16px 16px 5px 16px;
   box-shadow: 0 3px 14px rgba(108, 158, 255, 0.2);
 }
@@ -1570,7 +1591,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   font-family: var(--fd-mono); font-size: 9px; margin-top: -1px;
   color: var(--fd-faint);
 }
-.gv-bubble.me .gv-bubble-meta { color: var(--app-tint-strong); }
+.gv-bubble.me .gv-bubble-meta { color: rgba(255, 255, 255, 0.68); }
 
 /* Resource card inside a bubble */
 .gv-res-card {
@@ -1590,7 +1611,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 }
 .gv-res-sub { font-family: var(--fd-mono); font-size: 9px; opacity: 0.75; }
 .gv-res-open { font-size: 10px; font-weight: 800; color: var(--fd-blue); flex-shrink: 0; }
-.gv-bubble.me .gv-res-open { color: var(--c-ffe9a8); }
+.gv-bubble.me .gv-res-open { color: rgba(255, 255, 255, 0.9); }
 
 /* Battle invite card inside a bubble */
 .gv-battle-card {
@@ -1606,7 +1627,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .gv-battle-join {
   align-self: flex-start; margin-top: 3px;
   padding: 5px 14px; border-radius: 999px; border: none;
-  background: var(--fd-coral); color: var(--app-text);
+  background: var(--fd-coral); color: #fff;
   font-size: 11.5px; font-weight: 800;
 }
 .gv-battle-join:hover { filter: brightness(1.1); }
@@ -1616,7 +1637,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .gv-msg-foot { display: flex; align-items: center; gap: 4px; margin: 3px 2px 0; flex-wrap: wrap; }
 .gv-reaction {
   padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
-  background: var(--fd-card); border: 1px solid var(--fd-card-border); color: var(--fd-text);
+  background: var(--app-card); border: 1px solid var(--fd-card-border); color: var(--fd-text);
 }
 .gv-reaction:hover { border-color: rgba(108, 158, 255, 0.4); }
 .gv-react-add {
@@ -1629,8 +1650,8 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .gv-emoji-row {
   display: flex; gap: 3px; margin-top: 4px;
   padding: 5px 7px; border-radius: 999px;
-  background: var(--fd-card); border: 1px solid var(--fd-card-border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: var(--app-card); border: 1px solid var(--fd-card-border);
+  box-shadow: 0 8px 24px rgba(var(--app-tint-rgb), 0.18);
   animation: fd-card-in 0.15s ease;
 }
 .gv-emoji { background: none; border: none; font-size: 16px; padding: 2px 3px; }
@@ -1641,13 +1662,13 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .gv-attach {
   width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%;
   display: grid; place-items: center; font-size: 15px;
-  background: var(--fd-card); border: 1px solid var(--fd-card-border); color: var(--fd-text);
+  background: var(--app-card); border: 1px solid var(--fd-card-border); color: var(--fd-text);
 }
 .gv-attach:hover { border-color: rgba(108, 158, 255, 0.4); }
 .gv-input {
   flex: 1; min-width: 0;
   padding: 9px 15px; border-radius: 999px;
-  background: var(--fd-card); border: 1px solid var(--fd-card-border);
+  background: var(--app-card); border: 1px solid var(--fd-card-border);
   color: var(--fd-text); font-size: 13.5px;
 }
 .gv-input:focus { outline: none; border-color: rgba(108, 158, 255, 0.5); }
@@ -1655,7 +1676,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%;
   display: grid; place-items: center;
   background: linear-gradient(135deg, #4f8ef7, #7b6cf0);
-  border: none; color: var(--app-text); font-size: 15px; font-weight: 800;
+  border: none; color: #fff; font-size: 15px; font-weight: 800;
 }
 .gv-send:disabled { opacity: 0.45; }
 .gv-send:not(:disabled):hover { filter: brightness(1.12); }
@@ -2074,7 +2095,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .fd-reply-bar-in {
   flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
   padding: 6px 10px; border-radius: 10px;
-  background: var(--fd-card); border-left: 3px solid var(--fd-blue);
+  background: var(--app-card); border-left: 3px solid var(--fd-blue);
   font-size: 12px;
 }
 .fd-reply-bar-in b { font-size: 11px; color: var(--fd-blue); }
@@ -2083,14 +2104,14 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   display: flex; flex-direction: column; gap: 1px;
   width: 100%; text-align: left;
   padding: 5px 9px; margin-bottom: 4px; border-radius: 8px;
-  background: rgba(0, 0, 0, 0.18); border-left: 3px solid var(--fd-blue);
+  background: rgba(var(--app-tint-rgb), 0.07); border-left: 3px solid var(--fd-blue);
   font-size: 11.5px;
 }
-.fd-bubble.me .fd-reply-quote { background: var(--app-tint-med); border-left-color: var(--app-tint-strong); }
+.fd-bubble.me .fd-reply-quote { background: rgba(255, 255, 255, 0.16); border-left-color: rgba(255, 255, 255, 0.55); }
 .fd-reply-quote b { font-size: 10.5px; color: var(--fd-blue); }
 .fd-bubble.me .fd-reply-quote b { color: #ffe; }
 .fd-reply-quote span { color: var(--fd-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-.fd-bubble.me .fd-reply-quote span { color: var(--app-tint-strong); }
+.fd-bubble.me .fd-reply-quote span { color: rgba(255, 255, 255, 0.72); }
 
 /* Failed-send state + retry */
 .fd-bubble.failed, .gv-bubble.failed { border: 1px solid rgba(255, 107, 94, 0.5); }
@@ -2120,7 +2141,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   position: absolute; right: 16px; bottom: 76px; z-index: 5;
   display: flex; align-items: center; gap: 4px;
   padding: 7px 14px; border-radius: 999px;
-  background: var(--fd-blue); color: var(--app-text); border: 0;
+  background: var(--fd-blue); color: #fff; border: 0;
   font-size: 12px; font-weight: 700;
   box-shadow: 0 6px 20px rgba(79, 142, 247, 0.4);
 }
@@ -2165,8 +2186,8 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .gv-pins-list { display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 8px; }
 .gv-pin-row {
   display: flex; flex-direction: column; gap: 1px; text-align: left;
-  padding: 6px 10px; border: 0; border-radius: 8px;
-  background: var(--fd-card); color: var(--fd-text);
+  padding: 6px 10px; border: 1px solid var(--fd-card-border); border-radius: 8px;
+  background: var(--app-card); color: var(--fd-text);
 }
 .gv-pin-row b { font-size: 10.5px; color: var(--fd-amber); }
 .gv-pin-row span { font-size: 12px; color: var(--fd-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2175,7 +2196,7 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 .fd-thread-input textarea, .gv-composer textarea.gv-input {
   font-family: inherit; font-size: 15px; line-height: 1.4;
   resize: none; overflow-y: auto; max-height: 120px;
-  background: var(--app-tint-soft);
+  background: var(--app-card);
   border: 1px solid var(--fd-card-border);
   border-radius: 18px; color: var(--fd-text); outline: none;
   padding: 9px 14px; flex: 1;

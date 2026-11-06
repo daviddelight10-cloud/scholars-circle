@@ -38,8 +38,8 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
   const [initialJoinCode, setInitialJoinCode] = useState(null);
   const [discoverQ, setDiscoverQ] = useState("");
   const [discoverSubject, setDiscoverSubject] = useState("");
-  const [discoverOpen, setDiscoverOpen] = useState(false);
   const [listFilter, setListFilter] = useState("all"); // "all" | "unread"
+  const [section, setSection] = useState("groups"); // "groups" | "compete" | "discover"
   const [board, setBoard] = useState(null);
   const [boardError, setBoardError] = useState(null);
   const [boardScope, setBoardScope] = useState("all");
@@ -72,7 +72,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
   }, [token, boardScope, boardSort]);
 
   useEffect(() => { loadMine(); }, [loadMine]);
-  useEffect(() => { if (discoverOpen) loadDiscover(); }, [discoverOpen, loadDiscover]);
+  useEffect(() => { if (section === "discover") loadDiscover(); }, [section, loadDiscover]);
 
   // Weekly groups leaderboard — polling, consistent with the existing boards
   useEffect(() => {
@@ -127,13 +127,29 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
         <button className="fd-pill" onClick={() => setJoinOpen(true)}>🔑 Join with code</button>
       </div>
 
-      {mine === null && !error && (
+      {/* Sub-segments: your groups first, then compete, then discover */}
+      <div className="gv-subseg">
+        {[["groups", "Groups"], ["compete", "⚔️ Compete"], ["discover", "Discover"]].map(([v, l]) => (
+          <button
+            key={v}
+            className={`gv-subseg-btn ${section === v ? "active" : ""}`}
+            onClick={() => setSection(v)}
+          >
+            {l}
+            {v === "groups" && (mine || []).some((g) => g.unread > 0) && (
+              <span className="fd-tab-badge">{(mine || []).reduce((n, g) => n + (g.unread || 0), 0) > 9 ? "9+" : (mine || []).reduce((n, g) => n + (g.unread || 0), 0)}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {section === "groups" && mine === null && !error && (
         <div className="fd-skeletons">
           {[0, 1].map((i) => <div key={i} className="fd-card fd-skeleton" style={{ height: 76 }} />)}
         </div>
       )}
 
-      {error && (
+      {section === "groups" && error && (
         <div className="fd-empty">
           <div className="fd-empty-title">Couldn't load groups</div>
           <div className="fd-empty-sub">{error}</div>
@@ -141,7 +157,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
         </div>
       )}
 
-      {mine?.length === 0 && (
+      {section === "groups" && mine?.length === 0 && (
         <div className="fd-empty">
           <div className="fd-empty-icon">👥</div>
           <div className="fd-empty-title">No study groups yet</div>
@@ -151,7 +167,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
         </div>
       )}
 
-      {(mine || []).length > 0 && (
+      {section === "groups" && (mine || []).length > 0 && (
         <>
           <SectionHeader title="Your groups" hint={`${mine.length}`}>
             {(mine || []).some((g) => g.unread > 0) && (
@@ -195,13 +211,14 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
         </>
       )}
 
-      {(mine || []).length > 0 && (
+      {section === "compete" && (mine || []).length > 0 && (
         <>
           <SectionHeader title="⚔️ Clan battles" hint="challenge rival groups" />
           <ClanBattles token={token} me={me} onJoinQuiz={onJoinQuiz} />
         </>
       )}
 
+      {section === "compete" && (
       <div className="fd-groups-board">
         <SectionHeader title={boardSort === "rating" ? "Hall of fame" : "Top groups this week"}>
           <div className="gv-sort-row" style={{ margin: 0 }}>
@@ -271,15 +288,11 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
           );
         })}
       </div>
+      )}
 
+      {section === "discover" && (
       <div className="fd-discover">
-        <SectionHeader title="Discover public groups">
-          <button className="fd-link" onClick={() => setDiscoverOpen((v) => !v)}>
-            {discoverOpen ? "Hide" : "Browse"}
-          </button>
-        </SectionHeader>
-        {discoverOpen && (
-          <>
+        <SectionHeader title="Discover public groups" hint="open to everyone" />
             <div className="fd-discover-filters">
               <input
                 className="fd-sheet-search"
@@ -313,9 +326,8 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
                 <JoinButton token={token} group={g} onJoined={(gr) => { setMine((p) => [gr, ...(p || [])]); setPublicGroups((p) => p.filter((x) => x.id !== g.id)); }} />
               </div>
             ))}
-          </>
-        )}
       </div>
+      )}
 
       {createOpen && (
         <CreateGroupSheet
