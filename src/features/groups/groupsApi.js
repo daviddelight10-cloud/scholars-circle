@@ -50,6 +50,13 @@ export const groupsApi = {
   // Ring the group into a live session/battle (5-min caller cooldown server-side).
   ring: ({ token, id, code }) => req(`/study-group/${id}/ring`, { token, method: "POST", body: { code } }),
   // Group-vs-group battles
+  // Opponent search for challenges — includes private clans (name/desc/joinCode).
+  searchOpponents: ({ token, q, from } = {}) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (from) params.set("from", from);
+    return req(`/api/battles/opponents${params.size ? `?${params}` : ""}`, { token });
+  },
   battlesMine: ({ token } = {}) => req("/api/battles/mine", { token }),
   battleDetail: ({ token, id }) => req(`/api/battles/${id}`, { token }),
   groupBattles: ({ token, id } = {}) => req(`/api/battles/group/${id}`, { token }),

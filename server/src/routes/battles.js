@@ -97,6 +97,61 @@ async function myGroupIds(uid) {
   return new Set([...created.map((g) => g.id), ...memberships.map((m) => m.classroomId)]);
 }
 
+// GET /api/battles/opponents?q=&from= — groups you can challenge. Challenging
+// isn't joining: private groups are eligible (group names are already public
+// on the leaderboard). Matches name/description, or joinCode exactly so a
+// private clan can be found by its invite code. `from` excludes the
+// challenging group itself.
+router.get("/opponents", requireAuth, async (req, res) => {
+  try {
+    const { q = "", from } = req.query;
+    const term = String(q).trim();
+    const groups = await prisma.classroom.findMany({
+      where: {
+        kind: "group",
+        ...(from ? { id: { not: String(from) } } : {}),
+        ...(term
+          ? {
+              OR: [
+                { name: { contains: term, mode: "insensitive" } },
+                { description: { contains: term, mode: "insensitive" } },
+                { joinCode: { equals: term.toUpperCase() } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        subject: true,
+        rating: true,
+        rankedWins: true,
+        rankedLosses: true,
+        createdBy: { select: { id: true, username: true, fullName: true } },
+        _count: { select: { members: true } },
+      },
+      orderBy: [{ rating: "desc" }, { createdAt: "desc" }],
+      take: 40,
+    });
+    res.json(
+      groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        subject: g.subject,
+        memberCount: g._count?.members ?? 0,
+        rating: g.rating,
+        record: g.rankedWins || g.rankedLosses ? `${g.rankedWins}W–${g.rankedLosses}L` : null,
+        creator: g.createdBy
+          ? { id: g.createdBy.id, name: g.createdBy.fullName || g.createdBy.username || "Scholar" }
+          : null,
+      }))
+    );
+  } catch (error) {
+    console.error("Error searching opponents:", error);
+    res.status(500).json({ error: "Failed to search groups" });
+  }
+});
+
 // POST /api/battles — captain challenges another group.
 // { fromId, toId, mcqResourceId, mode, lineupIds, scheduledFor?, timePerQuestion?, numQuestions? }
 router.post("/", requireAuth, challengeLimiter, async (req, res) => {

@@ -155,13 +155,14 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   const [scheduledFor, setScheduledFor] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [searchError, setSearchError] = useState(null);
 
   useEffect(() => {
     let dead = false;
     groupsApi
-      .discover({ token, q: q.trim() || undefined })
-      .then((list) => { if (!dead) setCandidates((list || []).filter((g) => g.id !== fromGroup.id)); })
-      .catch(() => {});
+      .searchOpponents({ token, q: q.trim() || undefined, from: fromGroup.id })
+      .then((list) => { if (!dead) { setCandidates(list || []); setSearchError(null); } })
+      .catch(() => { if (!dead) setSearchError("Couldn't load groups — check your connection"); });
     return () => { dead = true; };
   }, [token, q, fromGroup.id]);
 
@@ -207,7 +208,7 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
       <div style={{ marginTop: 12 }}>
         <input
           className="fd-sheet-search"
-          placeholder="Search groups to challenge…"
+          placeholder="Search clans by name or invite code…"
           value={q}
           onChange={(e) => { setQ(e.target.value); setOpponent(null); }}
         />
@@ -218,11 +219,16 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
                 <TeamAvatar name={g.name} />
                 <span className="fd-group-info">
                   <span className="fd-group-card-name">{g.name}</span>
-                  <span className="fd-group-card-meta">{[g.subject, `${g.memberCount} members`].filter(Boolean).join(" · ")}</span>
+                  <span className="fd-group-card-meta">{[g.subject, `${g.memberCount} members`, g.record].filter(Boolean).join(" · ")}</span>
                 </span>
               </button>
             ))}
-            {candidates.length === 0 && <div className="fd-empty-sub" style={{ padding: 8 }}>No groups found.</div>}
+            {searchError && <div className="fd-empty-sub" style={{ padding: 8 }}>{searchError}</div>}
+            {!searchError && candidates.length === 0 && (
+              <div className="fd-empty-sub" style={{ padding: 8 }}>
+                {q.trim() ? "No clans match — try their invite code." : "No clans to challenge yet."}
+              </div>
+            )}
           </div>
         )}
         {opponent && (
