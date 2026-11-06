@@ -171,17 +171,6 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
                   </span>
                 )}
               </span>
-              <span className="gv-card-side">
-                {(g.memberAvatars || []).length > 0 && (
-                  <span className="gv-stack">
-                    {g.memberAvatars.slice(0, 3).map((a, i) => (
-                      <img key={i} src={a} alt="" className="gv-stack-img" />
-                    ))}
-                    {g.memberCount > 3 && <span className="gv-stack-more">+{g.memberCount - 3}</span>}
-                  </span>
-                )}
-                <span className="fd-group-code">🔑 {g.joinCode}</span>
-              </span>
             </button>
           ))}
         </>

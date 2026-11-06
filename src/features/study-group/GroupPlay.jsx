@@ -1,9 +1,8 @@
 import QuizBattles from "./QuizBattles.jsx";
-import GroupBoard from "./GroupBoard.jsx";
 import { GroupClanBattles } from "../groups/ClanBattles.jsx";
 
-// Play tab = clan-vs-clan battles on top, then in-group quiz battles,
-// streak + leaderboard below.
+// Arena tab = clan-vs-clan battles on top, then in-group quiz battles.
+// The group's XP board lives on the Board tab now — no duplication.
 export default function GroupPlay({ classroomId, token, currentUser, group, members = [], isCaptain, onJoinQuiz }) {
   return (
     <div className="gv-play-tab">
@@ -18,7 +17,6 @@ export default function GroupPlay({ classroomId, token, currentUser, group, memb
         />
       )}
       <QuizBattles classroomId={classroomId} token={token} currentUser={currentUser} onJoinQuiz={onJoinQuiz} />
-      <GroupBoard classroomId={classroomId} token={token} />
     </div>
   );
 }

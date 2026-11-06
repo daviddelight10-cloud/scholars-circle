@@ -142,8 +142,9 @@ function LineupSheet({ title, hint, members, needed, busy, error, onConfirm, onC
   );
 }
 
-// Challenge setup: opponent → mode → lineup → questions → optional slot.
+// Challenge setup: 2 steps — (1) opponent + mode + questions, (2) lineup + schedule.
 function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
+  const [step, setStep] = useState(1);
   const [q, setQ] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [opponent, setOpponent] = useState(null);
@@ -178,6 +179,8 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   const toggleLineup = (id) =>
     setLineup((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < 5 ? [...p, id] : p));
 
+  const canAdvance = !!opponent && !!material;
+
   const submit = async () => {
     if (!opponent || !material || lineup.length < 1 || busy) return;
     setBusy(true);
@@ -203,104 +206,123 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
 
   return (
     <FdSheet title={`⚔️ Challenge — ${fromGroup.name}`} onClose={onClose}>
-      <div className="fd-sheet-sub">Pick an opponent, your lineup and the question set. They pick an equal-size lineup to accept.</div>
+      {/* Step indicator */}
+      <div className="gv-step-row">
+        <span className={`gv-step ${step >= 1 ? "active" : ""}`}>1</span>
+        <span className="gv-step-line" />
+        <span className={`gv-step ${step >= 2 ? "active" : ""}`}>2</span>
+        <span className="gv-step-label">{step === 1 ? "Opponent & questions" : "Lineup & schedule"}</span>
+      </div>
 
-      <div style={{ marginTop: 12 }}>
-        <input
-          className="fd-sheet-search"
-          placeholder="Search clans by name or invite code…"
-          value={q}
-          onChange={(e) => { setQ(e.target.value); setOpponent(null); }}
-        />
-        {!opponent && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
-            {candidates.slice(0, 8).map((g) => (
-              <button key={g.id} className="fd-group-card" onClick={() => setOpponent(g)}>
-                <TeamAvatar name={g.name} />
+      {step === 1 && (
+        <>
+          <div style={{ marginTop: 12 }}>
+            <input
+              className="fd-sheet-search"
+              placeholder="Search clans by name or invite code…"
+              value={q}
+              onChange={(e) => { setQ(e.target.value); setOpponent(null); }}
+            />
+            {!opponent && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
+                {candidates.slice(0, 8).map((g) => (
+                  <button key={g.id} className="fd-group-card" onClick={() => setOpponent(g)}>
+                    <TeamAvatar name={g.name} />
+                    <span className="fd-group-info">
+                      <span className="fd-group-card-name">{g.name}</span>
+                      <span className="fd-group-card-meta">{[g.subject, `${g.memberCount} members`, g.record].filter(Boolean).join(" · ")}</span>
+                    </span>
+                  </button>
+                ))}
+                {searchError && <div className="fd-empty-sub" style={{ padding: 8 }}>{searchError}</div>}
+                {!searchError && candidates.length === 0 && (
+                  <div className="fd-empty-sub" style={{ padding: 8 }}>
+                    {q.trim() ? "No clans match — try their invite code." : "No clans to challenge yet."}
+                  </div>
+                )}
+              </div>
+            )}
+            {opponent && (
+              <div className="fd-group-card" style={{ borderColor: "#F5A623", marginTop: 8 }}>
+                <TeamAvatar name={opponent.name} />
                 <span className="fd-group-info">
-                  <span className="fd-group-card-name">{g.name}</span>
-                  <span className="fd-group-card-meta">{[g.subject, `${g.memberCount} members`, g.record].filter(Boolean).join(" · ")}</span>
+                  <span className="fd-group-card-name">{opponent.name}</span>
+                  <span className="fd-group-card-meta">{opponent.memberCount} members</span>
                 </span>
-              </button>
-            ))}
-            {searchError && <div className="fd-empty-sub" style={{ padding: 8 }}>{searchError}</div>}
-            {!searchError && candidates.length === 0 && (
-              <div className="fd-empty-sub" style={{ padding: 8 }}>
-                {q.trim() ? "No clans match — try their invite code." : "No clans to challenge yet."}
+                <button className="fd-link" onClick={() => setOpponent(null)}>change</button>
               </div>
             )}
           </div>
-        )}
-        {opponent && (
-          <div className="fd-group-card" style={{ borderColor: "#F5A623", marginTop: 8 }}>
-            <TeamAvatar name={opponent.name} />
-            <span className="fd-group-info">
-              <span className="fd-group-card-name">{opponent.name}</span>
-              <span className="fd-group-card-meta">{opponent.memberCount} members</span>
-            </span>
-            <button className="fd-link" onClick={() => setOpponent(null)}>change</button>
-          </div>
-        )}
-      </div>
 
-      <div className="gv-sort-row" style={{ marginTop: 12 }}>
-        {[["friendly", "Friendly"], ["ranked", "Ranked 🏅"]].map(([v, l]) => (
-          <button key={v} className={`gv-sort ${mode === v ? "active" : ""}`} onClick={() => setMode(v)}>{l}</button>
-        ))}
-      </div>
-      {mode === "ranked" && (
-        <div className="fd-sheet-sub" style={{ marginTop: 6 }}>
-          Ranked: both clans need 3+ members active this week, players must have joined 3+ days ago, max 3 ranked/day, same opponent once/24h. Winner takes Elo rating.
-        </div>
+          <div className="gv-sort-row" style={{ marginTop: 12 }}>
+            {[["friendly", "Friendly"], ["ranked", "Ranked 🏅"]].map(([v, l]) => (
+              <button key={v} className={`gv-sort ${mode === v ? "active" : ""}`} onClick={() => setMode(v)}>{l}</button>
+            ))}
+          </div>
+
+          <button className="fd-pill" style={{ width: "100%", marginTop: 12 }} onClick={() => setPickerOpen(true)}>
+            {material ? `⚡ ${mcqVariant(material)?.title || material.title} — ${mcqQuestionCount(material)} questions` : "Pick the question set"}
+          </button>
+
+          {error && <div className="fd-sheet-sub" style={{ color: "#FF5470", marginTop: 8 }}>{error}</div>}
+          <button
+            className="fd-go-btn"
+            style={{ width: "100%", marginTop: 12 }}
+            disabled={!canAdvance || busy}
+            onClick={() => setStep(2)}
+          >
+            Next: pick your lineup →
+          </button>
+        </>
       )}
 
-      <div style={{ marginTop: 12 }}>
-        <div className="fd-sheet-sub">Your lineup ({lineup.length}/5)</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, maxHeight: 200, overflowY: "auto" }}>
-          {dedupedMembers.map((m) => {
-            const on = lineup.includes(m.user?.id);
-            return (
-              <button
-                key={m.user?.id || m.id}
-                className="fd-group-card"
-                style={on ? { borderColor: "#F5A623", background: "rgba(245,166,35,0.08)" } : undefined}
-                onClick={() => toggleLineup(m.user?.id)}
-              >
-                <Avatar user={m.user} size={30} />
-                <span className="fd-group-info">
-                  <span className="fd-group-card-name">{m.user?.name}{m.isCreator && <span className="fd-mini-chip">creator</span>}</span>
-                </span>
-                <span style={{ fontWeight: 800, color: on ? "#F5A623" : "var(--app-faint)" }}>{on ? "✓" : "○"}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {step === 2 && (
+        <>
+          <button className="fd-link" style={{ marginBottom: 8 }} onClick={() => setStep(1)}>← Back</button>
 
-      <button className="fd-pill" style={{ width: "100%", marginTop: 12 }} onClick={() => setPickerOpen(true)}>
-        {material ? `⚡ ${mcqVariant(material)?.title || material.title} — ${mcqQuestionCount(material)} questions` : "Pick the question set"}
-      </button>
+          <div className="fd-sheet-sub">Your lineup ({lineup.length}/5)</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, maxHeight: 200, overflowY: "auto" }}>
+            {dedupedMembers.map((m) => {
+              const on = lineup.includes(m.user?.id);
+              return (
+                <button
+                  key={m.user?.id || m.id}
+                  className="fd-group-card"
+                  style={on ? { borderColor: "#F5A623", background: "rgba(245,166,35,0.08)" } : undefined}
+                  onClick={() => toggleLineup(m.user?.id)}
+                >
+                  <Avatar user={m.user} size={30} />
+                  <span className="fd-group-info">
+                    <span className="fd-group-card-name">{m.user?.name}{m.isCreator && <span className="fd-mini-chip">creator</span>}</span>
+                  </span>
+                  <span style={{ fontWeight: 800, color: on ? "#F5A623" : "var(--app-faint)" }}>{on ? "✓" : "○"}</span>
+                </button>
+              );
+            })}
+          </div>
 
-      <div style={{ marginTop: 10 }}>
-        <div className="fd-sheet-sub">Schedule for later (optional)</div>
-        <input
-          type="datetime-local"
-          className="fd-sheet-search"
-          style={{ marginTop: 6 }}
-          value={scheduledFor}
-          onChange={(e) => setScheduledFor(e.target.value)}
-        />
-      </div>
+          <div style={{ marginTop: 10 }}>
+            <div className="fd-sheet-sub">Schedule for later (optional)</div>
+            <input
+              type="datetime-local"
+              className="fd-sheet-search"
+              style={{ marginTop: 6 }}
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+            />
+          </div>
 
-      {error && <div className="fd-sheet-sub" style={{ color: "#FF5470", marginTop: 8 }}>{error}</div>}
-      <button
-        className="fd-go-btn"
-        style={{ width: "100%", marginTop: 12 }}
-        disabled={!opponent || !material || lineup.length < 1 || busy}
-        onClick={submit}
-      >
-        {busy ? "Sending…" : `Send ${mode} challenge (${lineup.length}v${lineup.length})`}
-      </button>
+          {error && <div className="fd-sheet-sub" style={{ color: "#FF5470", marginTop: 8 }}>{error}</div>}
+          <button
+            className="fd-go-btn"
+            style={{ width: "100%", marginTop: 12 }}
+            disabled={lineup.length < 1 || busy}
+            onClick={submit}
+          >
+            {busy ? "Sending…" : `Send ${mode} challenge (${lineup.length}v${lineup.length})`}
+          </button>
+        </>
+      )}
 
       {pickerOpen && (
         <MaterialPicker
@@ -453,6 +475,11 @@ export function ClanBattles({ token, me, onJoinQuiz }) {
           <div className="fd-empty-title">Couldn't load battles</div>
           <div className="fd-empty-sub">{error}</div>
           <button className="fd-follow-btn" onClick={reload}>Retry</button>
+        </div>
+      )}
+      {battles !== null && battles.length === 0 && !error && (
+        <div className="gv-battles-empty">
+          <span className="gv-battles-empty-text">No active battles — challenge a rival clan to start a war.</span>
         </div>
       )}
       {actionError && <div className="fd-empty-sub" style={{ color: "#FF5470" }}>{actionError}</div>}

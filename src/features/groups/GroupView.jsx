@@ -10,9 +10,8 @@ import { FdScreen, FdSheet } from "../feed/feedUi.jsx";
 
 const SUB_TABS = [
   { id: "chat", icon: "💬", label: "Chat" },
-  { id: "play", icon: "⚔️", label: "Play" },
-  { id: "board", icon: "🏆", label: "Board" },
-  { id: "goals", icon: "🎯", label: "Goals" },
+  { id: "arena", icon: "⚔️", label: "Arena" },
+  { id: "board", icon: "📊", label: "Board" },
   { id: "members", icon: "👥", label: "Members" },
 ];
 
@@ -190,12 +189,12 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
             currentUser={currentUser}
             onOpenResource={onOpenResource}
             onJoinQuiz={onJoinQuiz}
-            onStartBattle={() => setSub("play")}
-            onAddGoal={canManage ? () => setSub("goals") : undefined}
+            onStartBattle={() => setSub("arena")}
+            onAddGoal={canManage ? () => setSub("board") : undefined}
             canModerate={isCreator || isFaculty}
           />
         )}
-        {sub === "play" && (
+        {sub === "arena" && (
           <div className="fd-group-scroll">
             <GroupPlay
               classroomId={group.id}
@@ -211,10 +210,6 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
         {sub === "board" && (
           <div className="fd-group-scroll">
             <GroupBoard classroomId={group.id} token={token} />
-          </div>
-        )}
-        {sub === "goals" && (
-          <div className="fd-group-scroll">
             <GroupGoals classroomId={group.id} token={token} isTeacher={canManage} />
           </div>
         )}
