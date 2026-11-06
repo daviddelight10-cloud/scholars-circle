@@ -35,6 +35,10 @@ export const BADGE_DEFS = [
   { key: "live_win", name: "Giant Slayer", description: "Top the leaderboard in a live quiz", icon: "🏆", category: "social" },
   { key: "live_calibrated", name: "Calibrated", description: "3+ high-confidence correct answers with zero overconfident misses in a live quiz", icon: "🎯", category: "social" },
   { key: "live_teacher", name: "Teach Back", description: "Explain an answer to the group in a live quiz", icon: "🗣️", category: "social" },
+  // Clan battle badges (Study Groups 2.0)
+  { key: "battle_first_win", name: "Clan Victor", description: "Win your first group battle", icon: "⚔️", category: "social" },
+  { key: "battle_veteran_10", name: "Battle Veteran", description: "Play 10 group battles", icon: "🎖️", category: "social" },
+  { key: "group_week_top3", name: "Podium Clan", description: "Your group finished top 3 on the weekly board", icon: "🏅", category: "social" },
 ];
 
 // Ensure all badges exist in DB

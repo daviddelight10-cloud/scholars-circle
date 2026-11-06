@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { groupsApi } from "./groupsApi";
 import { GroupView } from "./GroupView";
+import { ClanBattles } from "./ClanBattles.jsx";
 import { SectionHeader, FdSheet } from "../feed/feedUi";
 
 function initials(name) {
@@ -186,47 +187,82 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
         </>
       )}
 
-      {(board?.entries || []).length > 0 && (
-        <div className="fd-groups-board">
-          <SectionHeader title="Top groups this week">
-            <div className="gv-sort-row" style={{ margin: 0 }}>
-              {[["all", "All"], ["university", "My uni"]].map(([v, l]) => (
-                <button
-                  key={v}
-                  className={`gv-sort ${boardScope === v ? "active" : ""}`}
-                  onClick={() => setBoardScope(v)}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </SectionHeader>
-          {board.entries.slice(0, 10).map((e) => {
-            const mineRow = (mine || []).find((g) => g.id === e.id);
-            return (
-              <button
-                key={e.id}
-                className="fd-group-card"
-                onClick={mineRow ? () => setOpen(mineRow) : undefined}
-              >
-                <span className="gv-lb-rank">#{e.rank}</span>
-                <span className="gv-avatar" style={{ background: groupGradient(e.name) }}>{initials(e.name)}</span>
-                <span className="fd-group-info">
-                  <span className="fd-group-card-name">
-                    {e.name}
-                    {mineRow && <span className="fd-mini-chip">yours</span>}
-                    {!e.isPublic && <span className="fd-mini-chip">🔒</span>}
-                  </span>
-                  <span className="fd-group-card-meta">
-                    {[e.subject, `${e.memberCount} member${e.memberCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-                <span className="gv-lb-val">⚡ {e.xp.toLocaleString()}</span>
-              </button>
-            );
-          })}
-        </div>
+      {(mine || []).length > 0 && (
+        <>
+          <SectionHeader title="⚔️ Clan battles" hint="challenge rival groups" />
+          <ClanBattles token={token} me={me} onJoinQuiz={onJoinQuiz} />
+        </>
       )}
+
+      <div className="fd-groups-board">
+        <SectionHeader title={boardSort === "rating" ? "Hall of fame" : "Top groups this week"}>
+          <div className="gv-sort-row" style={{ margin: 0 }}>
+            {[["xp", "This week"], ["rating", "🏅 All-time"]].map(([v, l]) => (
+              <button
+                key={v}
+                className={`gv-sort ${boardSort === v ? "active" : ""}`}
+                onClick={() => setBoardSort(v)}
+              >
+                {l}
+              </button>
+            ))}
+            {[["all", "All"], ["university", "My uni"]].map(([v, l]) => (
+              <button
+                key={v}
+                className={`gv-sort ${boardScope === v ? "active" : ""}`}
+                onClick={() => setBoardScope(v)}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </SectionHeader>
+        {boardError && (
+          <div className="fd-empty-inline">
+            {boardError} <button className="fd-link" onClick={loadBoard}>Retry</button>
+          </div>
+        )}
+        {!boardError && board === null && (
+          <div className="fd-skeletons">
+            {[0, 1].map((i) => <div key={i} className="fd-card fd-skeleton" style={{ height: 52 }} />)}
+          </div>
+        )}
+        {!boardError && board && (board.entries || []).length === 0 && (
+          <div className="fd-empty-inline">
+            {boardSort === "rating"
+              ? "No ranked battles yet — challenge a rival group to put yours on the board."
+              : "No group XP yet this week — earn XP and your group climbs."}
+          </div>
+        )}
+        {(board?.entries || []).slice(0, 10).map((e) => {
+          const mineRow = (mine || []).find((g) => g.id === e.id);
+          return (
+            <button
+              key={e.id}
+              className="fd-group-card"
+              onClick={mineRow ? () => setOpen(mineRow) : undefined}
+            >
+              <span className="gv-lb-rank">#{e.rank}</span>
+              <span className="gv-avatar" style={{ background: groupGradient(e.name) }}>{initials(e.name)}</span>
+              <span className="fd-group-info">
+                <span className="fd-group-card-name">
+                  {e.name}
+                  {mineRow && <span className="fd-mini-chip">yours</span>}
+                  {!e.isPublic && <span className="fd-mini-chip">🔒</span>}
+                </span>
+                <span className="fd-group-card-meta">
+                  {[e.subject, `${e.memberCount} member${e.memberCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+                </span>
+              </span>
+              {boardSort === "rating" ? (
+                <span className="gv-lb-val">🏅 {e.rating ?? 1200}{(e.rankedWins || e.rankedLosses) ? ` · ${e.rankedWins || 0}W` : ""}</span>
+              ) : (
+                <span className="gv-lb-val">⚡ {e.xp.toLocaleString()}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="fd-discover">
         <SectionHeader title="Discover public groups">

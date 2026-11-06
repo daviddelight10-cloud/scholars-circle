@@ -13,7 +13,7 @@ function buzz(ms) {
 }
 
 export default function LobbyView({ room, myId, actions }) {
-  const { code, title, isHost, settings, participants } = room;
+  const { code, title, isHost, settings, participants, battle } = room;
   const [copied, setCopied] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [peerQ, setPeerQ] = useState("");
@@ -196,7 +196,7 @@ export default function LobbyView({ room, myId, actions }) {
         )}
       </div>
 
-      {isHost ? (
+      {isHost && !battle ? (
         <div className="lq-setup-grid">
           <div className="lq-section">
             <p className="lq-label">Time per question</p>
@@ -246,10 +246,11 @@ export default function LobbyView({ room, myId, actions }) {
         </div>
       ) : (
         <div className="lq-section">
-          <p className="lq-label">Host settings</p>
+          <p className="lq-label">{battle ? "Agreed terms" : "Host settings"}</p>
           <div className="lq-settings-summary">
             <div className="lq-summary-item"><IconClock size={16} /> {settings.timePerQuestion} seconds per question</div>
             <div className="lq-summary-item"><IconList size={16} /> {settings.numQuestions} questions in total</div>
+            {battle && <div className="lq-summary-item">⚔️ {battle.a?.name} vs {battle.b?.name}{battle.mode === "ranked" ? " · ranked" : ""}</div>}
           </div>
         </div>
       )}
@@ -293,13 +294,13 @@ export default function LobbyView({ room, myId, actions }) {
       </div>
 
       <div className="lq-action-group">
-        {isHost ? (
+        {isHost || (battle && me?.lobbyReady) ? (
           <>
             <button className="lq-btn-primary" onClick={actions.start}>
-              {allReady ? "Start Session" : "Start Session Anyway"}
+              {battle ? (allReady ? "Start Battle" : "Start Battle Anyway") : allReady ? "Start Session" : "Start Session Anyway"}
             </button>
             <p style={{ fontSize: 11, color: "var(--app-dim)", textAlign: "center", margin: 0 }}>
-              Friends can only join before the first question starts.
+              {battle ? "Lineup members can join until the first question starts." : "Friends can only join before the first question starts."}
             </p>
           </>
         ) : me?.lobbyReady ? (

@@ -1,10 +1,30 @@
+import { useState } from "react";
 import { Avatar } from "../feed/feedUi";
+import { groupsApi } from "../groups/groupsApi";
 import { levelProgress } from "../streak-survival/survivalStore";
 
 // Members grid — avatars, live XP/streak stats. Tap opens the app ProfileSheet
-// (Message + Follow come free) via the onOpenProfile prop.
-export default function GroupMembers({ currentUser, members = [], onOpenProfile }) {
+// (Message + Follow come free) via the onOpenProfile prop. The creator sees a
+// captain promote/demote control — captains set battle lineups.
+export default function GroupMembers({ classroomId, token, currentUser, members = [], onOpenProfile, onRefresh }) {
   const myId = currentUser?.id || currentUser?.sub;
+  const [busyId, setBusyId] = useState(null);
+  const iAmCreator = members.some((m) => m.isCreator && m.user?.id === myId);
+
+  const toggleCaptain = async (e, m) => {
+    e.stopPropagation();
+    const uid = m.user?.id;
+    if (!uid || busyId) return;
+    setBusyId(uid);
+    try {
+      await groupsApi.promote({ token, id: classroomId, userId: uid, role: m.role === "captain" ? "member" : "captain" });
+      onRefresh?.();
+    } catch (err) {
+      alert(err.message || "Couldn't update role");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   if (members.length === 0) {
     return (
@@ -37,13 +57,24 @@ export default function GroupMembers({ currentUser, members = [], onOpenProfile 
                 {u.name || "Scholar"} {isMe && <span className="gv-you">you</span>}
               </span>
               <span className="gv-member-role">
-                {m.isCreator ? "Creator" : u.role === "TEACHER" || u.role === "LECTURER" ? "Faculty" : "Student"}
+                {m.isCreator ? "Creator" : m.role === "captain" ? "⚔️ Captain" : u.role === "TEACHER" || u.role === "LECTURER" ? "Faculty" : "Student"}
               </span>
             </span>
             <span className="gv-member-stats">
               <span className="gv-member-pill">⚡ {(m.xp || 0).toLocaleString()}</span>
               <span className="gv-member-pill">🔥 {m.streak || 0}d</span>
               <span className="gv-member-pill lvl">LVL {lvl}</span>
+              {iAmCreator && !m.isCreator && !isMe && (
+                <span
+                  className="gv-member-pill lvl"
+                  role="button"
+                  style={{ cursor: "pointer", opacity: busyId === u.id ? 0.5 : 1 }}
+                  onClick={(e) => toggleCaptain(e, m)}
+                  title={m.role === "captain" ? "Remove captain" : "Make captain — can set battle lineups"}
+                >
+                  {busyId === u.id ? "…" : m.role === "captain" ? "⚔️ demote" : "⚔️ +captain"}
+                </span>
+              )}
             </span>
           </button>
         );

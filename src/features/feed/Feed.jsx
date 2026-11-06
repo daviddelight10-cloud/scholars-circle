@@ -201,7 +201,10 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     if (!deepLink) return;
     if (deepLink.feedTab) {
       if (deepLink.feedTab === "live") setLiveOpen(true);
-      else setTab(deepLink.feedTab === "groups" ? "chats" : deepLink.feedTab);
+      else {
+        setTab(deepLink.feedTab === "groups" ? "chats" : deepLink.feedTab);
+        if (deepLink.feedTab === "groups") setChatSection("groups");
+      }
     }
     if (deepLink.joinCode) setTab("chats");
     if (deepLink.chatWith) {

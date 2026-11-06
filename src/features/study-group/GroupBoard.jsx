@@ -23,11 +23,13 @@ function GroupXpHero({ classroomId, token }) {
   if (!data) return null;
   const members = data.members || [];
   const active = members.filter((m) => m.weekXp > 0).length;
+  const mvp = members.find((m) => m.mvp);
   return (
     <div className="fd-group-pulse gv-signal" style={{ marginBottom: 8 }}>
       <span className="gv-signal-chip hot">⚡ {data.weekXp.toLocaleString()} XP this week</span>
       <span className="gv-signal-chip">{active}/{members.length} members practised</span>
       <span className="gv-signal-chip">{data.allXp.toLocaleString()} XP all-time</span>
+      {mvp && <span className="gv-signal-chip battle">🏅 MVP {mvp.name?.split(" ")[0] || "—"}</span>}
     </div>
   );
 }

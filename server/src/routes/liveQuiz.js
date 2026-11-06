@@ -36,7 +36,7 @@ function userId(req) {
 
 // Prefer the display name (what friends know them as) over the username handle.
 // One lookup also grabs the profile avatar so lobbies can show real characters.
-async function identityFor(id, fallback) {
+export async function identityFor(id, fallback) {
   try {
     const u = await prisma.user.findUnique({
       where: { id },
@@ -48,7 +48,7 @@ async function identityFor(id, fallback) {
   }
 }
 
-function shuffle(arr) {
+export function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -57,7 +57,7 @@ function shuffle(arr) {
   return a;
 }
 
-function normalizeMcqData(mcqData) {
+export function normalizeMcqData(mcqData) {
   let rows = mcqData;
   if (typeof rows === "string") {
     try { rows = JSON.parse(rows); } catch { rows = null; }

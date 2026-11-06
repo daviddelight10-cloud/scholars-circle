@@ -3,6 +3,7 @@ import { WebSocket } from "ws";
 import { prisma } from "../db.js";
 import { addLeagueXP, awardBadge } from "./badges.js";
 import { updateUniversalStreak } from "./streak.js";
+import { finalizeBattle, cancelBattle } from "./battles.js";
 
 // ── In-memory live-quiz room manager ─────────────────────────────────────────
 // Live room state is ephemeral (like voice sessions); a LiveQuizSession DB row
@@ -81,6 +82,26 @@ function connectedParticipants(room) {
   return [...room.participants.values()].filter((p) => p.connected);
 }
 
+// Group battles: room.battle = { id, mode, a:{classroomId,name,lineup:[ids]},
+// b:{...} }. Points per side are the summed leaderboard points of joined
+// lineup members — same questions/clock, server-side scoring.
+function battleTeam(room, userId) {
+  if (!room.battle) return null;
+  if (room.battle.a.lineup.includes(userId)) return "a";
+  if (room.battle.b.lineup.includes(userId)) return "b";
+  return null;
+}
+
+function teamScores(room) {
+  const s = { a: 0, b: 0 };
+  if (!room.battle) return s;
+  for (const p of room.participants.values()) {
+    if (p.team === "a") s.a += p.points || 0;
+    else if (p.team === "b") s.b += p.points || 0;
+  }
+  return s;
+}
+
 function publicParticipant(p) {
   return {
     userId: p.userId,
@@ -91,6 +112,7 @@ function publicParticipant(p) {
     lobbyReady: p.lobbyReady,
     score: p.score,
     points: p.points || 0,
+    team: p.team || null,
     isHost: false, // filled by caller
   };
 }
@@ -104,7 +126,7 @@ function publicParticipants(room) {
 
 // ── Room lifecycle ───────────────────────────────────────────────────────────
 
-export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title, questions, settings }) {
+export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title, questions, settings, battle }) {
   const code = generateCode();
   const room = {
     id: crypto.randomUUID(),
@@ -142,6 +164,7 @@ export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title,
     dbId: null,
     createdAt: Date.now(),
     emptySince: null,
+    battle: battle || null, // group-vs-group mode — see lib/battles.js
   };
   rooms.set(room.id, room);
   roomByCode.set(code, room.id);
@@ -215,6 +238,16 @@ function buildSnapshot(room, forUserId) {
   if (room.phase === "complete") {
     snap.complete = room.results;
   }
+  if (room.battle) {
+    snap.battle = {
+      id: room.battle.id,
+      mode: room.battle.mode,
+      myTeam: battleTeam(room, forUserId),
+      a: { id: room.battle.a.classroomId, name: room.battle.a.name, lineup: room.battle.a.lineup },
+      b: { id: room.battle.b.classroomId, name: room.battle.b.name, lineup: room.battle.b.lineup },
+      scores: teamScores(room),
+    };
+  }
   return snap;
 }
 
@@ -230,6 +263,12 @@ function freshStats() {
 
 export function registerParticipant(room, userId, username, avatar) {
   if (room.kicked.has(userId)) return { ok: false, error: "You were removed from this session" };
+  // Battle rooms are locked to the two lineups — no spectators, no ring-ins.
+  let team = null;
+  if (room.battle) {
+    team = battleTeam(room, userId);
+    if (!team) return { ok: false, error: "Only lineup members can join this battle" };
+  }
   let p = room.participants.get(userId);
   if (p) {
     if (username && p.username === "Scholar") p.username = username;
@@ -248,6 +287,7 @@ export function registerParticipant(room, userId, username, avatar) {
     lobbyReady: userId === room.hostId,
     score: 0,
     points: 0,
+    team,
     stats: freshStats(),
     graceTimerId: null,
     rl: null, // per-socket rate-limit buckets, filled on first message
@@ -355,12 +395,15 @@ export function handleMessage(room, userId, msg) {
       broadcast(room, { type: "lobby_state", participants: publicParticipants(room) });
       return;
     case "settings":
-      if (room.phase !== "lobby" || !isHost) return;
+      // Battle terms were agreed in the challenge — no mid-lobby tweaking.
+      if (room.phase !== "lobby" || !isHost || room.battle) return;
       applySettings(room, msg);
       broadcast(room, { type: "lobby_state", participants: publicParticipants(room), settings: room.settings });
       return;
     case "start":
-      if (room.phase !== "lobby" || !isHost) return;
+      // Battle rooms have no lobby host duties — any connected lineup member
+      // can kick off once everyone's in.
+      if (room.phase !== "lobby" || (!isHost && !room.battle)) return;
       startSession(room);
       return;
     case "answer":
@@ -589,6 +632,7 @@ function buildRevealPayload(room) {
     numCorrect,
     soleCorrectId: soleCorrect,
     groupStreak: room.groupStreak,
+    ...(room.battle ? { teams: teamScores(room) } : {}),
   };
 }
 
@@ -706,15 +750,22 @@ function handleLifeline(room, p) {
   if (room.lifelineUsed.has(p.userId)) return;
   room.lifelineUsed.add(p.userId);
 
-  if (room.answers.size === 0) {
+  // Reveal the distribution of already-locked answers (anonymized). In
+  // battles the poll is scoped to your own team — surfacing the opponent's
+  // locked picks would leak their answers.
+  const votes = { A: 0, B: 0, C: 0, D: 0 };
+  let basedOn = 0;
+  for (const [uid, a] of room.answers) {
+    if (room.battle && room.participants.get(uid)?.team !== p.team) continue;
+    votes[a.option]++;
+    basedOn++;
+  }
+  if (basedOn === 0) {
     room.lifelineUsed.delete(p.userId);
     send(p.ws, { type: "lifeline_denied", reason: "No one has locked an answer yet — nothing to poll" });
     return;
   }
-  // Reveal the distribution of already-locked answers (anonymized)
-  const votes = { A: 0, B: 0, C: 0, D: 0 };
-  for (const a of room.answers.values()) votes[a.option]++;
-  send(p.ws, { type: "poll", votes, basedOn: room.answers.size });
+  send(p.ws, { type: "poll", votes, basedOn });
   broadcast(room, { type: "lifeline_used", userId: p.userId }, p.userId);
 }
 
@@ -803,6 +854,22 @@ async function completeSession(room) {
   }
 
   room.results = { leaderboard, awards, xpEarned, calibration, participantIds, totalQuestions: room.questions.length };
+
+  // Group battle: attach the result for the client + persist scores/rating/XP.
+  // Idempotent inside finalizeBattle (only the first completion lands).
+  if (room.battle) {
+    const scores = teamScores(room);
+    const winnerId = scores.a === scores.b ? null : scores.a > scores.b ? room.battle.a.classroomId : room.battle.b.classroomId;
+    room.results.battle = {
+      id: room.battle.id,
+      mode: room.battle.mode,
+      a: { classroomId: room.battle.a.classroomId, name: room.battle.a.name, score: scores.a },
+      b: { classroomId: room.battle.b.classroomId, name: room.battle.b.name, score: scores.b },
+      winnerId,
+    };
+    finalizeBattle(room).catch((e) => console.warn("[battle] finalize failed:", e?.message));
+  }
+
   broadcast(room, { type: "complete", ...room.results });
 
   persistSession(room, "complete").catch(() => {});
@@ -886,6 +953,7 @@ export function endRoom(room, reason = "ended_by_host") {
   if (room.hostTimer) { clearTimeout(room.hostTimer); room.hostTimer = null; }
   broadcast(room, { type: "session_ended", reason });
   persistSession(room, "ended").catch(() => {});
+  if (room.battle) cancelBattle(room).catch(() => {});
   for (const p of room.participants.values()) {
     if (p.ws && p.ws.readyState === WebSocket.OPEN) {
       try { p.ws.close(); } catch {}

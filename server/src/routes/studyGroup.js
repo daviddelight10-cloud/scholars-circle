@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
 import { getWeekStart } from "../lib/tiers.js";
 import { getRoomByCode } from "../lib/liveQuizRooms.js";
+import { sendPushToUsers } from "../lib/pushSender.js";
 
 const RESOURCE_CARD_SELECT = { id: true, title: true, subject: true, contentType: true, shareToken: true };
 
@@ -18,6 +19,9 @@ const router = express.Router();
 // In-memory typing state per classroom — { classroomId: Map(userId -> {name, ts}) }
 const typingIn = new Map();
 const TYPING_TTL = 4000;
+// Ring: per-caller cooldown so a group can't be spammed into a session.
+const ringCooldowns = new Map();
+const RING_COOLDOWN_MS = 5 * 60 * 1000;
 function typingList(classroomId, excludeUserId) {
   const m = typingIn.get(classroomId);
   if (!m) return [];
@@ -49,6 +53,8 @@ async function verifyMembership(classroomId, userId) {
 router.get("/groups/leaderboard", requireAuth, async (req, res) => {
   try {
     const { period = "week", scope = "all" } = req.query;
+    // sort=xp (weekly score) | rating (Elo hall of fame — default for all-time)
+    const sort = req.query.sort || (period === "all" ? "rating" : "xp");
     let universityId = null;
     if (scope === "university") {
       const p = await prisma.userProfile.findUnique({
@@ -59,53 +65,78 @@ router.get("/groups/leaderboard", requireAuth, async (req, res) => {
       if (!universityId) return res.json({ entries: [], myGroups: [], weekStart: getWeekStart() });
     }
 
-    const where = { classroom: { kind: "group" } };
-    if (period !== "all") where.createdAt = { gte: getWeekStart() };
-    if (universityId) {
-      where.classroom.createdBy = { userProfile: { is: { universityId } } };
+    const entry = (g, i, xp) => ({
+      rank: i + 1,
+      id: g.id,
+      name: g.name,
+      subject: g.subject,
+      isPublic: g.isPublic,
+      memberCount: g._count.members,
+      creator: g.createdBy?.fullName || g.createdBy?.username || null,
+      xp,
+      rating: g.rating,
+      rankedWins: g.rankedWins,
+      rankedLosses: g.rankedLosses,
+    });
+    const GROUP_SELECT = {
+      id: true, name: true, subject: true, isPublic: true,
+      rating: true, rankedWins: true, rankedLosses: true,
+      createdBy: { select: { username: true, fullName: true } },
+      _count: { select: { members: true } },
+    };
+
+    let entries;
+    if (sort === "rating") {
+      // Hall of fame: top groups by Elo rating, with their XP for the period.
+      const uniWhere = universityId ? { createdBy: { userProfile: { is: { universityId } } } } : {};
+      const top = await prisma.classroom.findMany({
+        where: { kind: "group", ...uniWhere },
+        orderBy: [{ rating: "desc" }, { createdAt: "asc" }],
+        take: 50,
+        select: GROUP_SELECT,
+      });
+      const xpRows = await prisma.groupXpEvent.groupBy({
+        by: ["classroomId"],
+        where: {
+          classroomId: { in: top.map((g) => g.id) },
+          ...(period !== "all" ? { createdAt: { gte: getWeekStart() } } : {}),
+        },
+        _sum: { xp: true },
+      });
+      const xpMap = new Map(xpRows.map((r) => [r.classroomId, r._sum.xp || 0]));
+      entries = top.map((g, i) => entry(g, i, xpMap.get(g.id) || 0));
+    } else {
+      const where = { classroom: { kind: "group" } };
+      if (period !== "all") where.createdAt = { gte: getWeekStart() };
+      if (universityId) {
+        where.classroom.createdBy = { userProfile: { is: { universityId } } };
+      }
+
+      const rows = await prisma.groupXpEvent.groupBy({
+        by: ["classroomId"],
+        where,
+        _sum: { xp: true },
+        orderBy: { _sum: { xp: "desc" } },
+        take: 50,
+      });
+      const ids = rows.map((r) => r.classroomId);
+      const groups = await prisma.classroom.findMany({
+        where: { id: { in: ids } },
+        select: GROUP_SELECT,
+      });
+      const byId = new Map(groups.map((g) => [g.id, g]));
+      entries = rows
+        .map((r, i) => {
+          const g = byId.get(r.classroomId);
+          return g ? entry(g, i, r._sum.xp || 0) : null;
+        })
+        .filter(Boolean);
     }
 
-    const rows = await prisma.groupXpEvent.groupBy({
-      by: ["classroomId"],
-      where,
-      _sum: { xp: true },
-      orderBy: { _sum: { xp: "desc" } },
-      take: 50,
+    const myMemberships = await prisma.classroomMember.findMany({
+      where: { userId: req.user.sub, classroom: { kind: "group" } },
+      select: { classroomId: true, classroom: { select: { name: true } } },
     });
-    const ids = rows.map((r) => r.classroomId);
-    const [groups, myMemberships] = await Promise.all([
-      prisma.classroom.findMany({
-        where: { id: { in: ids } },
-        select: {
-          id: true, name: true, subject: true, isPublic: true,
-          createdBy: { select: { username: true, fullName: true } },
-          _count: { select: { members: true } },
-        },
-      }),
-      prisma.classroomMember.findMany({
-        where: { userId: req.user.sub, classroom: { kind: "group" } },
-        select: { classroomId: true, classroom: { select: { name: true } } },
-      }),
-    ]);
-
-    const byId = new Map(groups.map((g) => [g.id, g]));
-    const entries = rows
-      .map((r, i) => {
-        const g = byId.get(r.classroomId);
-        if (!g) return null;
-        return {
-          rank: i + 1,
-          id: g.id,
-          name: g.name,
-          subject: g.subject,
-          isPublic: g.isPublic,
-          memberCount: g._count.members,
-          creator: g.createdBy?.fullName || g.createdBy?.username || null,
-          xp: r._sum.xp || 0,
-        };
-      })
-      .filter(Boolean);
-
     const ranked = new Map(entries.map((e) => [e.id, e.rank]));
     res.json({
       weekStart: getWeekStart(),
@@ -150,18 +181,22 @@ router.get("/:classroomId/xp", requireAuth, async (req, res) => {
     ]);
     const weekMap = new Map(weekRows.map((r) => [r.userId, r._sum.xp || 0]));
     const allMap = new Map(allRows.map((r) => [r.userId, r._sum.xp || 0]));
+    const sorted = members
+      .map((m) => ({
+        ...publicUser(m.user),
+        weekXp: weekMap.get(m.userId) || 0,
+        allXp: allMap.get(m.userId) || 0,
+        isMe: m.userId === userId,
+      }))
+      .sort((a, b) => b.weekXp - a.weekXp || b.allXp - a.allXp);
+    // Weekly MVP — top contributor this week (only when someone actually
+    // practised; a 0-XP week has no MVP).
+    const mvpId = sorted.length && sorted[0].weekXp > 0 ? sorted[0].id : null;
     res.json({
       weekStart: since,
       weekXp: weekRows.reduce((s, r) => s + (r._sum.xp || 0), 0),
       allXp: allRows.reduce((s, r) => s + (r._sum.xp || 0), 0),
-      members: members
-        .map((m) => ({
-          ...publicUser(m.user),
-          weekXp: weekMap.get(m.userId) || 0,
-          allXp: allMap.get(m.userId) || 0,
-          isMe: m.userId === userId,
-        }))
-        .sort((a, b) => b.weekXp - a.weekXp || b.allXp - a.allXp),
+      members: sorted.map((m) => ({ ...m, mvp: m.id === mvpId })),
     });
   } catch (error) {
     console.error("Group XP error:", error);
@@ -424,14 +459,94 @@ router.get("/:classroomId/members", requireAuth, async (req, res) => {
     });
 
     const allMembers = [
-      ...(creator ? [shape(creator, { id: "creator-" + creator.id, joinedAt: null, isCreator: true })] : []),
-      ...members.map((m) => shape(m.user, { id: m.id, joinedAt: m.joinedAt, isCreator: false })),
+      ...(creator ? [shape(creator, { id: "creator-" + creator.id, joinedAt: null, isCreator: true, role: "captain" })] : []),
+      ...members.map((m) => shape(m.user, { id: m.id, joinedAt: m.joinedAt, isCreator: false, role: m.role || "member" })),
     ];
 
     res.json(allMembers);
   } catch (error) {
     console.error("Error fetching members:", error);
     res.status(500).json({ error: "Failed to fetch members" });
+  }
+});
+
+// POST /api/study-group/:classroomId/promote { userId, role: "captain"|"member" }
+// Creator-only: promote a member to captain (can set battle lineups) or demote.
+router.post("/:classroomId/promote", requireAuth, async (req, res) => {
+  try {
+    const { classroomId } = req.params;
+    const uid = req.user.sub;
+    const { userId: targetId, role } = req.body || {};
+    const classroom = await prisma.classroom.findUnique({
+      where: { id: classroomId },
+      select: { createdById: true, kind: true },
+    });
+    if (!classroom || classroom.kind !== "group") return res.status(404).json({ error: "Group not found" });
+    if (classroom.createdById !== uid) return res.status(403).json({ error: "Only the group creator can manage captains" });
+    if (!["captain", "member"].includes(role)) return res.status(400).json({ error: "role must be captain or member" });
+    if (targetId === uid) return res.status(400).json({ error: "You're the creator — always a captain" });
+    const m = await prisma.classroomMember.update({
+      where: { classroomId_userId: { classroomId, userId: String(targetId || "") } },
+      data: { role },
+    }).catch(() => null);
+    if (!m) return res.status(404).json({ error: "Not a member" });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Promote error:", error);
+    res.status(500).json({ error: "Failed to update role" });
+  }
+});
+
+// POST /api/study-group/:classroomId/ring { code } — pull the group into a live
+// session or battle via FCM ("Ring" from the Study Groups 2.0 brief — no media,
+// just a push with a join link + an in-app overlay when the app is open).
+// 5-min per-caller cooldown, one 30s reminder ping, then silence.
+router.post("/:classroomId/ring", requireAuth, async (req, res) => {
+  try {
+    const { classroomId } = req.params;
+    const uid = req.user.sub;
+    const { code } = req.body || {};
+    if (!(await verifyMembership(classroomId, uid))) {
+      return res.status(403).json({ error: "Not a member" });
+    }
+    const room = code ? getRoomByCode(String(code)) : null;
+    if (!room || room.phase === "ended" || room.phase === "complete") {
+      return res.status(404).json({ error: "No live session to ring for" });
+    }
+    const last = ringCooldowns.get(uid) || 0;
+    const wait = RING_COOLDOWN_MS - (Date.now() - last);
+    if (wait > 0) {
+      return res.status(429).json({ error: "Ring is on cooldown — try again soon", retryAfterMs: wait });
+    }
+    ringCooldowns.set(uid, Date.now());
+
+    const [me, classroom, members] = await Promise.all([
+      prisma.user.findUnique({ where: { id: uid }, select: { fullName: true, username: true } }),
+      prisma.classroom.findUnique({ where: { id: classroomId }, select: { name: true } }),
+      prisma.classroomMember.findMany({ where: { classroomId }, select: { userId: true } }),
+    ]);
+    const callerName = me?.fullName || me?.username || "A member";
+    const groupName = classroom?.name || "your group";
+    const recipients = members.map((m) => m.userId).filter((id) => id !== uid);
+    const payload = {
+      title: `🔔 ${callerName} is ringing ${groupName}`,
+      body: `${room.title || "Live session"} — tap to join now`,
+      tag: `ring-${room.code}`,
+      requireInteraction: true,
+      data: { tab: "discuss", liveCode: room.code, ring: "1", callerName, groupName },
+    };
+    const result = await sendPushToUsers(recipients, payload, { category: "social" });
+    // One reminder ping ~30s later if the session is still alive, then stop.
+    setTimeout(() => {
+      const r = getRoomByCode(room.code);
+      if (r && r.phase !== "ended" && r.phase !== "complete") {
+        sendPushToUsers(recipients, { ...payload, title: `🔔 still ringing — ${groupName}` }, { category: "social" }).catch(() => {});
+      }
+    }, 30000).unref?.();
+    res.json({ ok: true, sent: result?.sent || 0 });
+  } catch (error) {
+    console.error("Ring error:", error);
+    res.status(500).json({ error: "Failed to ring the group" });
   }
 });
 

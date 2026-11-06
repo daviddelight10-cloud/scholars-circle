@@ -287,6 +287,10 @@ function App() {
   // and invite URLs — consumed once by <Feed>, then cleared.
   const [feedDeepLink, setFeedDeepLink] = useState(null);
 
+  // "Ring" — an incoming call-style invite into a live session/battle. Set when
+  // a ring push arrives while the app is open; Join navigates to /live/CODE.
+  const [ringCall, setRingCall] = useState(null); // { code, callerName, groupName }
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const prevTabRef = useRef("today");
@@ -2346,8 +2350,17 @@ function App() {
 
     const live = bootParams.get("live");
     if (live) {
-      // Live-quiz notification taps land here via ?live=CODE (sw.js / fcmOptions.link)
+      // Live-quiz / ring notification taps land here via ?live=CODE — the tap is
+      // the join intent, so go straight in (the overlay is for app-open rings).
       navigate(`/live/${encodeURIComponent(live)}`);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
+    // Battle notification taps land on the Groups tab where the incoming
+    // challenge card / battle list lives.
+    if (bootParams.get("battle")) {
+      setTab("discuss");
+      setFeedDeepLink({ feedTab: "groups" });
       window.history.replaceState(null, "", window.location.pathname);
     }
 
@@ -4724,16 +4737,20 @@ function App() {
             // Legacy DM pushes used tab:"messages" — they land on Feed → Chats
             const target = msg.tab === "messages" ? "discuss" : msg.tab;
             setTab(target);
-            if (target === "discuss" && (msg.feedTab || msg.chatWith || msg.joinGroup)) {
+            if (target === "discuss" && (msg.feedTab || msg.chatWith || msg.joinGroup || msg.battle)) {
               setFeedDeepLink({
-                feedTab: msg.feedTab || (msg.tab === "messages" ? "chats" : undefined),
+                feedTab: msg.feedTab || (msg.battle ? "groups" : msg.tab === "messages" ? "chats" : undefined),
                 chatWith: msg.chatWith,
                 joinCode: msg.joinGroup,
               });
             }
           }
-          // "X went live" pushes carry the room code — jump straight into it
-          if (msg.liveCode) {
+          // A ring is a call, not a link — show the incoming overlay so the
+          // user can join or decline rather than being dragged into a session.
+          if (msg.ring && msg.liveCode) {
+            setRingCall({ code: msg.liveCode, callerName: msg.callerName, groupName: msg.groupName });
+          } else if (msg.liveCode) {
+            // "X went live" pushes carry the room code — jump straight into it
             navigate(`/live/${encodeURIComponent(msg.liveCode)}`);
           }
         } catch {}
@@ -4967,12 +4984,17 @@ function App() {
           const d = options.data;
           const target = d.tab === "messages" ? "discuss" : d.tab;
           setTab(target);
-          if (target === "discuss" && (d.feedTab || d.chatWith || d.joinGroup)) {
+          if (target === "discuss" && (d.feedTab || d.chatWith || d.joinGroup || d.battle)) {
             setFeedDeepLink({
-              feedTab: d.feedTab || (d.tab === "messages" ? "chats" : undefined),
+              feedTab: d.feedTab || (d.battle ? "groups" : d.tab === "messages" ? "chats" : undefined),
               chatWith: d.chatWith,
               joinCode: d.joinGroup,
             });
+          }
+          if (d.ring && d.liveCode) {
+            setRingCall({ code: d.liveCode, callerName: d.callerName, groupName: d.groupName });
+          } else if (d.liveCode) {
+            navigate(`/live/${encodeURIComponent(d.liveCode)}`);
           }
 
         }
@@ -9424,6 +9446,42 @@ function App() {
       )}
 
 
+
+      {/* Ring: incoming-call overlay while the app is open (FCM / SW message). */}
+      {ringCall && (
+        <div className="modal-overlay" style={{ zIndex: 10002 }}>
+          <div className="ring-call" role="alertdialog" aria-label="Incoming ring">
+            <div className="ring-call-pulse">🔔</div>
+            <p className="ring-call-title">{ringCall.callerName || "Someone"} is ringing</p>
+            <p className="ring-call-sub">
+              {ringCall.groupName ? `${ringCall.groupName} · ` : ""}live session — jump in?
+            </p>
+            <div className="ring-call-btns">
+              <button
+                className="ring-call-join"
+                onClick={() => {
+                  const code = ringCall.code;
+                  setRingCall(null);
+                  navigate(`/live/${encodeURIComponent(code)}`);
+                }}
+              >
+                Join
+              </button>
+              <button className="ring-call-decline" onClick={() => setRingCall(null)}>Decline</button>
+            </div>
+            <button
+              className="fd-link"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                const link = `${window.location.origin}/?live=${ringCall.code}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(`🎓 Live session on Scholar's Circle — join us: ${link}`)}`, "_blank");
+              }}
+            >
+              Share to WhatsApp
+            </button>
+          </div>
+        </div>
+      )}
 
       {showPalette && (
 

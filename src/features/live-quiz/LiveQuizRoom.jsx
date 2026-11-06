@@ -49,6 +49,28 @@ function ParticipantRail({ room, myId, voice }) {
   );
 }
 
+// Group-vs-group battle: persistent team scoreboard under the header. The
+// winner is the summed lineup points — individual play is unchanged.
+function BattleBar({ battle }) {
+  if (!battle) return null;
+  const { a, b, scores, myTeam, mode } = battle;
+  const sa = scores?.a || 0;
+  const sb = scores?.b || 0;
+  return (
+    <div className="lq-battlebar" role="status" aria-label="Battle score">
+      <span className={`lq-battlebar-team${myTeam === "a" ? " me" : ""}${sa > sb ? " ahead" : ""}`}>
+        <b>{a?.name}</b><em>{sa}</em>
+      </span>
+      <span className="lq-battlebar-mid">
+        {mode === "ranked" ? "🏅 RANKED" : "⚔️ VS"}
+      </span>
+      <span className={`lq-battlebar-team right${myTeam === "b" ? " me" : ""}${sb > sa ? " ahead" : ""}`}>
+        <em>{sb}</em><b>{b?.name}</b>
+      </span>
+    </div>
+  );
+}
+
 function TransitionView({ room }) {
   const [count, setCount] = useState(3);
   useEffect(() => {
@@ -204,6 +226,7 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
       </div>
 
       <div className="lq-stage">
+        {room.battle && room.phase !== "complete" && <BattleBar battle={room.battle} />}
         <ParticipantRail room={room} myId={myId} voice={voice} />
         <div className="lq-body">
         {room.phase === "connecting" && (

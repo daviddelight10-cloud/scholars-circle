@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../../lib/constants";
+import { groupsApi } from "../groups/groupsApi";
 import { Avatar } from "../feed/feedUi";
 import { MaterialPicker } from "../feed/Composer.jsx";
 import { createLiveRoom, mcqVariant, mcqQuestionCount } from "../live-quiz/liveQuizApi.js";
@@ -71,6 +72,19 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
 
   const live = battles.filter((b) => b.live);
   const past = battles.filter((b) => !b.live);
+  const [rung, setRung] = useState({}); // code -> true | error string
+
+  // "Ring" pulls group members into the session via push (5-min caller cooldown).
+  const ringGroup = async (code) => {
+    try {
+      await groupsApi.ring({ token, id: classroomId, code });
+      setRung((r) => ({ ...r, [code]: true }));
+      setTimeout(() => setRung((r) => ({ ...r, [code]: null })), 4000);
+    } catch (e) {
+      setRung((r) => ({ ...r, [code]: e.message || "Ring failed" }));
+      setTimeout(() => setRung((r) => ({ ...r, [code]: null })), 4000);
+    }
+  };
 
   return (
     <div className="gv-battles">
@@ -105,6 +119,13 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
                   hosted by {b.host?.name || "member"} · {b.players} in lobby
                 </div>
               </div>
+              <button
+                className="fd-follow-btn"
+                title="Ring the group into this session"
+                onClick={() => ringGroup(b.code)}
+              >
+                {rung[b.code] === true ? "✓" : rung[b.code] ? "…" : "🔔"}
+              </button>
               <button className="fd-join-btn" onClick={() => openBattle(b.code)} disabled={!b.joinable}>
                 {b.joinable ? "Join" : "Live"}
               </button>

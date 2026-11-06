@@ -27,6 +27,7 @@ const initialState = {
   groupStreak: 0,
   talkedThrough: 0,
   complete: null,
+  battle: null, // group-vs-group mode: {id, mode, myTeam, a:{id,name,lineup}, b:{...}, scores:{a,b}}
   nextIndex: 0,
   endReason: null,
   micOpen: false,
@@ -84,6 +85,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           ready: msg.ready || s.ready,
           teachBack: msg.teachBack || null,
           complete: msg.complete || null,
+          battle: msg.battle || null,
           micOpen: !!msg.micOpen,
           poll: null,
           serverOffset: offset,
@@ -133,6 +135,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           participants: msg.points
             ? s.participants.map((p) => msg.points[p.userId] != null ? { ...p, points: msg.points[p.userId] } : p)
             : s.participants,
+          battle: s.battle && msg.teams ? { ...s.battle, scores: msg.teams } : s.battle,
         }));
         break;
       case "teachback_prompt":

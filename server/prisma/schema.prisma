@@ -896,6 +896,17 @@ model Classroom {
 
   groupXpEvents    GroupXpEvent[]
 
+  // Study Groups 2.0 — Elo battle rating + records (kind="group" only)
+  rating           Int              @default(1200)
+
+  rankedWins       Int              @default(0)
+
+  rankedLosses     Int              @default(0)
+
+  battlesChallenging GroupBattle[]  @relation("BattleChallenger")
+
+  battlesChallenged  GroupBattle[]  @relation("BattleChallenged")
+
 }
 
 
@@ -907,6 +918,9 @@ model ClassroomMember {
   classroomId String
 
   userId      String
+
+  // "member" | "captain" — captains set battle lineups (creator is always captain)
+  role        String    @default("member")
 
   joinedAt    DateTime  @default(now())
 
@@ -1680,6 +1694,42 @@ model GroupXpEvent {
 
   @@index([classroomId, createdAt])
   @@index([userId])
+}
+
+// Group-vs-group battle (Study Groups 2.0). Created as a challenge, becomes a
+// live-quiz room on accept (liveCode), finalized by the room's completeSession.
+model GroupBattle {
+  id              String    @id @default(cuid())
+  status          String    @default("pending") // pending|active|completed|declined|cancelled|expired
+  mode            String    @default("friendly") // friendly|ranked
+  challengerId    String
+  challengedId    String
+  mcqResourceId   String?
+  title           String?
+  timePerQuestion Int       @default(20)
+  numQuestions    Int       @default(10)
+  lineupA         Json      @default("[]") // challenger [userId]
+  lineupB         Json      @default("[]") // challenged [userId]
+  scoreA          Int       @default(0)
+  scoreB          Int       @default(0)
+  winnerId        String?   // classroomId, null on draw
+  ratingDeltaA    Int?
+  ratingDeltaB    Int?
+  liveCode        String?
+  createdById     String    // captain who sent the challenge
+  scheduledFor    DateTime? // scheduled wars (optional fixed slot)
+  reminderSent    Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  completedAt     DateTime?
+
+  challenger      Classroom @relation("BattleChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  challenged      Classroom @relation("BattleChallenged", fields: [challengedId], references: [id], onDelete: Cascade)
+
+  @@index([challengerId, status])
+  @@index([challengedId, status])
+  @@index([status, scheduledFor])
 }
 
 model ResourceRating {

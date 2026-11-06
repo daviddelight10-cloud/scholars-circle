@@ -44,6 +44,8 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
   const isCreator = !!group?.isCreator;
   const isGroup = group?.kind !== "classroom";
   const canManage = isCreator || isFaculty;
+  // Creator + promoted captains can set battle lineups.
+  const isCaptain = isCreator || members.some((m) => m.user?.id === currentUser?.id && m.role === "captain");
 
   const fetchMembers = useCallback(() => {
     fetch(`${API_BASE}/study-group/${group.id}/members`, {
@@ -218,7 +220,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
         )}
         {sub === "members" && (
           <div className="fd-group-scroll">
-            <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} members={members} onOpenProfile={onOpenProfile} />
+            <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} members={members} onOpenProfile={onOpenProfile} onRefresh={fetchMembers} />
           </div>
         )}
       </div>

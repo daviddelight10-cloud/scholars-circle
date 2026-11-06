@@ -152,6 +152,33 @@ export async function runWeeklyLeagueReset() {
     }
   }
 
+  // Clan podium: members of the top-3 groups by ledger XP last week get the
+  // weekly placement badge.
+  try {
+    const podium = await prisma.groupXpEvent.groupBy({
+      by: ["classroomId"],
+      where: {
+        createdAt: { gte: prevWeekStart, lt: newWeekStart },
+        classroom: { kind: "group" },
+      },
+      _sum: { xp: true },
+      orderBy: { _sum: { xp: "desc" } },
+      take: 3,
+    });
+    for (const row of podium) {
+      if (!(row._sum?.xp > 0)) continue;
+      const members = await prisma.classroomMember.findMany({
+        where: { classroomId: row.classroomId },
+        select: { userId: true },
+      });
+      for (const m of members) {
+        awardBadge(m.userId, "group_week_top3").catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.warn("[LeagueJob] group podium badges failed:", e?.message);
+  }
+
   console.log("[LeagueJob] Weekly league reset complete.");
 }
 

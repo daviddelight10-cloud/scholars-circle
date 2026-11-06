@@ -89,6 +89,26 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
         )}
       </div>
 
+      {c.battle && (
+        <div className="lq-card lq-battle-result">
+          <p className="lq-card-label">{c.battle.mode === "ranked" ? "🏅 RANKED CLAN BATTLE" : "⚔️ CLAN BATTLE"}</p>
+          <div className="lq-battlebar big">
+            <span className={`lq-battlebar-team${c.battle.winnerId === c.battle.a.classroomId ? " ahead" : ""}`}>
+              <b>{c.battle.a.name}</b><em>{c.battle.a.score}</em>
+            </span>
+            <span className="lq-battlebar-mid">{c.battle.winnerId ? "VS" : "DRAW"}</span>
+            <span className={`lq-battlebar-team right${c.battle.winnerId === c.battle.b.classroomId ? " ahead" : ""}`}>
+              <em>{c.battle.b.score}</em><b>{c.battle.b.name}</b>
+            </span>
+          </div>
+          <p className="lq-battle-verdict">
+            {c.battle.winnerId
+              ? `${c.battle.winnerId === c.battle.a.classroomId ? c.battle.a.name : c.battle.b.name} takes the war`
+              : "Dead even — run it back?"}
+          </p>
+        </div>
+      )}
+
       {c.awards?.length > 0 && (
         <div className="lq-card">
           <p className="lq-card-label">SESSION AWARDS</p>
@@ -157,6 +177,18 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
           <IconShare size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
           {sharing ? "Preparing card…" : "Share results"}
         </button>
+        {c.battle && (
+          <button
+            className="lq-btn-secondary"
+            onClick={() => {
+              const b = c.battle;
+              const text = `⚔️ ${b.a.name} ${b.a.score} – ${b.b.score} ${b.b.name}${b.winnerId ? ` — ${b.winnerId === b.a.classroomId ? b.a.name : b.b.name} wins` : " — draw"} on Scholar's Circle ${window.location.origin}`;
+              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+            }}
+          >
+            Share to WhatsApp
+          </button>
+        )}
         <button className="lq-btn-secondary" onClick={onExit}>Leave Session</button>
       </div>
 

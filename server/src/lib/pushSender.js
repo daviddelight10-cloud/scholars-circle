@@ -112,6 +112,8 @@ function buildLink(data) {
   const p = new URLSearchParams();
   if (data.tab) p.set("tab", data.tab);
   if (data.liveCode) p.set("live", data.liveCode);
+  if (data.feedTab) p.set("feedTab", data.feedTab);
+  if (data.battle) p.set("battle", data.battle);
   return `/?${p}`;
 }
 

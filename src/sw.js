@@ -221,7 +221,7 @@ self.addEventListener('notificationclick', (event) => {
           if (data?.tab || data?.liveCode) {
             const p = new URLSearchParams();
             if (data.tab) p.set('tab', data.tab);
-            const passthrough = { feedTab: 'feedTab', chatWith: 'chatWith', joinGroup: 'join', liveCode: 'live' };
+            const passthrough = { feedTab: 'feedTab', chatWith: 'chatWith', joinGroup: 'join', liveCode: 'live', battle: 'battle', ring: 'ring', callerName: 'ringFrom', groupName: 'ringGroup' };
             for (const [k, out] of Object.entries(passthrough)) {
               if (data[k]) p.set(out, data[k]);
             }

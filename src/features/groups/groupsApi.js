@@ -37,7 +37,24 @@ export const groupsApi = {
     req(`/study-group/${id}/messages`, { token, method: "POST", body: { text, resourceId, liveCode } }),
   // Group XP: member contribution board inside a group
   groupXp: ({ token, id } = {}) => req(`/study-group/${id}/xp`, { token }),
-  // Public weekly/all-time groups leaderboard. scope: "all" | "university"
-  groupsBoard: ({ token, period = "week", scope = "all" } = {}) =>
-    req(`/study-group/groups/leaderboard?period=${period}&scope=${scope}`, { token }),
+  // Public weekly/all-time groups leaderboard. scope: "all" | "university",
+  // sort: "xp" | "rating" (Elo hall of fame).
+  groupsBoard: ({ token, period = "week", scope = "all", sort } = {}) => {
+    const p = new URLSearchParams({ period, scope });
+    if (sort) p.set("sort", sort);
+    return req(`/study-group/groups/leaderboard?${p}`, { token });
+  },
+  members: ({ token, id } = {}) => req(`/study-group/${id}/members`, { token }),
+  promote: ({ token, id, userId, role }) =>
+    req(`/study-group/${id}/promote`, { token, method: "POST", body: { userId, role } }),
+  // Ring the group into a live session/battle (5-min caller cooldown server-side).
+  ring: ({ token, id, code }) => req(`/study-group/${id}/ring`, { token, method: "POST", body: { code } }),
+  // Group-vs-group battles
+  battlesMine: ({ token } = {}) => req("/api/battles/mine", { token }),
+  battleDetail: ({ token, id }) => req(`/api/battles/${id}`, { token }),
+  groupBattles: ({ token, id } = {}) => req(`/api/battles/group/${id}`, { token }),
+  createBattle: ({ token, ...body }) => req("/api/battles", { token, method: "POST", body }),
+  acceptBattle: ({ token, id, lineupIds }) =>
+    req(`/api/battles/${id}/accept`, { token, method: "POST", body: { lineupIds } }),
+  declineBattle: ({ token, id }) => req(`/api/battles/${id}/decline`, { token, method: "POST" }),
 };

@@ -45,6 +45,8 @@ import feedRoutes from "./routes/feed.js";
 import ogRoutes from "./routes/og.js";
 import messageRoutes from "./routes/messages.js";
 import liveQuizRoutes, { attachLiveQuizSocket } from "./routes/liveQuiz.js";
+import battleRoutes from "./routes/battles.js";
+import { startBattleJobs } from "./lib/battles.js";
 import osceRoomRoutes, { attachOsceSocket } from "./routes/osceRooms.js";
 import adminRoutes from "./routes/admin.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
@@ -62,6 +64,9 @@ configurePush();
 startStudyReminderJob();
 // Start weekly league promotion/demotion cron.
 startLeagueJob();
+// Battle housekeeping: expire stale challenges, cancel orphaned rooms,
+// scheduled-war reminders.
+startBattleJobs();
 
 const app = express();
 
@@ -179,6 +184,7 @@ app.use("/api/voice-session", voiceSessionRoutes);
 app.use("/api/curriculum", curriculumRoutes);
 app.use("/api/study-cache", studyCacheRoutes);
 app.use("/api/live-quiz", liveQuizRoutes);
+app.use("/api/battles", battleRoutes);
 app.use("/api/osce-rooms", osceRoomRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/og", ogRoutes);
