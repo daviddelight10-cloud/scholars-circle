@@ -160,6 +160,86 @@ router.get("/groups/leaderboard", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/study-group/unread-count — total unread group messages across all
+// the user's groups (for the bottom-nav Feed badge). Registered before
+// /:classroomId/* so "unread-count" isn't parsed as a classroomId.
+router.get("/unread-count", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const memberships = await prisma.classroomMember.findMany({
+      where: { userId, classroom: { kind: "group" } },
+      select: { classroomId: true, lastReadAt: true },
+    });
+    const createdGroups = await prisma.classroom.findMany({
+      where: { createdById: userId, kind: "group" },
+      select: { id: true },
+    });
+
+    // Count unread per group: messages not by me, newer than lastReadAt (or all if null).
+    const all = new Map();
+    for (const m of memberships) all.set(m.classroomId, m.lastReadAt);
+    for (const g of createdGroups) all.set(g.id, null);
+
+    const counts = await Promise.all(
+      [...all.entries()].map(([cid, lastReadAt]) =>
+        prisma.classroomMessage.count({
+          where: {
+            classroomId: cid,
+            userId: { not: userId },
+            ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+          },
+        })
+      )
+    );
+    const total = counts.reduce((n, c) => n + (c || 0), 0);
+    res.json({ count: total });
+  } catch (error) {
+    console.error("Unread count error:", error);
+    res.status(500).json({ error: "Failed to count unread group messages" });
+  }
+});
+
+// POST /api/study-group/:classroomId/read — mark the group chat as read
+// (advances the member's lastReadAt cursor to now). Idempotent.
+router.post("/:classroomId/read", requireAuth, async (req, res) => {
+  try {
+    const { classroomId } = req.params;
+    const userId = req.user.sub;
+    const isMember = await verifyMembership(classroomId, userId);
+    if (!isMember) return res.status(403).json({ error: "Not a member" });
+    await prisma.classroomMember.upsert({
+      where: { classroomId_userId: { classroomId, userId } },
+      update: { lastReadAt: new Date() },
+      create: { classroomId, userId, lastReadAt: new Date() },
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Mark read error:", error);
+    res.status(500).json({ error: "Failed to mark read" });
+  }
+});
+
+// POST /api/study-group/:classroomId/mute { muted } — suppress pushes for this
+// group. The unread pill still shows; only notifications are silenced.
+router.post("/:classroomId/mute", requireAuth, async (req, res) => {
+  try {
+    const { classroomId } = req.params;
+    const userId = req.user.sub;
+    const muted = req.body?.muted !== false; // default true; pass muted:false to unmute
+    const isMember = await verifyMembership(classroomId, userId);
+    if (!isMember) return res.status(403).json({ error: "Not a member" });
+    await prisma.classroomMember.upsert({
+      where: { classroomId_userId: { classroomId, userId } },
+      update: { muted },
+      create: { classroomId, userId, muted },
+    });
+    res.json({ ok: true, muted });
+  } catch (error) {
+    console.error("Mute error:", error);
+    res.status(500).json({ error: "Failed to update mute" });
+  }
+});
+
 // GET /api/study-group/:classroomId/xp — group XP total + per-member board
 // ("who practised this week and who did not").
 router.get("/:classroomId/xp", requireAuth, async (req, res) => {
@@ -219,17 +299,26 @@ router.get("/:classroomId/messages", requireAuth, async (req, res) => {
     const isMember = await verifyMembership(classroomId, userId);
     if (!isMember) return res.status(403).json({ error: "Not a member" });
 
-    const messages = await prisma.classroomMessage.findMany({
-      where: { classroomId },
-      include: {
-        user: { select: AUTHOR_SELECT },
-        reactions: {
-          include: { user: { select: { id: true, username: true } } },
+    const [messages, membership] = await Promise.all([
+      prisma.classroomMessage.findMany({
+        where: { classroomId },
+        include: {
+          user: { select: AUTHOR_SELECT },
+          reactions: {
+            include: { user: { select: { id: true, username: true } } },
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      // The member's read cursor — tells the client where the "New messages"
+      // divider belongs. Returned before any mark-read so the boundary is
+      // stable for this page of history.
+      prisma.classroomMember.findUnique({
+        where: { classroomId_userId: { classroomId, userId } },
+        select: { lastReadAt: true },
+      }),
+    ]);
 
     // Batch-attach shared-resource cards + reply previews (resolve by id)
     const resourceIds = [...new Set(messages.map((m) => m.resourceId).filter(Boolean))];
@@ -265,6 +354,7 @@ router.get("/:classroomId/messages", requireAuth, async (req, res) => {
         ...liveState(m.liveCode),
       })),
       typing: typingList(classroomId, userId),
+      lastReadAt: membership?.lastReadAt || null,
     });
   } catch (error) {
     console.error("Error fetching messages:", error);

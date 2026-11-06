@@ -39,6 +39,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
   const [discoverQ, setDiscoverQ] = useState("");
   const [discoverSubject, setDiscoverSubject] = useState("");
   const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [listFilter, setListFilter] = useState("all"); // "all" | "unread"
   const [board, setBoard] = useState(null);
   const [boardError, setBoardError] = useState(null);
   const [boardScope, setBoardScope] = useState("all");
@@ -152,15 +153,33 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
 
       {(mine || []).length > 0 && (
         <>
-          <SectionHeader title="Your groups" hint={`${mine.length}`} />
-          {mine.map((g) => (
+          <SectionHeader title="Your groups" hint={`${mine.length}`}>
+            {(mine || []).some((g) => g.unread > 0) && (
+              <div className="gv-sort-row" style={{ margin: 0 }}>
+                {[["all", "All"], ["unread", "Unread"]].map(([v, l]) => (
+                  <button
+                    key={v}
+                    className={`gv-sort ${listFilter === v ? "active" : ""}`}
+                    onClick={() => setListFilter(v)}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
+          </SectionHeader>
+          {(listFilter === "unread" ? (mine || []).filter((g) => g.unread > 0) : mine).map((g) => (
             <button key={g.id} className="fd-group-card" onClick={() => setOpen(g)}>
-              <span className="gv-avatar" style={{ background: groupGradient(g.name) }}>{initials(g.name)}</span>
+              <span className="fd-group-card-avatar">
+                <span className="gv-avatar" style={{ background: groupGradient(g.name) }}>{initials(g.name)}</span>
+                {g.unread > 0 && <span className="fd-group-card-unread">{g.unread > 9 ? "9+" : g.unread}</span>}
+              </span>
               <span className="fd-group-info">
                 <span className="fd-group-card-name">
                   {g.name}
                   {g.isCreator && <span className="fd-mini-chip">creator</span>}
                   {!g.isPublic && <span className="fd-mini-chip">🔒</span>}
+                  {g.muted && <span className="fd-mini-chip" title="Muted">🔕</span>}
                 </span>
                 <span className="fd-group-card-meta">
                   {[g.subject, `${g.memberCount} member${g.memberCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}

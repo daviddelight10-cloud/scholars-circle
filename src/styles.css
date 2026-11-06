@@ -6135,6 +6135,25 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   box-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
 }
 
+/* Unread count pill on the Feed nav icon (DMs + group messages) */
+.nav-icon-count {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--app-red);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  border: 1.5px solid var(--app-bg);
+  box-sizing: content-box;
+}
+
 @keyframes navBadgePulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.5); opacity: 0.7; }

@@ -120,7 +120,7 @@ export async function sendPushToUsers(userIds, payload, options = {}) {
 export async function notifyGroupMembers(classroomId, actorId, payload) {
   if (!classroomId || !payload?.title) return { sent: 0 };
   const members = await prisma.classroomMember.findMany({
-    where: { classroomId, userId: { not: actorId } },
+    where: { classroomId, userId: { not: actorId }, muted: false },
     select: { userId: true },
   });
   if (!members.length) return { sent: 0, members: 0 };

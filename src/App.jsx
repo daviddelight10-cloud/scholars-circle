@@ -37,6 +37,9 @@ import { createClient } from "@supabase/supabase-js";
 import { callAI } from "./lib/aiClient";
 import { generateSkeleton } from "./lib/skeletonGenerator";
 
+import { messagesApi } from "./features/messages/messagesApi";
+import { groupsApi } from "./features/groups/groupsApi";
+
 
 
 const TeacherQuestionManager = lazyWithRetry(() => import("./features/TeacherQuestionManager.jsx"));
@@ -288,6 +291,10 @@ function App() {
   // Deep link into the Feed's sub-tabs (Chats / Groups) from push notifications
   // and invite URLs — consumed once by <Feed>, then cleared.
   const [feedDeepLink, setFeedDeepLink] = useState(null);
+
+  // Bottom-nav Feed badge — total unread (DMs + group messages), polled while
+  // the app is open so the badge shows even when the Feed tab isn't active.
+  const [feedUnread, setFeedUnread] = useState(0);
 
   // "Ring" — an incoming call-style invite into a live session/battle. Set when
   // a ring push arrives while the app is open; Join navigates to /live/CODE.
@@ -4306,6 +4313,27 @@ function App() {
 
 
 
+  // 30-second polling for the bottom-nav Feed unread badge — DMs + group chat.
+  // Runs while the app is open so the badge shows even when the Feed tab isn't active.
+  useEffect(() => {
+    if (!token || !auth.user?.id) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const [dm, grp] = await Promise.all([
+          messagesApi.getUnreadCount({ token }).catch(() => ({ count: 0 })),
+          groupsApi.unreadCount({ token }).catch(() => ({ count: 0 })),
+        ]);
+        if (!cancelled) setFeedUnread((dm?.count || 0) + (grp?.count || 0));
+      } catch {}
+    };
+    poll();
+    const iv = setInterval(poll, 30000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [token, auth.user?.id]);
+
+
+
   // 5-minute polling for app updates (data sync, leaderboard refresh, etc.)
 
   useEffect(() => {
@@ -8155,7 +8183,13 @@ function App() {
 
         >
 
-          <MessageCircle size={20} className="nav-icon" />
+          <span className="nav-icon-wrapper">
+
+            <MessageCircle size={20} className="nav-icon" />
+
+            {feedUnread > 0 && <span className="nav-icon-count">{feedUnread > 9 ? "9+" : feedUnread}</span>}
+
+          </span>
 
           <span className="nav-label">Feed</span>
 

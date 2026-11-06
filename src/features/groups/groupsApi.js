@@ -16,6 +16,11 @@ async function req(path, { token, method = "GET", body } = {}) {
 
 export const groupsApi = {
   myGroups: ({ token } = {}) => req("/classroom/groups/my", { token }),
+  // Total unread group messages across all the user's groups (bottom-nav badge).
+  unreadCount: ({ token } = {}) => req("/study-group/unread-count", { token }),
+  // Mute/unmute a group — unread pill stays, pushes stop.
+  setMuted: ({ token, id, muted }) =>
+    req(`/study-group/${id}/mute`, { token, method: "POST", body: { muted } }),
   discover: ({ token, q, subject } = {}) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);

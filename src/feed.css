@@ -1297,6 +1297,17 @@
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
 }
 button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(--fd-stroke); transform: translateY(-1px); }
+.fd-group-card-avatar { position: relative; flex-shrink: 0; }
+.fd-group-card-unread {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px;
+  background: var(--fd-coral); color: #fff;
+  border: 2px solid var(--fd-card);
+  font-family: var(--fd-mono); font-size: 9.5px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(255, 107, 94, 0.5);
+}
 .fd-group-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .fd-group-card-name {
   font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 7px;
@@ -1438,6 +1449,17 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   font-family: var(--fd-display);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
+/* Compact single-line group status (replaces the chip row) */
+.gv-status {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 0 14px 8px;
+  font-family: var(--fd-mono); font-size: 10.5px; font-weight: 700;
+  color: var(--fd-faint);
+}
+.gv-status-item { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.gv-status-item.live { color: var(--fd-green); }
+.gv-status-item.battle { color: var(--fd-coral); }
+
 .gv-signal { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .gv-signal-chip {
   font-family: var(--fd-mono); font-size: 10px; font-weight: 700;
@@ -2115,6 +2137,23 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 }
 .fd-sheet-action:hover { background: var(--fd-card); }
 .fd-sheet-action.danger { color: var(--fd-coral); }
+
+/* "New messages" divider in group chat — sits above the first unread row */
+.gv-unread-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 8px 0 4px; padding: 0 4px;
+}
+.gv-unread-divider::before,
+.gv-unread-divider::after {
+  content: ""; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(79,142,247,0.45), transparent);
+}
+.gv-unread-divider span {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--fd-blue);
+  background: rgba(79,142,247,0.12); border: 1px solid rgba(79,142,247,0.28);
+  padding: 2px 10px; border-radius: 999px;
+}
 
 /* Typing line + pins strip in group chat */
 .gv-typing-line {

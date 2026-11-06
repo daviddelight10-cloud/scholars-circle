@@ -57,9 +57,20 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
   const stickRef = useRef(true);
   const lastTypingSent = useRef(0);
   const prevLen = useRef(0);
+  const unreadBoundary = useRef(null); // id of first incoming unread msg (snapshot on open)
+  const boundaryScrolled = useRef(false);
+  const lastMarkRead = useRef(0);
 
   const myId = currentUser?.id || currentUser?.sub;
   const myName = currentUser?.fullName || currentUser?.username || "You";
+
+  // Advance the member's read cursor — only while the user is at the bottom,
+  // and throttled so we don't hammer the endpoint on every poll.
+  const markRead = useCallback(() => {
+    if (Date.now() - lastMarkRead.current < 15000) return;
+    lastMarkRead.current = Date.now();
+    groupChatApi.markRead({ token, classroomId }).catch(() => {});
+  }, [token, classroomId]);
 
   const load = useCallback(async () => {
     if (document.hidden) return;
@@ -68,7 +79,20 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
       const list = data.messages || [];
       setTyping(data.typing || []);
       setMessages((prev) => {
-        if (!prev) { prevLen.current = list.length; return list; }
+        if (!prev) {
+          // First load — snapshot the unread boundary BEFORE any mark-read:
+          // divider goes above the oldest incoming message newer than
+          // lastReadAt (list is newest-first, so the last match wins).
+          const cutoff = data.lastReadAt ? new Date(data.lastReadAt).getTime() : 0;
+          for (const m of list) {
+            const isMine = (m.userId || m.sender?.id) === myId;
+            if (!isMine && new Date(m.createdAt).getTime() > cutoff) {
+              unreadBoundary.current = m.id;
+            }
+          }
+          prevLen.current = list.length;
+          return list;
+        }
         const ids = new Set(list.map((m) => m.id));
         const pending = prev.filter((m) => (m.pending || m.failed) && !ids.has(m.id));
         const merged = [...list, ...pending];
@@ -98,22 +122,37 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
     stickRef.current = atBottom;
-    if (atBottom) { setShowJump(false); setNewCount(0); }
+    if (atBottom) { setShowJump(false); setNewCount(0); markRead(); }
   };
 
   useEffect(() => {
-    if (stickRef.current && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el || !messages) return;
+    // First paint with messages: if there's an unread boundary, open scrolled
+    // to the "New messages" divider instead of jumping to the bottom.
+    if (!boundaryScrolled.current) {
+      boundaryScrolled.current = true;
+      const bid = unreadBoundary.current;
+      if (bid && bid !== "none") {
+        stickRef.current = false;
+        document.getElementById(`gmsg-${bid}`)?.scrollIntoView({ block: "start" });
+        return;
+      }
+    }
+    if (stickRef.current) {
+      el.scrollTop = el.scrollHeight;
       setShowJump(false);
       setNewCount(0);
+      markRead();
     }
-  }, [messages]);
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const jumpToBottom = () => {
     stickRef.current = true;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     setShowJump(false);
     setNewCount(0);
+    markRead();
   };
 
   const maybePingTyping = (value) => {
@@ -335,6 +374,9 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
           return (
             <div key={m.id} id={`gmsg-${m.id}`}>
               {showDay && <div className="fd-thread-day">{day}</div>}
+              {m.id === unreadBoundary.current && (
+                <div className="gv-unread-divider"><span>New messages</span></div>
+              )}
               <div
                 className={`gv-msg ${isMe ? "me" : "them"} ${sameAsPrev ? "cont" : "first"}`}
                 onTouchStart={() => startPress(m)}

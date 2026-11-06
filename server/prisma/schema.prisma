@@ -925,6 +925,12 @@ model ClassroomMember {
 
   joinedAt    DateTime  @default(now())
 
+  // Last time this member opened the group chat — drives unread counts.
+  lastReadAt DateTime?
+
+  // Muted groups still show unread pills but suppress push notifications.
+  muted      Boolean   @default(false)
+
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)

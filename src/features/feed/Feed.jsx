@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
 import { messagesApi } from "../messages/messagesApi";
+import { groupsApi } from "../groups/groupsApi";
 import { FeedCard, ActivityRow, RoomCard, DividerBlock } from "./FeedCard";
 import { Composer } from "./Composer";
 import { ProfileSheet } from "./ProfileSheet";
@@ -28,6 +29,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [circleOnly, setCircleOnly] = useState(false); // "My Circle" chip on the Feed tab
   const [subject, setSubject] = useState(null);
   const [unread, setUnread] = useState(0);
+  const [groupUnread, setGroupUnread] = useState(0);
   const [chatWith, setChatWith] = useState(null); // deep-linked DM target
   const [joinCode, setJoinCode] = useState(null); // deep-linked group invite
   const isFaculty = authUser?.role === "TEACHER" || authUser?.role === "LECTURER";
@@ -187,9 +189,12 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     return () => clearInterval(iv);
   }, [token, tab, circleOnly, subject, blocks]);
 
-  // Unread DM badge on the Chats tab
+  // Unread badges — DMs on the Chats tab, group messages on the Groups tab
   useEffect(() => {
-    const poll = () => messagesApi.getUnreadCount({ token }).then((d) => setUnread(d?.count || 0)).catch(() => {});
+    const poll = () => {
+      messagesApi.getUnreadCount({ token }).then((d) => setUnread(d?.count || 0)).catch(() => {});
+      groupsApi.unreadCount({ token }).then((d) => setGroupUnread(d?.count || 0)).catch(() => {});
+    };
     poll();
     const iv = setInterval(poll, 30000);
     return () => clearInterval(iv);
@@ -446,6 +451,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           {tab === "chats" && unread > 0 && (
             <span className="fd-title-chip">{unread > 9 ? "9+" : unread} unread</span>
           )}
+          {tab === "groups" && groupUnread > 0 && (
+            <span className="fd-title-chip">{groupUnread > 9 ? "9+" : groupUnread} unread</span>
+          )}
         </div>
         <div className="fd-seg">
           {TABS.map((t) => (
@@ -456,6 +464,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             >
               {t.label}
               {t.key === "chats" && unread > 0 && <span className="fd-tab-badge">{unread > 9 ? "9+" : unread}</span>}
+              {t.key === "groups" && groupUnread > 0 && <span className="fd-tab-badge">{groupUnread > 9 ? "9+" : groupUnread}</span>}
             </button>
           ))}
         </div>

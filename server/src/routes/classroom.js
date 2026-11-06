@@ -184,14 +184,25 @@ router.get("/groups/my", requireAuth, async (req, res) => {
     ]);
 
     const byId = new Map();
-    for (const m of memberships) byId.set(m.classroomId, m.classroom);
-    for (const g of created) byId.set(g.id, g);
+    const lastReadById = new Map(); // classroomId -> lastReadAt (member's read cursor)
+    const mutedById = new Map();    // classroomId -> muted (push suppressed, pill stays)
+    for (const m of memberships) {
+      byId.set(m.classroomId, m.classroom);
+      lastReadById.set(m.classroomId, m.lastReadAt);
+      mutedById.set(m.classroomId, m.muted);
+    }
+    for (const g of created) {
+      byId.set(g.id, g);
+      // Creator implicitly reads everything (no membership row until they join)
+      lastReadById.set(g.id, null);
+      mutedById.set(g.id, false);
+    }
 
     const ids = [...byId.keys()];
 
     // Last message + member avatar stack for the list rows — batched per
     // group (the list is small: user's own groups only).
-    const [lastMsgs, memberPreviews] = await Promise.all([
+    const [lastMsgs, memberPreviews, unreadCounts] = await Promise.all([
       Promise.all(
         ids.map((cid) =>
           prisma.classroomMessage.findFirst({
@@ -210,6 +221,17 @@ router.get("/groups/my", requireAuth, async (req, res) => {
           })
         )
       ),
+      Promise.all(
+        ids.map((cid) =>
+          prisma.classroomMessage.count({
+            where: {
+              classroomId: cid,
+              userId: { not: userId },
+              ...(lastReadById.get(cid) ? { createdAt: { gt: lastReadById.get(cid) } } : {}),
+            },
+          })
+        )
+      ),
     ]);
 
     const lastMsgById = new Map(ids.map((cid, i) => [cid, lastMsgs[i]]));
@@ -219,6 +241,7 @@ router.get("/groups/my", requireAuth, async (req, res) => {
         (memberPreviews[i] || []).map((m) => m.user?.userProfile?.avatar).filter(Boolean),
       ])
     );
+    const unreadById = new Map(ids.map((cid, i) => [cid, unreadCounts[i] || 0]));
 
     const groups = [...byId.values()]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -234,6 +257,8 @@ router.get("/groups/my", requireAuth, async (req, res) => {
               }
             : null,
           memberAvatars: avatarsById.get(g.id) || [],
+          unread: unreadById.get(g.id) || 0,
+          muted: mutedById.get(g.id) || false,
         };
       });
     res.json(groups);

@@ -126,6 +126,16 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
     }
   };
 
+  const toggleMute = async () => {
+    const next = !group.muted;
+    try {
+      await groupsApi.setMuted({ token, id: group.id, muted: next });
+      onChanged?.({ ...group, muted: next });
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   const memberCount = members.length || group.memberCount || 0;
 
   return (
@@ -147,6 +157,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
                   <button onClick={() => { copy("code"); }}>{copied === "code" ? "✓ Copied" : `Copy code (${group.joinCode})`}</button>
                 </>
               )}
+              {isGroup && <button onClick={toggleMute}>{group.muted ? "🔔 Unmute notifications" : "🔕 Mute notifications"}</button>}
               {isGroup && isCreator && <button onClick={togglePublic}>{group.isPublic ? "Make private" : "Make public"}</button>}
               {isGroup && isCreator && <button onClick={rotateCode}>New invite code</button>}
               {isGroup && !isCreator && <button className="danger" onClick={leave}>Leave group</button>}
@@ -158,14 +169,12 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
     >
       {group.description && <div className="fd-group-desc">{group.description}</div>}
 
-      <div className="fd-group-pulse gv-signal">
-        <span className={`gv-signal-chip ${pulse?.streak > 0 ? "hot" : ""}`}>🔥 {pulse?.streak ?? "…"}d streak</span>
-        <span className={`gv-signal-chip ${pulse?.activeNow > 0 ? "live" : ""}`}>🟢 {pulse?.activeNow ?? "…"} studying</span>
-        <span className={`gv-signal-chip ${pulse?.liveBattles > 0 ? "battle" : ""}`}>⚔️ {pulse?.liveBattles ?? "…"} live</span>
-        {group.joinCode && !menuOpen && (
-          <button className="gv-invite-pill" onClick={() => copy("link")} title="Copy invite link">
-            🔑 {group.joinCode} {copied ? "✓" : "⧉"}
-          </button>
+      {/* One compact status line — invite/link copying lives in the ⋯ menu */}
+      <div className="gv-status">
+        <span className="gv-status-item">🔥 {pulse?.streak ?? "…"}d</span>
+        <span className={`gv-status-item ${pulse?.activeNow > 0 ? "live" : ""}`}>🟢 {pulse?.activeNow ?? "…"} studying</span>
+        {pulse?.liveBattles > 0 && (
+          <span className="gv-status-item battle">⚔️ {pulse.liveBattles} live</span>
         )}
       </div>
 

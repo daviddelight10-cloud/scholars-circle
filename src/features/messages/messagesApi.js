@@ -50,4 +50,7 @@ export const groupChatApi = {
     req(`/study-group/messages/${messageId}/pin`, { token, method: "POST" }),
   deleteMessage: ({ token, messageId }) =>
     req(`/study-group/messages/${messageId}`, { token, method: "DELETE" }),
+  // Mark the group chat as read (advances the member's lastReadAt cursor).
+  markRead: ({ token, classroomId } = {}) =>
+    req(`/study-group/${classroomId}/read`, { token, method: "POST" }),
 };
