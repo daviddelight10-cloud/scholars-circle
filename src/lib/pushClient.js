@@ -167,20 +167,19 @@ export async function sendTestPush(token) {
   return await r.json();
 }
 
-/** True if this browser/user has an active FCM token. */
+/**
+ * True if this device has a live push subscription registered with the server.
+ * Read-only: getToken() silently MINTS a new token when none exists, so it
+ * can't be used as a check — after unsubscribe it would recreate a token that
+ * was never POSTed to /push/subscribe (UI shows Active, server has nothing).
+ */
 export async function hasActiveSubscription() {
   const supported = await isPushSupported();
   if (!supported) return false;
   try {
-    const messaging = await getFirebaseMessaging();
-    if (!messaging) return false;
-    const config = await fetchFcmConfig().catch(() => null);
-    if (!config) return false;
-    const token = await getToken(messaging, {
-      vapidKey: config.vapidKey,
-      serviceWorkerRegistration: await navigator.serviceWorker.ready,
-    }).catch(() => null);
-    return !!token;
+    if (localStorage.getItem("sc_push_subscribed") !== "1") return false;
+    const reg = await navigator.serviceWorker.ready;
+    return !!(await reg.pushManager.getSubscription());
   } catch {
     return false;
   }
