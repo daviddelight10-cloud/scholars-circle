@@ -17,7 +17,7 @@
         root.dataset.theme = pref;
         root.style.colorScheme = pref;
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta && pref === "light") meta.setAttribute("content", "#f6f5f1");
+        if (meta && pref === "light") meta.setAttribute("content", "#f5f2e9");
       })();
     </script>
 
@@ -126,7 +126,7 @@
            styles.css's vars refine this once loaded. */
         background: #0a0a0a;
       }
-      html[data-theme="light"] body { background: #f6f5f1; }
+      html[data-theme="light"] body { background: #f5f2e9; }
 
       #root {
         overflow-y: auto;
@@ -136,7 +136,7 @@
         overscroll-behavior: contain;
         background: #0a0a0a;
       }
-      html[data-theme="light"] #root { background: #f6f5f1; }
+      html[data-theme="light"] #root { background: #f5f2e9; }
     </style>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

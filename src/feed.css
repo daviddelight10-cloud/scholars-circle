@@ -1135,7 +1135,7 @@
 /* ===== Live quiz battles ===== */
 .fd-mode-tabs {
   display: flex; gap: 4px; margin-bottom: 14px; padding: 4px;
-  border-radius: 14px; background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px; background: var(--app-tint-soft);
   border: 1px solid var(--fd-card-border);
 }
 .fd-mode-tab {
@@ -1574,14 +1574,14 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
   border: 1px solid rgba(255, 107, 94, 0.4);
   background: linear-gradient(135deg, rgba(255, 107, 94, 0.13), rgba(123, 108, 240, 0.1));
 }
-.gv-battle-card.ended { border-color: var(--fd-card-border); background: rgba(255, 255, 255, 0.04); }
+.gv-battle-card.ended { border-color: var(--fd-card-border); background: var(--app-tint-soft); }
 .gv-battle-flag { font-size: 11px; font-weight: 800; color: var(--fd-coral); letter-spacing: 0.3px; }
 .gv-battle-card.ended .gv-battle-flag { color: var(--fd-faint); }
 .gv-battle-title { font-size: 12.5px; font-weight: 700; }
 .gv-battle-join {
   align-self: flex-start; margin-top: 3px;
   padding: 5px 14px; border-radius: 999px; border: none;
-  background: var(--fd-coral); color: #fff;
+  background: var(--fd-coral); color: var(--app-text);
   font-size: 11.5px; font-weight: 800;
 }
 .gv-battle-join:hover { filter: brightness(1.1); }

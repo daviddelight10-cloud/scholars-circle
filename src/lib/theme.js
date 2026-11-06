@@ -31,7 +31,7 @@ export function applyResolvedTheme(resolved) {
   root.dataset.theme = resolved;
   root.style.colorScheme = resolved;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", resolved === "light" ? "#f6f5f1" : "#0a0a0a");
+  if (meta) meta.setAttribute("content", resolved === "light" ? "#f5f2e9" : "#0a0a0a");
 }
 
 export function setAppearancePref(pref) {

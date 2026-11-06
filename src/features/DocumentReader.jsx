@@ -88,7 +88,7 @@ async function extractPptxText(arrayBuffer) {
 
 const THEMES = {
   light: {
-    bg: "#EFEEE8", toolbar: "#fff", border: "#C9C5B8", text: "#2D2823",
+    bg: "#EFEEE8", toolbar: "#fdfbf3", border: "#C9C5B8", text: "#2D2823",
     muted: "#6B665C", accent: "#C23B3B", hover: "rgba(194,59,59,0.10)",
     inputBg: "#F2F0EA", chatBot: "#EEEAE2", thumbBg: "#FBFAF6",
     shadow: "rgba(0,0,0,0.14)", chipBg: "#E8E5DD",

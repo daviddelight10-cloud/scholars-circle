@@ -232,7 +232,7 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
         {room.phase === "connecting" && (
           <div className="lq-view"><div className="lq-center">
             <IconClock size={28} style={{ color: "#F5C542", marginBottom: 12 }} />
-            <p style={{ color: "#9CA3AF", fontSize: 14 }}>Connecting to live session…</p>
+            <p style={{ color: "var(--app-dim)", fontSize: 14 }}>Connecting to live session…</p>
           </div></div>
         )}
         {room.phase === "lobby" && <LobbyView room={room} myId={myId} actions={room.actions} />}

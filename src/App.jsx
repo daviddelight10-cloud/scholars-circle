@@ -7992,7 +7992,7 @@ function App() {
 
           <div style={{
 
-            background: darkMode ? "var(--app-card2)" : "#ffffff",
+            background: darkMode ? "var(--app-card2)" : "var(--app-card)",
 
             color: darkMode ? "white" : "black",
 
