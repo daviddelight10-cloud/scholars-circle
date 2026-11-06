@@ -190,7 +190,8 @@
 .vp-panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vp-text-faint); padding: 16px 0 8px; }
 
 .vp-task {
-  background: var(--app-tint-soft); border: 1px solid var(--vp-panel-border);
+  background: var(--app-card); border: 1px solid var(--vp-panel-border);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border-radius: 16px; padding: 14px 15px; margin-bottom: 10px;
   display: flex; gap: 13px; align-items: flex-start;
 }
@@ -590,7 +591,8 @@
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--app-tint-med);
-  background: var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   color: var(--vp-text);
   font-family: inherit;
   text-align: left;

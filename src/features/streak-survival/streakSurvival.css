@@ -147,7 +147,8 @@
 /* ---------- Memory forecast ---------- */
 .ss-root .forecast-card{
   border:1px solid var(--card-border); border-radius:14px;
-  padding:14px 14px 12px; background:var(--app-tint-soft);
+  padding:14px 14px 12px; background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   cursor:pointer; transition:border-color 0.15s; width:100%; text-align:left;
   color:var(--text); font-family:var(--font-body);
 }
@@ -793,7 +794,8 @@
 .ss-root .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;}
 .ss-root .stat-box{
   border:1px solid var(--card-border); border-radius:12px; padding:12px;
-  background:var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
 }
 .ss-root .stat-box .num{font-family:var(--font-display); font-size:22px; font-weight:800; color:var(--text);}
 .ss-root .stat-box .lbl{font-family:var(--font-mono); font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-top:2px;}
@@ -1216,7 +1218,8 @@
 .deck-scroll{ flex:1; overflow-y:auto; padding:16px 16px 0; scrollbar-width:thin; }
 .deck-scroll-pad{ height:calc(112px + env(safe-area-inset-bottom)); }
 .deck-card{
-  background:var(--app-tint-soft); border:1px solid var(--card-border,var(--app-tint-med));
+  background: var(--app-card); border:1px solid var(--card-border,var(--app-tint-med));
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border-radius:16px; padding:14px 15px; margin-bottom:11px; cursor:pointer;
   content-visibility:auto; contain-intrinsic-size:auto 180px;
   animation:deckRise .38s cubic-bezier(.2,.8,.2,1) both;

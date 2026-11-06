@@ -2587,7 +2587,8 @@ body {
 
 /* Sections */
 .lp-section {
-  background: var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border: 1px solid var(--app-tint-med);
   border-radius: 16px; padding: 18px; margin-bottom: 14px;
 }
@@ -2666,7 +2667,8 @@ select.lp-input { appearance: none; }
 .lp-visrow {
   display: flex; align-items: center; gap: 14px;
   padding: 14px; border-radius: 12px; cursor: pointer;
-  background: var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border: 1px solid var(--app-tint-med);
   transition: border-color 0.15s ease;
 }
@@ -4101,7 +4103,8 @@ textarea {
 @media (min-width: 768px) { .tt-days { display: none; } }
 
 .tt-day {
-  background: var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border: 1px solid var(--app-tint-med);
   border-radius: 14px;
   padding: 10px 12px;
@@ -5079,7 +5082,8 @@ textarea {
 
 /* === Study Heatmap === */
 .heatmap-container {
-  background: var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border: 1px solid var(--app-tint-med);
   border-radius: 12px;
   padding: 16px;
@@ -5168,7 +5172,8 @@ textarea {
 
 /* === League Progress === */
 .league-progress {
-  background: var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border: 1px solid var(--app-tint-med);
   border-radius: 12px;
   padding: 16px;
@@ -5266,7 +5271,8 @@ textarea {
 }
 
 .badge-card {
-  background: var(--app-tint-soft);
+  background: var(--app-card);
+  box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
   border: 1px solid var(--app-tint-med);
   border-radius: 12px;
   padding: 12px;
