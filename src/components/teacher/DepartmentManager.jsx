@@ -153,7 +153,7 @@ export default function DepartmentManager() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
         <h2 style={{ color: "#e8eaf6", fontSize: "18px", fontWeight: 700, margin: 0 }}>Departments & Courses</h2>
         <button onClick={() => setShowAddDept(true)} style={{
-          padding: "9px 16px", background: "#1a1a1a", border: "none", borderRadius: "10px",
+          padding: "9px 16px", background: "var(--app-card)", border: "none", borderRadius: "10px",
           color: "#e8eaf6", fontWeight: 600, fontSize: "13px", cursor: "pointer",
         }}>+ Add Department</button>
       </div>
@@ -318,7 +318,7 @@ function DeptForm({ existing, onSave, onClose }) {
   const [name, setName] = useState(existing?.name || "");
   const [icon, setIcon] = useState(existing?.icon || EMOJI_OPTIONS[0]);
 
-  const overlay = { position: "fixed", inset: 0, background: "rgba(7,8,15,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
+  const overlay = { position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
   const card = { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "360px" };
 
   return (
@@ -341,7 +341,7 @@ function DeptForm({ existing, onSave, onClose }) {
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button onClick={onClose} style={{ flex: 1, padding: "11px", background: "#0a0b18", border: "0.5px solid #1e2245", borderRadius: "10px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
-          <button onClick={() => name.trim() && onSave(name.trim(), icon)} style={{ flex: 2, padding: "11px", background: "#1a1a1a", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={() => name.trim() && onSave(name.trim(), icon)} style={{ flex: 2, padding: "11px", background: "var(--app-card)", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}>
             {existing ? "Save Changes" : "Create"}
           </button>
         </div>
@@ -364,7 +364,7 @@ function CourseForm({ course, departments, onSave, onClose }) {
     setSelectedDeptIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
-  const overlay = { position: "fixed", inset: 0, background: "rgba(7,8,15,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
+  const overlay = { position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
   const card = { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "380px" };
   const inp = { width: "100%", padding: "10px 14px", borderRadius: "10px", marginBottom: "12px", background: "#0a0b18", border: "0.5px solid #1e2245", color: "#e8eaf6", fontSize: "15px", outline: "none", boxSizing: "border-box" };
 
@@ -420,7 +420,7 @@ function CourseForm({ course, departments, onSave, onClose }) {
           <button onClick={onClose} style={{ flex: 1, padding: "11px", background: "#0a0b18", border: "0.5px solid #1e2245", borderRadius: "10px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
           <button
             onClick={() => onSave({ departmentIds: selectedDeptIds, departmentId: selectedDeptIds[0] ?? null, yearLevel, icon })}
-            style={{ flex: 2, padding: "11px", background: "#1a1a1a", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}
+            style={{ flex: 2, padding: "11px", background: "var(--app-card)", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}
           >Save Changes</button>
         </div>
       </div>

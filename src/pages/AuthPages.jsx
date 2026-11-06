@@ -264,13 +264,13 @@ export default function AuthPages() {
 
   if (resetPasswordMode) {
     return (
-      <main style={{ minHeight: '100dvh', background: '#0a0a0a', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <main style={{ minHeight: '100dvh', background: 'var(--app-bg)', color: 'var(--app-text)', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
           a { color: inherit; text-decoration: none; }
           .auth-input {
-            width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            width: 100%; background: var(--app-card); border: 1px solid var(--app-tint-strong); color: var(--app-text);
             border-radius: 10px; padding: 13px 14px; font-size: 16px; font-family: 'Manrope', sans-serif;
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
           }
@@ -286,18 +286,18 @@ export default function AuthPages() {
         `}</style>
 
         <div style={{ width: '100%', maxWidth: 380 }}>
-          <Link to="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
+          <Link to="/?force_home=1" style={{ fontSize: '0.84rem', color: 'var(--app-faint)', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
             {'<- Back to home'}
           </Link>
 
           <div style={{ marginBottom: 28 }}>
             <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Set new password</h1>
-            <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Enter your new password below.</p>
+            <p style={{ color: 'var(--app-dim)', fontSize: '0.94rem' }}>Enter your new password below.</p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div>
-              <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>New password</label>
+              <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>New password</label>
               <input
                 className="auth-input"
                 type="password"
@@ -308,7 +308,7 @@ export default function AuthPages() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Confirm new password</label>
+              <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Confirm new password</label>
               <input
                 className="auth-input"
                 type="password"
@@ -321,7 +321,7 @@ export default function AuthPages() {
             <button onClick={handleResetPassword} disabled={loading} className="auth-btn auth-btn-primary" style={{ width: '100%', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
               {loading ? 'Updating...' : 'Update password ->'}
             </button>
-            <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.88rem', color: '#9AA3B5' }}>
+            <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.88rem', color: 'var(--app-dim)' }}>
               <span onClick={() => { setResetPasswordMode(false); setMode('login'); }} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Back to sign in</span>
             </p>
           </div>
@@ -334,7 +334,7 @@ export default function AuthPages() {
   }
 
   return (
-    <main style={{ minHeight: '100dvh', background: '#0a0a0a', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif' }}>
+    <main style={{ minHeight: '100dvh', background: 'var(--app-bg)', color: 'var(--app-text)', fontFamily: 'Manrope, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -352,7 +352,7 @@ export default function AuthPages() {
         .auth-scan-sweep { animation: sweep 2.6s ease-out 1; }
         .auth-cursor { animation: blink 1s steps(2) infinite; color: #FFD700; }
         .auth-input {
-          width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+          width: 100%; background: var(--app-card); border: 1px solid var(--app-tint-strong); color: var(--app-text);
           border-radius: 10px; padding: 13px 14px; font-size: 16px; font-family: 'Manrope', sans-serif;
           transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
@@ -368,26 +368,26 @@ export default function AuthPages() {
         .auth-google-btn {
           display: flex; align-items: center; justify-content: center; gap: 10px;
           width: 100%; padding: 13px; border-radius: 12px; font-size: 0.92rem;
-          background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+          background: var(--app-card); border: 1px solid var(--app-tint-strong); color: var(--app-text);
           cursor: pointer; font-family: 'Manrope', sans-serif; font-weight: 600;
           transition: border-color 0.15s ease;
         }
         .auth-google-btn:hover { border-color: #9AA3B5; }
         .auth-tabs {
-          display: flex; gap: 4px; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16);
+          display: flex; gap: 4px; background: var(--app-card); border: 1px solid var(--app-tint-strong);
           border-radius: 999px; padding: 4px; margin-bottom: 26px;
         }
         .auth-tabs button {
           flex: 1; padding: 10px 12px; border: none; border-radius: 999px;
-          background: transparent; color: #9AA3B5; font-family: 'Manrope', sans-serif;
+          background: transparent; color: var(--app-dim); font-family: 'Manrope', sans-serif;
           font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
         }
         .auth-tabs button.on { background: #F5A623; color: #1A1300; }
         .auth-divider {
           display: flex; align-items: center; gap: 12px; margin: 18px 0;
-          color: #646E84; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace;
+          color: var(--app-faint); font-size: 0.78rem; font-family: 'JetBrains Mono', monospace;
         }
-        .auth-divider span { flex: 1; height: 1px; background: rgba(255,255,255,0.09); }
+        .auth-divider span { flex: 1; height: 1px; background: var(--app-tint-med); }
         .auth-banner {
           border-radius: 10px; padding: 10px 14px; font-size: 0.86rem; line-height: 1.45;
           font-family: 'Manrope', sans-serif;
@@ -396,13 +396,13 @@ export default function AuthPages() {
         .auth-banner-ok { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: #34d399; }
         .auth-expander {
           display: flex; flex-direction: column; align-items: center; gap: 2px;
-          width: 100%; background: transparent; border: 1px dashed rgba(255,255,255,0.16);
+          width: 100%; background: transparent; border: 1px dashed var(--app-tint-strong);
           border-radius: 10px; padding: 10px 14px; cursor: pointer;
-          color: #9AA3B5; font-family: 'Manrope', sans-serif; font-size: 0.84rem; font-weight: 600;
+          color: var(--app-dim); font-family: 'Manrope', sans-serif; font-size: 0.84rem; font-weight: 600;
           transition: border-color 0.15s ease;
         }
-        .auth-expander:hover { border-color: rgba(255,255,255,0.32); }
-        .auth-expander-sub { font-size: 0.74rem; color: #646E84; font-weight: 500; }
+        .auth-expander:hover { border-color: var(--app-tint-strong); }
+        .auth-expander-sub { font-size: 0.74rem; color: var(--app-faint); font-weight: 500; }
         .auth-shell { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; min-height: 100dvh; }
         .auth-mobile-banner { display: none; }
         @media (max-width: 900px) {
@@ -420,14 +420,14 @@ export default function AuthPages() {
         {/* Visual Panel */}
         <div className="auth-visual-panel" style={{
           position: 'relative',
-          background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #121212',
-          borderRight: '1px solid rgba(255,255,255,0.09)',
+          background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), var(--app-surface)',
+          borderRight: '1px solid var(--app-tint-med)',
           overflow: 'hidden',
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
           padding: '40px 48px',
         }}>
           <div style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none',
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px)',
+            backgroundImage: 'linear-gradient(var(--app-tint-med) 1px, transparent 1px), linear-gradient(90deg, var(--app-tint-med) 1px, transparent 1px)',
             backgroundSize: '42px 42px',
             WebkitMaskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
             maskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
@@ -436,11 +436,11 @@ export default function AuthPages() {
 
           {/* Top: Logo + boot line */}
           <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem', color: '#EDEFF5' }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem', color: 'var(--app-text)' }}>
               <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 28, height: 28, borderRadius: 6 }} />
               Scholar's Circle
             </Link>
-            <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', color: '#646E84', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', color: 'var(--app-faint)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>{'>>> connecting to your circle'}</span>
               <span className="auth-cursor">_</span>
             </div>
@@ -449,19 +449,19 @@ export default function AuthPages() {
           {/* Center: Orbit + Ring */}
           <div style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ position: 'relative', width: 340, height: 340 }}>
-              <div className="auth-orbit-ring" style={{ position: 'absolute', inset: 0, border: '1px dashed rgba(255,255,255,0.16)', borderRadius: '50%' }}>
+              <div className="auth-orbit-ring" style={{ position: 'absolute', inset: 0, border: '1px dashed var(--app-tint-strong)', borderRadius: '50%' }}>
                 {[
                   { top: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'ANA 111' },
                   { top: '50%', left: 'auto', right: '-12px', transform: 'translateY(-50%)', label: 'PHY 121' },
                   { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BHM 111' },
                   { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'PAT 211' },
                 ].map((c, i) => (
-                  <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                  <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: 'var(--app-dim)', background: 'var(--app-ink)', border: '1px solid var(--app-tint-strong)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                     <span>{c.label}</span>
                   </span>
                 ))}
               </div>
-              <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#121212', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
+              <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'var(--app-surface)', boxShadow: '0 0 0 1px var(--app-tint-strong), 0 0 60px rgba(79,142,247,0.18)' }}>
                 <svg viewBox="0 0 190 190" width="190" height="190" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
                   <defs>
                     <linearGradient id="authRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -469,7 +469,7 @@ export default function AuthPages() {
                       <stop offset="100%" stopColor="#F5A623" />
                     </linearGradient>
                   </defs>
-                  <circle fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="8" cx="95" cy="95" r="80" />
+                  <circle fill="none" stroke="var(--app-tint-med)" strokeWidth="8" cx="95" cy="95" r="80" />
                   <circle
                     fill="none" strokeWidth="8" strokeLinecap="round" stroke="url(#authRingGrad)"
                     cx="95" cy="95" r="80"
@@ -479,22 +479,22 @@ export default function AuthPages() {
                   />
                 </svg>
                 <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, padding: '0 20px' }}>
-                  <h2 style={{ fontSize: '1.3rem', fontWeight: 800, lineHeight: 1.2, color: '#EDEFF5' }}>
+                  <h2 style={{ fontSize: '1.3rem', fontWeight: 800, lineHeight: 1.2, color: 'var(--app-text)' }}>
                     {mode === 'signup' ? 'Join the Circle.' : 'Welcome back.'}
                   </h2>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: '#9AA3B5', marginTop: 6, display: 'block', letterSpacing: '0.03em' }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: 'var(--app-dim)', marginTop: 6, display: 'block', letterSpacing: '0.03em' }}>
                     {mode === 'signup' ? '2-DAY FREE TRIAL - NO CARD' : 'YOUR STREAK IS WAITING'}
                   </span>
                 </div>
               </div>
-              <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
-              <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
+              <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: 'var(--app-card)', border: '1px solid var(--app-tint-strong)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
+              <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: 'var(--app-card)', border: '1px solid var(--app-tint-strong)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
             </div>
           </div>
 
           {/* Bottom: Pulse stat */}
           <div style={{ position: 'relative', zIndex: 2 }}>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: '#646E84' }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: 'var(--app-faint)' }}>
               <span className="auth-pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#3DD68C', marginRight: 8, boxShadow: '0 0 0 3px rgba(61,214,140,0.18)' }} />
               1,284 medical students studying right now
             </span>
@@ -508,12 +508,12 @@ export default function AuthPages() {
             <div className="auth-mobile-banner">
               <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 32, height: 32, borderRadius: 6 }} />
               <div>
-                <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: '#EDEFF5', display: 'block' }}>Scholar's Circle</span>
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: '#646E84' }}>Cram less. Remember more.</span>
+                <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: 'var(--app-text)', display: 'block' }}>Scholar's Circle</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: 'var(--app-faint)' }}>Cram less. Remember more.</span>
               </div>
             </div>
 
-            <Link to="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 20, textDecoration: 'none' }}>
+            <Link to="/?force_home=1" style={{ fontSize: '0.84rem', color: 'var(--app-faint)', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 20, textDecoration: 'none' }}>
               ← Back to home
             </Link>
 
@@ -534,7 +534,7 @@ export default function AuthPages() {
           <>
             <div style={{ marginBottom: 20 }}>
               <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Welcome back</h1>
-              <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
+              <p style={{ color: 'var(--app-dim)', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
             </div>
 
             <button type="button" onClick={handleGoogleSignIn} className="auth-google-btn">
@@ -546,7 +546,7 @@ export default function AuthPages() {
 
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
+                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Email</label>
                 <input
                   className="auth-input"
                   type="email"
@@ -560,7 +560,7 @@ export default function AuthPages() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
+                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     className="auth-input"
@@ -575,7 +575,7 @@ export default function AuthPages() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 8, fontSize: 13, fontWeight: 600 }}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--app-faint)', cursor: 'pointer', padding: 8, fontSize: 13, fontWeight: 600 }}
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
@@ -595,13 +595,13 @@ export default function AuthPages() {
                 {loading ? 'Signing in…' : 'Sign in →'}
               </button>
             </form>
-            <p style={{ textAlign: 'center', marginTop: 12, fontSize: '0.72rem', color: '#646E84' }}>
+            <p style={{ textAlign: 'center', marginTop: 12, fontSize: '0.72rem', color: 'var(--app-faint)' }}>
               Signing in means you agree to our{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#9AA3B5' }}>Terms</a> and{' '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#9AA3B5' }}>Privacy Policy</a>.
+              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--app-dim)' }}>Terms</a> and{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--app-dim)' }}>Privacy Policy</a>.
             </p>
 
-            <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.9rem', color: '#9AA3B5' }}>
+            <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.9rem', color: 'var(--app-dim)' }}>
               No account? <span onClick={() => switchMode('signup')} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Create one</span>
             </p>
           </>
@@ -609,7 +609,7 @@ export default function AuthPages() {
           <>
             <div style={{ marginBottom: 20 }}>
               <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Create your account</h1>
-              <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Start practicing in minutes. 2-day free trial, no card needed.</p>
+              <p style={{ color: 'var(--app-dim)', fontSize: '0.94rem' }}>Start practicing in minutes. 2-day free trial, no card needed.</p>
             </div>
 
             <button type="button" onClick={handleGoogleSignIn} className="auth-google-btn">
@@ -621,7 +621,7 @@ export default function AuthPages() {
 
             <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Username</label>
+                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Username</label>
                 <input
                   className="auth-input"
                   ref={signupUsernameRef}
@@ -632,7 +632,7 @@ export default function AuthPages() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
+                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Email</label>
                 <input
                   className="auth-input"
                   ref={signupEmailRef}
@@ -645,7 +645,7 @@ export default function AuthPages() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
+                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     className="auth-input"
@@ -659,7 +659,7 @@ export default function AuthPages() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 8, fontSize: 13, fontWeight: 600 }}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--app-faint)', cursor: 'pointer', padding: 8, fontSize: 13, fontWeight: 600 }}
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
@@ -667,7 +667,7 @@ export default function AuthPages() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Confirm password</label>
+                <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Confirm password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     className="auth-input"
@@ -681,7 +681,7 @@ export default function AuthPages() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 8, fontSize: 13, fontWeight: 600 }}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--app-faint)', cursor: 'pointer', padding: 8, fontSize: 13, fontWeight: 600 }}
                   >
                     {showConfirmPassword ? 'Hide' : 'Show'}
                   </button>
@@ -700,7 +700,7 @@ export default function AuthPages() {
                   <div style={{ textAlign: 'center' }}>
                     <span
                       onClick={() => setSignupRole((r) => (r === 'TEACHER' ? 'STUDENT' : 'TEACHER'))}
-                      style={{ color: '#646E84', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
+                      style={{ color: 'var(--app-faint)', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Signing up as a lecturer? <span style={{ color: '#F5A623' }}>{signupRole === 'TEACHER' ? 'Switch back to student' : 'Tap here'}</span>
                     </span>
@@ -708,7 +708,7 @@ export default function AuthPages() {
 
                   {signupRole === 'TEACHER' && (
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Lecturer invite code</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Lecturer invite code</label>
                       <input
                         className="auth-input"
                         ref={signupInviteCodeRef}
@@ -720,7 +720,7 @@ export default function AuthPages() {
 
                   {signupRole === 'STUDENT' && (
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Referral code <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Referral code <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
                       <input
                         className="auth-input"
                         ref={signupReferralCodeRef}
@@ -732,7 +732,7 @@ export default function AuthPages() {
                 </>
               )}
 
-              <label style={{ fontSize: '0.88rem', color: '#9AA3B5', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
+              <label style={{ fontSize: '0.88rem', color: 'var(--app-dim)', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
                 <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} required />
                 <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Privacy Policy</a>.</span>
               </label>
@@ -745,18 +745,18 @@ export default function AuthPages() {
               </button>
             </form>
 
-            <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.9rem', color: '#9AA3B5' }}>
+            <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.9rem', color: 'var(--app-dim)' }}>
               Already have an account? <span onClick={() => switchMode('login')} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
             </p>
           </>
         )}
 
         {/* Contact Support — quiet footer line instead of button cluster */}
-        <p style={{ marginTop: 32, textAlign: 'center', color: '#646E84', fontSize: '0.8rem' }}>
+        <p style={{ marginTop: 32, textAlign: 'center', color: 'var(--app-faint)', fontSize: '0.8rem' }}>
           Need help?{' '}
-          <a href="https://wa.me/2348061234567" target="_blank" rel="noopener noreferrer" style={{ color: '#9AA3B5', fontWeight: 600, textDecoration: 'none' }}>WhatsApp</a>
+          <a href="https://wa.me/2348061234567" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--app-dim)', fontWeight: 600, textDecoration: 'none' }}>WhatsApp</a>
           {' · '}
-          <a href="tel:+2348061234567" style={{ color: '#9AA3B5', fontWeight: 600, textDecoration: 'none' }}>Call us</a>
+          <a href="tel:+2348061234567" style={{ color: 'var(--app-dim)', fontWeight: 600, textDecoration: 'none' }}>Call us</a>
         </p>
       </div>
       </div>

@@ -317,7 +317,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
         display: "flex", alignItems: "center", gap: isMobile ? 8 : 12,
         padding: isMobile ? "10px 12px" : "14px 20px",
         borderBottom: `0.5px solid ${D.border}`,
-        background: "rgba(10,12,18,0.95)", backdropFilter: "blur(10px)",
+        background: "rgba(var(--app-glass-rgb),0.95)", backdropFilter: "blur(10px)",
         flexShrink: 0, flexWrap: isMobile ? "wrap" : "nowrap",
       }}>
         <button onClick={onExit} style={{
@@ -435,7 +435,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
         <button onClick={() => topics.length > 0 ? setShowRegenPrompt(true) : fileInputRef.current?.click()} disabled={generating || uploading || !selectedCourse.trim()} style={{
           background: generating ? "rgba(245,166,35,0.15)" : "linear-gradient(135deg, #b8860b, #F5A623)",
           border: "none", borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px",
-          fontSize: isMobile ? 11 : 12, fontWeight: 600, color: generating ? D.gold : "#0a0a0a",
+          fontSize: isMobile ? 11 : 12, fontWeight: 600, color: generating ? D.gold : "var(--app-ink)",
           cursor: (generating || uploading) ? "not-allowed" : "pointer", fontFamily: FONTS.body, whiteSpace: "nowrap",
         }}>
           {generating ? "…" : topics.length > 0 ? (isMobile ? "Rebuild" : "Regenerate") : "Build Roadmap"}
@@ -468,7 +468,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
       {/* Regenerate prompt — ask user to upload outline */}
       {showRegenPrompt && (
         <div style={{
-          position: "absolute", inset: 0, zIndex: 100, background: "rgba(7,9,13,0.7)",
+          position: "absolute", inset: 0, zIndex: 100, background: "rgba(var(--app-glass-rgb),0.7)",
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }} onClick={() => setShowRegenPrompt(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{
@@ -487,7 +487,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button onClick={() => { setShowRegenPrompt(false); fileInputRef.current?.click(); }} style={{
                 background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none", borderRadius: 10,
-                padding: "12px 20px", fontSize: 13, fontWeight: 600, color: "#0a0a0a",
+                padding: "12px 20px", fontSize: 13, fontWeight: 600, color: "var(--app-ink)",
                 cursor: "pointer", fontFamily: FONTS.body, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               }}>
                 📎 Upload Course Outline

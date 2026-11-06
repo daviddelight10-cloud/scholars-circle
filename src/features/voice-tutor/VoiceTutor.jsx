@@ -241,7 +241,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                   color: COLORS.textDim,
                   padding: "4px 10px",
                   borderRadius: 20,
-                  background: "rgba(255,255,255,0.05)",
+                  background: "var(--app-tint-soft)",
                 }}
               >
                 <span style={{
@@ -401,8 +401,8 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                   bottom: "calc(100% + 8px)",
                   left: "50%",
                   transform: "translateX(-50%)",
-                  background: "linear-gradient(160deg, #0d0d0d, #050505)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "linear-gradient(160deg, var(--app-bg), var(--app-bg))",
+                  border: "1px solid var(--app-tint-med)",
                   borderRadius: 14,
                   padding: 6,
                   boxShadow: "0 12px 40px rgba(0,0,0,0.5)",

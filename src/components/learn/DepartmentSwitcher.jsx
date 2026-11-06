@@ -140,7 +140,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
   const stepIndex = steps.indexOf(step);
 
   const overlay = {
-    position: "fixed", inset: 0, background: "rgba(7,8,15,0.88)", zIndex: 9000,
+    position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.88)", zIndex: 9000,
     display: "flex", alignItems: "flex-end", justifyContent: "center",
   };
   const sheet = {
@@ -209,12 +209,12 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
             <div style={{ display: "flex", gap: "8px", marginBottom: "16px", background: "#0a0b18", borderRadius: "12px", padding: "4px" }}>
               <button onClick={() => setIsUniStudent(true)} style={{
                 flex: 1, padding: "10px", borderRadius: "10px", border: "none", cursor: "pointer",
-                background: isUniStudent ? "#1a1a1a" : "none", color: isUniStudent ? "#FFD700" : "#4a5080",
+                background: isUniStudent ? "var(--app-card)" : "none", color: isUniStudent ? "#FFD700" : "#4a5080",
                 fontSize: "13px", fontWeight: 700,
               }}>🎓 University / Polytechnic</button>
               <button onClick={() => setIsUniStudent(false)} style={{
                 flex: 1, padding: "10px", borderRadius: "10px", border: "none", cursor: "pointer",
-                background: !isUniStudent ? "#1a1a1a" : "none", color: !isUniStudent ? "#FFD700" : "#4a5080",
+                background: !isUniStudent ? "var(--app-card)" : "none", color: !isUniStudent ? "#FFD700" : "#4a5080",
                 fontSize: "13px", fontWeight: 700,
               }}>📚 Secondary School</button>
             </div>
@@ -242,7 +242,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                   No results for "{uniQuery}". Add it manually?
                 </div>
                 <button onClick={() => setShowUniCreate(true)} style={{
-                  padding: "10px 20px", background: "#1a1a1a", color: "#FFD700",
+                  padding: "10px 20px", background: "var(--app-card)", color: "#FFD700",
                   border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: 13, fontWeight: 600, cursor: "pointer",
                 }}>
                   + Add "{uniQuery || "your institution"}"
@@ -264,7 +264,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                     border: "0.5px solid #1e2245", borderRadius: "10px", fontSize: 13, cursor: "pointer",
                   }}>Cancel</button>
                   <button onClick={handleCreateUni} disabled={!newUniName.trim()} style={{
-                    flex: 1, padding: "10px", background: newUniName.trim() ? "#1a1a1a" : "#1e2245", color: "#FFD700",
+                    flex: 1, padding: "10px", background: newUniName.trim() ? "var(--app-card)" : "#1e2245", color: "#FFD700",
                     border: "none", borderRadius: "10px", fontSize: 13, fontWeight: 600, cursor: newUniName.trim() ? "pointer" : "default",
                   }}>Add & Continue</button>
                 </div>
@@ -317,7 +317,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                   No departments have been created for this institution yet. You can skip and set up later.
                 </div>
                 <button onClick={() => setStep("year")} style={{
-                  width: "100%", padding: "13px", background: "#1a1a1a", color: "#e8eaf6",
+                  width: "100%", padding: "13px", background: "var(--app-card)", color: "#e8eaf6",
                   border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer",
                 }}>
                   Skip →
@@ -344,7 +344,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                   disabled={!selectedDept}
                   style={{
                     width: "100%", marginTop: "16px", padding: "14px",
-                    background: selectedDept ? "#1a1a1a" : "#1e2245", color: selectedDept ? "#e8eaf6" : "#4a5080",
+                    background: selectedDept ? "var(--app-card)" : "#1e2245", color: selectedDept ? "#e8eaf6" : "#4a5080",
                     border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedDept ? "pointer" : "default",
                   }}
                 >
@@ -385,7 +385,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                 ← Back
               </button>
               <button onClick={() => setStep("semester")} style={{
-                flex: 2, padding: "14px", background: "#1a1a1a", color: "#e8eaf6",
+                flex: 2, padding: "14px", background: "var(--app-card)", color: "#e8eaf6",
                 border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer",
               }}>
                 Next →
@@ -418,7 +418,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                 ← Back
               </button>
               <button onClick={handleConfirm} disabled={saving || !selectedSemester} style={{
-                flex: 2, padding: "14px", background: selectedSemester ? "#1a1a1a" : "#1e2245", color: "#e8eaf6",
+                flex: 2, padding: "14px", background: selectedSemester ? "var(--app-card)" : "#1e2245", color: "#e8eaf6",
                 border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedSemester ? "pointer" : "default",
               }}>
                 {saving ? "Saving…" : `Confirm — ${selectedDept?.icon || "🏛️"} ${selectedDept?.name}, Year ${selectedYear}, ${selectedSemester || ""}`}
@@ -451,7 +451,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                 ← Back
               </button>
               <button onClick={handleConfirm} disabled={saving || !selectedGrade} style={{
-                flex: 2, padding: "14px", background: selectedGrade ? "#1a1a1a" : "#1e2245", color: "#e8eaf6",
+                flex: 2, padding: "14px", background: selectedGrade ? "var(--app-card)" : "#1e2245", color: "#e8eaf6",
                 border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedGrade ? "pointer" : "default",
               }}>
                 {saving ? "Saving…" : `Confirm — ${selectedUni?.name || ""}, ${selectedGrade}`}

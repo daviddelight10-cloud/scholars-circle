@@ -61,7 +61,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
   }
 
   const overlay = {
-    position: "fixed", inset: 0, background: "rgba(7,8,15,0.85)", zIndex: 1000,
+    position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.85)", zIndex: 1000,
     display: "flex", alignItems: "flex-end", justifyContent: "center",
   };
   const sheet = {
@@ -69,7 +69,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
     padding: "24px 20px 40px", width: "100%", maxWidth: "480px", maxHeight: "88vh", overflowY: "auto",
   };
   const tabBtn = (active) => ({
-    flex: 1, padding: "10px", background: active ? "#1a1a1a" : "transparent",
+    flex: 1, padding: "10px", background: active ? "var(--app-card)" : "transparent",
     border: active ? "none" : "none", borderRadius: "8px",
     color: active ? "#e8eaf6" : "#7b82b8", fontWeight: active ? 600 : 400,
     cursor: "pointer", fontSize: "14px",
@@ -115,7 +115,7 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
                   onClick={() => toggleCourse(s.id)}
                   style={{
                     width: "40px", height: "24px", borderRadius: "12px", border: "none", cursor: "pointer",
-                    background: enabledIds.has(s.id) ? "#1a1a1a" : "#1e2245",
+                    background: enabledIds.has(s.id) ? "var(--app-card)" : "#1e2245",
                     position: "relative", transition: "background 0.2s",
                   }}
                 >

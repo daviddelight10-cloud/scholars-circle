@@ -39,7 +39,7 @@ export default function BlogSection() {
   return (
     <section id="blog" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #0D0E18 100%)'
+      background: 'linear-gradient(180deg, var(--app-bg) 0%, var(--app-surface) 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
@@ -57,7 +57,7 @@ export default function BlogSection() {
           <h2 style={{
             fontSize: 'clamp(1.875rem, 4vw, 3rem)',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--app-text)',
             marginBottom: '16px'
           }}>
             Latest Study Tips & Insights
@@ -82,8 +82,8 @@ export default function BlogSection() {
               key={article.id}
               className="hover-lift hover-border"
               style={{
-                background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'linear-gradient(145deg, rgba(var(--app-glass-rgb),0.5), rgba(var(--app-glass-rgb),0.5))',
+                border: '1px solid var(--app-tint-med)',
                 borderRadius: '20px',
                 padding: '28px',
                 position: 'relative',
@@ -112,7 +112,7 @@ export default function BlogSection() {
               <h3 style={{
                 fontSize: '20px',
                 fontWeight: 700,
-                color: '#fff',
+                color: 'var(--app-text)',
                 marginBottom: '12px',
                 lineHeight: 1.4
               }}>
@@ -179,22 +179,22 @@ export default function BlogSection() {
               alignItems: 'center',
               gap: '8px',
               padding: '14px 28px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'var(--app-tint-soft)',
+              border: '1px solid var(--app-tint-med)',
               borderRadius: '12px',
-              color: '#fff',
+              color: 'var(--app-text)',
               fontSize: '15px',
               fontWeight: 600,
               textDecoration: 'none',
               transition: 'all 0.3s'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.background = 'var(--app-tint-med)';
+              e.currentTarget.style.borderColor = 'var(--app-tint-strong)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.background = 'var(--app-tint-soft)';
+              e.currentTarget.style.borderColor = 'var(--app-tint-med)';
             }}
           >
             View All Articles <ArrowRight style={{ width: 16, height: 16 }} />

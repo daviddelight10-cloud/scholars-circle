@@ -37,7 +37,7 @@ export function AttendancePanel({ classroomId, isHost, token }) {
           <button className="cr-btn-outline" onClick={fetchData} style={{ padding: "4px 10px", fontSize: 11 }}>🔄 Refresh</button>
         </div>
       )}
-      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading attendance…</div>}
+      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>Loading attendance…</div>}
       {error && (
         <div className="cr-glass" style={{ padding: 12, color: "#f87171", marginBottom: 8 }}>
           Failed: {error}
@@ -91,7 +91,7 @@ function FacultyView({ data }) {
                 <th key={s.id} className="cr-th" title={s.title}>
                   {s.title.length > 14 ? s.title.slice(0, 12) + "…" : s.title}
                   <br />
-                  <span style={{ fontSize: 10, color: "#6b7280" }}>{new Date(s.scheduledFor).toLocaleDateString()}</span>
+                  <span style={{ fontSize: 10, color: "var(--app-dim)" }}>{new Date(s.scheduledFor).toLocaleDateString()}</span>
                 </th>
               ))}
               <th className="cr-th">Rate</th>
@@ -141,13 +141,13 @@ function StudentView({ data }) {
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
             <div>
               <b style={{ color: "#f1f5f9", fontSize: 13, fontFamily: "Syne, sans-serif" }}>{r.title}</b>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>{new Date(r.scheduledFor).toLocaleString()}</div>
+              <div style={{ fontSize: 11, color: "var(--app-dim)" }}>{new Date(r.scheduledFor).toLocaleString()}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               {r.attended ? (
                 <>
                   <span style={{ color: "#10b981", fontSize: 13, fontWeight: 700 }}>✓ Attended</span>
-                  <div style={{ fontSize: 11, color: "#6b7280" }}>{Math.round((r.durationS || 0) / 60)} min</div>
+                  <div style={{ fontSize: 11, color: "var(--app-dim)" }}>{Math.round((r.durationS || 0) / 60)} min</div>
                 </>
               ) : (
                 <span style={{ color: "#f87171" }}>✗ Absent</span>

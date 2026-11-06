@@ -525,7 +525,7 @@ export default function UploadWizard({
                 disabled={!canProceedStep1}
                 className={`rounded-lg px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
                   canProceedStep1
-                    ? "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                    ? "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
                     : "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-60"
                 }`
                 }
@@ -682,7 +682,7 @@ export default function UploadWizard({
                       className={`rounded-lg px-4 py-1.5 text-[10px] font-bold transition-all active:scale-95 ${
                         !newSpaceName.trim() || creatingSpace
                           ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50"
-                          : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                          : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
                       }`}
                     >
                       {creatingSpace ? "Creating…" : "Create space ✓"}
@@ -769,7 +769,7 @@ export default function UploadWizard({
                 className={`rounded-lg px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
                   uploading || !canSave()
                     ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-60"
-                    : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                    : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
                 }`}
               >
                 {uploading ? "Saving…" : "Save to space ✓"}
@@ -800,7 +800,7 @@ function PhotoThumb({ file, index, total, onMove, onRemove }) {
 
   const btn = {
     position: "absolute", width: 18, height: 18, borderRadius: 9,
-    border: "none", background: "rgba(0,0,0,0.7)", color: "#fff",
+    border: "none", background: "rgba(0,0,0,0.7)", color: "var(--app-text)",
     fontSize: 10, lineHeight: 1, cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center",
     padding: 0,

@@ -41,14 +41,14 @@ export default function FAQSection() {
   return (
     <section id="faq" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0D0E18 0%, #0a0a0a 100%)'
+      background: 'linear-gradient(180deg, var(--app-surface) 0%, var(--app-bg) 100%)'
     }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
           <h2 style={{
             fontSize: 'clamp(1.875rem, 4vw, 3rem)',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--app-text)',
             marginBottom: '16px'
           }}>
             Frequently Asked Questions
@@ -66,7 +66,7 @@ export default function FAQSection() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {faqs.map((faq, index) => (
             <div key={index} style={{
-              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
+              background: 'linear-gradient(145deg, rgba(var(--app-glass-rgb),0.5), rgba(var(--app-glass-rgb),0.5))',
               border: '1px solid rgba(51, 65, 85, 0.5)',
               borderRadius: '12px',
               overflow: 'hidden'
@@ -85,10 +85,10 @@ export default function FAQSection() {
                   cursor: 'pointer',
                   transition: 'background 0.3s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(20, 20, 20, 0.3)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(var(--app-glass-rgb),0.3)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                <span style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>
+                <span style={{ color: 'var(--app-text)', fontWeight: 600, fontSize: '14px' }}>
                   {faq.question}
                 </span>
                 <span style={{

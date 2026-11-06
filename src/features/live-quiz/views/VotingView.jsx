@@ -108,7 +108,7 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
     <div className="lq-view">
       <div className="lq-vote-info">
         <IconLock size={12} />
-        <p style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, margin: 0 }}>Votes hidden until everyone locks in</p>
+        <p style={{ fontSize: 11, color: "var(--app-dim)", fontWeight: 600, margin: 0 }}>Votes hidden until everyone locks in</p>
       </div>
       <p className="lq-vote-status">{q.lockedCount} of {q.totalCount} locked · {waitingText}</p>
 

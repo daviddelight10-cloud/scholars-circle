@@ -98,7 +98,7 @@ export function LecturerProfileEditor({ token, onSaved }) {
     }
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading your profile...</div>;
+  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--app-dim)" }}>Loading your profile...</div>;
 
   // Live preview initials
   const initials = (draft.fullName || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("");

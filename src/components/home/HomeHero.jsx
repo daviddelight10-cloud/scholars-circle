@@ -28,7 +28,7 @@ function ReturningHero({ fsrsStats, bankDueCount, onStartDaily }) {
         <div className="hm-tag"><span className="hm-dot" />TODAY'S REVIEW</div>
         <div className="hm-ring">
           <svg width="54" height="54" viewBox="0 0 54 54">
-            <circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="5" />
+            <circle cx="27" cy="27" r="22" fill="none" stroke="var(--app-tint-med)" strokeWidth="5" />
             <circle cx="27" cy="27" r="22" fill="none" stroke="url(#hm-grad)" strokeWidth="5" strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - pct)} style={{ transition: "stroke-dashoffset .4s" }} />
             <defs>
               <linearGradient id="hm-grad" x1="0" y1="0" x2="1" y2="1">

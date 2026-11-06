@@ -6,7 +6,7 @@ export const THEMES = {
     bg: "#F5F3EC", toolbar: "#FFFFFF", border: "#E2DED2", text: "#1B212D",
     muted: "#70767F", accent: "#B8770E", hover: "rgba(245,166,35,0.12)",
     inputBg: "#F3F1E9", chatBot: "#F0EDE4", thumbBg: "#FBFAF4",
-    shadow: "rgba(27,33,45,0.14)", chipBg: "#EBE8DE",
+    shadow: "rgba(var(--app-glass-rgb),0.14)", chipBg: "#EBE8DE",
   },
   dark: {
     bg: "#1a1a2e", toolbar: "#16213e", border: "#0f3460", text: "#e0e0e0",
@@ -26,7 +26,7 @@ export const THEMES = {
     bg: "#F5EFDD", toolbar: "#EFE8D3", border: "#DED2B0", text: "#3A3A3A",
     muted: "#6E6656", accent: "#8B5E34", hover: "rgba(139,94,52,0.10)",
     inputBg: "#EFE7CE", chatBot: "#EFE8D3", thumbBg: "#F8F2E1",
-    shadow: "rgba(58,58,58,0.10)", chipBg: "#E9E0C4",
+    shadow: "rgba(var(--app-glass-rgb),0.10)", chipBg: "#E9E0C4",
   },
 };
 
@@ -41,16 +41,16 @@ export const PEN_COLORS = [
 
 // ── Chrome palette (dark-glass UI from HTML prototype) ───────────────────────
 export const CHROME = {
-  ink:    "#0a0a0a",
-  ink2:   "#141414",
+  ink:    "var(--app-bg)",
+  ink2:   "var(--app-surface)",
   ink3:   "#1B212D",
   blue:   "#4F8EF7",
   gold:   "#F5A623",
   coral:  "#FF5470",
   green:  "#3DD68C",
-  textDim:   "rgba(255,255,255,0.45)",
-  textMid:   "rgba(255,255,255,0.65)",
-  hair:      "rgba(255,255,255,0.08)",
+  textDim:   "var(--app-tint-strong)",
+  textMid:   "var(--app-tint-strong)",
+  hair:      "var(--app-tint-med)",
 };
 
 // ── Annotate popover: pen ink colors ─────────────────────────────────────────

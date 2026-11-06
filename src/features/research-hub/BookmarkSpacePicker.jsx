@@ -120,7 +120,7 @@ export default function BookmarkSpacePicker({
             className={`rounded-lg px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
               busy || !selectedFolderId
                 ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-60"
-                : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
             }`}
           >
             {busy ? "Saving…" : "Add to space ✓"}

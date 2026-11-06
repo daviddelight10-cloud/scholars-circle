@@ -55,6 +55,7 @@ import { InstallPrompt } from "./features/InstallPrompt.jsx";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { UserDataProvider, useUserData } from "./contexts/UserDataContext";
 import { UIProvider, useUI } from "./contexts/UIContext";
+import { initTheme, resolveAppearance, getAppearancePref, setAppearancePref } from "./lib/theme.js";
 
 // Page components (lazy loaded for code splitting)
 const Home = lazyWithRetry(() => import("./pages/Home"));
@@ -402,7 +403,9 @@ function App() {
 
 
 
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => resolveAppearance() === "dark");
+
+  const [appearance, setAppearance] = useState(() => getAppearancePref());
 
 
 
@@ -1277,6 +1280,9 @@ function App() {
   useEffect(() => { ctxUserData.setLastActivity(lastActivity); }, [lastActivity]);
   useEffect(() => { ctxUI.setTab(tab); }, [tab]);
   useEffect(() => { ctxUI.setDarkMode(darkMode); }, [darkMode]);
+  // Theme engine: applies data-theme, tracks OS changes while pref=system,
+  // and syncs darkMode whenever the theme resolves differently.
+  useEffect(() => initTheme((r) => { setDarkMode(r === "dark"); setAppearance(getAppearancePref()); }), []);
   useEffect(() => { ctxUI.setFreeTierMode(freeTierMode); }, [freeTierMode]);
   useEffect(() => { ctxUI.setFreeTierUsage(freeTierUsage); }, [freeTierUsage]);
   useEffect(() => { ctxUI.setProgressSubTab(progressSubTab); }, [progressSubTab]);
@@ -1598,7 +1604,7 @@ function App() {
 
 
 
-        setDarkMode(true);
+        if (parsed.appearance) { setAppearancePref(parsed.appearance); setAppearance(parsed.appearance); setDarkMode(resolveAppearance() === "dark"); }
 
 
 
@@ -1700,7 +1706,7 @@ function App() {
 
         setCustomQuestions(parsed.customQuestions ?? []);
 
-        setDarkMode(true);
+        if (parsed.appearance) { setAppearancePref(parsed.appearance); setAppearance(parsed.appearance); setDarkMode(resolveAppearance() === "dark"); }
 
         setLastStudied(parsed.lastStudied ?? null);
 
@@ -1997,6 +2003,8 @@ function App() {
 
           if (data.progress.themePack) setThemePack(data.progress.themePack);
 
+          if (data.progress.appearance) { setAppearancePref(data.progress.appearance); setAppearance(data.progress.appearance); setDarkMode(resolveAppearance() === "dark"); }
+
           if (data.progress.density) setDensity(data.progress.density);
 
         }
@@ -2109,7 +2117,7 @@ function App() {
 
         setCustomQuestions(parsed.customQuestions ?? []);
 
-        setDarkMode(true);
+        if (parsed.appearance) { setAppearancePref(parsed.appearance); setAppearance(parsed.appearance); setDarkMode(resolveAppearance() === "dark"); }
 
         setLastStudied(parsed.lastStudied ?? null);
 
@@ -2547,7 +2555,11 @@ function App() {
 
 
 
-        darkMode: true,
+        darkMode,
+
+
+
+        appearance,
 
 
 
@@ -2694,7 +2706,11 @@ function App() {
 
 
 
-          darkMode: true,
+          darkMode,
+
+
+
+          appearance,
 
 
 
@@ -2763,6 +2779,8 @@ function App() {
 
 
     darkMode,
+
+    appearance,
 
 
 
@@ -6037,7 +6055,7 @@ function App() {
 
     return (
 
-      <main style={{ minHeight: '100dvh', background: '#0a0a0a', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.5, WebkitFontSmoothing: 'antialiased', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
+      <main style={{ minHeight: '100dvh', background: 'var(--app-bg)', color: 'var(--app-text)', fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.5, WebkitFontSmoothing: 'antialiased', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
 
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -6068,7 +6086,7 @@ function App() {
           .auth-google-btn {
             display: flex; align-items: center; justify-content: center; gap: 10px;
             width: 100%; padding: 12px; border-radius: 10px; font-size: 0.9rem;
-            background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            background: var(--app-card); border: 1px solid var(--app-tint-strong); color: var(--app-text);
             cursor: pointer; font-family: 'Manrope', sans-serif; font-weight: 600;
             transition: border-color 0.15s ease;
           }
@@ -6083,7 +6101,7 @@ function App() {
             white-space: nowrap;
           }
           .auth-btn:hover { transform: translateY(-1px); }
-          .auth-btn-ghost { color: #EDEFF5; border-color: rgba(255,255,255,0.16); background: transparent; }
+          .auth-btn-ghost { color: var(--app-text); border-color: var(--app-tint-strong); background: transparent; }
           .auth-btn-ghost:hover { border-color: #9AA3B5; }
           .auth-btn-primary { background: #F5A623; color: #1A1300; }
           .auth-btn-primary:hover { background: #FFB838; }
@@ -6092,21 +6110,21 @@ function App() {
 
           .auth-tab {
             flex: 1; background: none; border: none; padding: 9px 0; border-radius: 999px;
-            font-weight: 700; font-size: 0.88rem; color: #646E84; cursor: pointer; position: relative; z-index: 1;
+            font-weight: 700; font-size: 0.88rem; color: var(--app-faint); cursor: pointer; position: relative; z-index: 1;
             transition: color 0.2s ease;
           }
           .auth-tab.active { color: #1A1300; }
 
           .auth-input {
-            width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            width: 100%; background: var(--app-card); border: 1px solid var(--app-tint-strong); color: var(--app-text);
             border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
             transition: border-color 0.15s ease, box-shadow 0.15s ease; appearance: none; -webkit-appearance: none;
           }
-          .auth-input::placeholder { color: #646E84; }
+          .auth-input::placeholder { color: var(--app-faint); }
           .auth-input:focus { border-color: #FFD700; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
 
           .auth-select {
-            width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            width: 100%; background: var(--app-card); border: 1px solid var(--app-tint-strong); color: var(--app-text);
             border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
             cursor: pointer; appearance: none; -webkit-appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -6129,9 +6147,9 @@ function App() {
         `}</style>
 
         {loadingOverlay && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(var(--app-glass-rgb),0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
             <img src="/loading.png" alt="Loading" style={{ width: 64, height: 64, borderRadius: 14 }} />
-            <span style={{ color: '#9AA3B5', fontSize: 14, fontFamily: 'JetBrains Mono, monospace' }}>Loading...</span>
+            <span style={{ color: 'var(--app-dim)', fontSize: 14, fontFamily: 'JetBrains Mono, monospace' }}>Loading...</span>
           </div>
         )}
 
@@ -6139,7 +6157,7 @@ function App() {
         {showUpdateToast && (
           <div style={{
             position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-            background: '#1a1a1c', color: '#EDEFF5', padding: '12px 20px', borderRadius: 12,
+            background: 'var(--app-card)', color: 'var(--app-text)', padding: '12px 20px', borderRadius: 12,
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)', zIndex: 9999,
             display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, maxWidth: 400,
             border: '1px solid rgba(79,142,247,0.3)'
@@ -6158,7 +6176,7 @@ function App() {
             </button>
             <button
               onClick={() => setShowUpdateToast(false)}
-              style={{ background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', fontSize: 18, padding: 0 }}
+              style={{ background: 'none', border: 'none', color: 'var(--app-faint)', cursor: 'pointer', fontSize: 18, padding: 0 }}
             >x</button>
           </div>
         )}
@@ -6168,14 +6186,14 @@ function App() {
           {/* Visual Panel */}
           <div className="auth-visual-panel" style={{
             position: 'relative',
-            background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #121212',
-            borderRight: '1px solid rgba(255,255,255,0.09)',
+            background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), var(--app-surface)',
+            borderRight: '1px solid var(--app-tint-med)',
             overflow: 'hidden',
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
             padding: '40px 48px',
           }}>
             <div style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none',
-              backgroundImage: 'linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px)',
+              backgroundImage: 'linear-gradient(var(--app-tint-med) 1px, transparent 1px), linear-gradient(90deg, var(--app-tint-med) 1px, transparent 1px)',
               backgroundSize: '42px 42px',
               WebkitMaskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
               maskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
@@ -6184,11 +6202,11 @@ function App() {
 
             {/* Top: Logo + boot line */}
             <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem', color: '#EDEFF5' }}>
+              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem', color: 'var(--app-text)' }}>
                 <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 Scholar's Circle
               </Link>
-              <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', color: '#646E84', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', color: 'var(--app-faint)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>{'>>> connecting to your circle'}</span>
                 <span className="auth-cursor">_</span>
               </div>
@@ -6197,19 +6215,19 @@ function App() {
             {/* Center: Orbit + Ring */}
             <div style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ position: 'relative', width: 340, height: 340 }}>
-                <div className="auth-orbit-ring" style={{ position: 'absolute', inset: 0, border: '1px dashed rgba(255,255,255,0.16)', borderRadius: '50%' }}>
+                <div className="auth-orbit-ring" style={{ position: 'absolute', inset: 0, border: '1px dashed var(--app-tint-strong)', borderRadius: '50%' }}>
                   {[
                     { top: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'ANA 111' },
                     { top: '50%', left: 'auto', right: '-12px', transform: 'translateY(-50%)', label: 'PHY 121' },
                     { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BHM 111' },
                     { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'PAT 211' },
                   ].map((c, i) => (
-                    <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                    <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: 'var(--app-dim)', background: 'var(--app-ink)', border: '1px solid var(--app-tint-strong)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                       <span>{c.label}</span>
                     </span>
                   ))}
                 </div>
-                <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#121212', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
+                <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'var(--app-surface)', boxShadow: '0 0 0 1px var(--app-tint-strong), 0 0 60px rgba(79,142,247,0.18)' }}>
                   <svg viewBox="0 0 190 190" width="190" height="190" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
                     <defs>
                       <linearGradient id="authRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -6217,7 +6235,7 @@ function App() {
                         <stop offset="100%" stopColor="#F5A623" />
                       </linearGradient>
                     </defs>
-                    <circle fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="8" cx="95" cy="95" r="80" />
+                    <circle fill="none" stroke="var(--app-tint-med)" strokeWidth="8" cx="95" cy="95" r="80" />
                     <circle
                       fill="none" strokeWidth="8" strokeLinecap="round" stroke="url(#authRingGrad)"
                       cx="95" cy="95" r="80"
@@ -6227,22 +6245,22 @@ function App() {
                     />
                   </svg>
                   <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, padding: '0 20px' }}>
-                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800, lineHeight: 1.2, color: '#EDEFF5' }}>
+                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800, lineHeight: 1.2, color: 'var(--app-text)' }}>
                       {auth.mode === 'signup' ? 'Join the Circle.' : 'Welcome back.'}
                     </h2>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: '#9AA3B5', marginTop: 6, display: 'block', letterSpacing: '0.03em' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: 'var(--app-dim)', marginTop: 6, display: 'block', letterSpacing: '0.03em' }}>
                       {auth.mode === 'signup' ? '2-DAY FREE TRIAL - NO CARD' : 'YOUR STREAK IS WAITING'}
                     </span>
                   </div>
                 </div>
-                <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
-                <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
+                <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: 'var(--app-card)', border: '1px solid var(--app-tint-strong)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
+                <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: 'var(--app-card)', border: '1px solid var(--app-tint-strong)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
               </div>
             </div>
 
             {/* Bottom: Pulse stat */}
             <div style={{ position: 'relative', zIndex: 2 }}>
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: '#646E84' }}>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: 'var(--app-faint)' }}>
                 <span className="auth-pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#3DD68C', marginRight: 8, boxShadow: '0 0 0 3px rgba(61,214,140,0.18)' }} />
                 1,284 medical students studying right now
               </span>
@@ -6257,12 +6275,12 @@ function App() {
               <div className="auth-mobile-banner">
                 <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 32, height: 32, borderRadius: 6 }} />
                 <div>
-                  <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: '#EDEFF5', display: 'block' }}>Scholar's Circle</span>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: '#646E84' }}>Cram less. Remember more.</span>
+                  <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: 'var(--app-text)', display: 'block' }}>Scholar's Circle</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: 'var(--app-faint)' }}>Cram less. Remember more.</span>
                 </div>
               </div>
 
-              <a href="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
+              <a href="/?force_home=1" style={{ fontSize: '0.84rem', color: 'var(--app-faint)', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
                 {'<- Back to home'}
               </a>
 
@@ -6270,12 +6288,12 @@ function App() {
                 <>
                   <div style={{ marginBottom: 28 }}>
                     <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Set new password</h1>
-                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Enter your new password below.</p>
+                    <p style={{ color: 'var(--app-dim)', fontSize: '0.94rem' }}>Enter your new password below.</p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>New password</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>New password</label>
                       <input
                         className="auth-input"
                         type="password"
@@ -6287,7 +6305,7 @@ function App() {
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Confirm new password</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Confirm new password</label>
                       <input
                         className="auth-input"
                         type="password"
@@ -6301,7 +6319,7 @@ function App() {
                     <button onClick={handleResetPassword} disabled={loadingOverlay} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%', opacity: loadingOverlay ? 0.6 : 1, cursor: loadingOverlay ? 'not-allowed' : 'pointer' }}>
                       {loadingOverlay ? 'Updating...' : 'Update password ->'}
                     </button>
-                    <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.88rem', color: '#9AA3B5' }}>
+                    <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.88rem', color: 'var(--app-dim)' }}>
                       <span onClick={() => { setResetPasswordMode(false); setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' })); }} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Back to sign in</span>
                     </p>
                   </div>
@@ -6313,12 +6331,12 @@ function App() {
                 <div key="login" className="auth-form-transition">
                   <div style={{ marginBottom: 28 }}>
                     <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Welcome back</h1>
-                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
+                    <p style={{ color: 'var(--app-dim)', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Email</label>
                       <input
                         className={'auth-input' + (loginEmailError ? ' auth-input-error' : '')}
                         value={auth.email}
@@ -6333,7 +6351,7 @@ function App() {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Password</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           className={'auth-input' + (loginPasswordError ? ' auth-input-error' : '')}
@@ -6349,7 +6367,7 @@ function App() {
                         <button
                           type="button"
                           onClick={() => setShowLoginPassword((v) => !v)}
-                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
+                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--app-faint)', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
                           tabIndex={-1}
                         >
                           {showLoginPassword ? 'Hide' : 'Show'}
@@ -6368,7 +6386,7 @@ function App() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.86rem' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9AA3B5', cursor: 'pointer' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--app-dim)', cursor: 'pointer' }}>
                         <input type="checkbox" checked={keepSignedIn} onChange={(e) => setKeepSignedIn(e.target.checked)} style={{ accentColor: '#F5A623', width: 15, height: 15 }} />Keep me signed in
                       </label>
                     </div>
@@ -6378,10 +6396,10 @@ function App() {
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0', color: '#646E84', fontSize: '0.78rem', fontFamily: 'JetBrains Mono, monospace' }}>
-                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0', color: 'var(--app-faint)', fontSize: '0.78rem', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ flex: 1, height: 1, background: 'var(--app-tint-med)' }} />
                     or
-                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                    <span style={{ flex: 1, height: 1, background: 'var(--app-tint-med)' }} />
                   </div>
 
                   <button
@@ -6400,7 +6418,7 @@ function App() {
                     Continue with Google
                   </button>
 
-                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.9rem', color: '#9AA3B5' }}>
+                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.9rem', color: 'var(--app-dim)' }}>
                     No account? <span onClick={() => setAuth((a) => ({ ...a, mode: 'signup', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign up</span>
                   </p>
                 </div>
@@ -6409,12 +6427,12 @@ function App() {
                 <div key="signup" className="auth-form-transition">
                   <div style={{ marginBottom: 28 }}>
                     <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Join the Circle</h1>
-                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Start practicing in minutes. 2-day free trial, no card needed.</p>
+                    <p style={{ color: 'var(--app-dim)', fontSize: '0.94rem' }}>Start practicing in minutes. 2-day free trial, no card needed.</p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Username</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Username</label>
                       <input
                         className="auth-input"
                         ref={signupUsernameRef}
@@ -6424,7 +6442,7 @@ function App() {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Email</label>
                       <input
                         className={'auth-input' + (signupEmailError ? ' auth-input-error' : '')}
                         ref={signupEmailRef}
@@ -6438,7 +6456,7 @@ function App() {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Password</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           className={'auth-input' + (signupPasswordError ? ' auth-input-error' : '')}
@@ -6453,7 +6471,7 @@ function App() {
                         <button
                           type="button"
                           onClick={() => setShowSignupPassword((v) => !v)}
-                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
+                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--app-faint)', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
                           tabIndex={-1}
                         >
                           {showSignupPassword ? 'Hide' : 'Show'}
@@ -6463,7 +6481,7 @@ function App() {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Confirm password</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Confirm password</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           className="auth-input"
@@ -6476,7 +6494,7 @@ function App() {
                         <button
                           type="button"
                           onClick={() => setShowSignupConfirmPassword((v) => !v)}
-                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
+                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--app-faint)', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
                           tabIndex={-1}
                         >
                           {showSignupConfirmPassword ? 'Hide' : 'Show'}
@@ -6487,7 +6505,7 @@ function App() {
                     <div style={{ textAlign: 'center', marginTop: -4 }}>
                       <span
                         onClick={() => setAuth((a) => ({ ...a, signupRole: a.signupRole === 'TEACHER' ? 'STUDENT' : 'TEACHER' }))}
-                        style={{ color: '#646E84', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
+                        style={{ color: 'var(--app-faint)', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
                       >
                         Are you a lecturer? <span style={{ color: '#F5A623' }}>{auth.signupRole === 'TEACHER' ? 'Switch back to student' : 'Click here'}</span>
                       </span>
@@ -6495,7 +6513,7 @@ function App() {
 
                     {auth.signupRole === 'TEACHER' && (
                       <div>
-                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Lecturer invite code</label>
+                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Lecturer invite code</label>
                         <input
                           className="auth-input"
                           ref={signupInviteCodeRef}
@@ -6507,7 +6525,7 @@ function App() {
 
                     {auth.signupRole !== 'TEACHER' && (
                       <div>
-                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Referral code <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional — you both get 3 free days 🎁)</span></label>
+                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--app-faint)', marginBottom: 8 }}>Referral code <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional — you both get 3 free days 🎁)</span></label>
                         <input
                           className="auth-input"
                           ref={signupReferralCodeRef}
@@ -6517,7 +6535,7 @@ function App() {
                       </div>
                     )}
 
-                    <label style={{ fontSize: '0.88rem', color: '#9AA3B5', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
+                    <label style={{ fontSize: '0.88rem', color: 'var(--app-dim)', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
                       <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} />
                       <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Privacy Policy</a>.</span>
                     </label>
@@ -6527,10 +6545,10 @@ function App() {
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0', color: '#646E84', fontSize: '0.78rem', fontFamily: 'JetBrains Mono, monospace' }}>
-                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0', color: 'var(--app-faint)', fontSize: '0.78rem', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ flex: 1, height: 1, background: 'var(--app-tint-med)' }} />
                     or
-                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                    <span style={{ flex: 1, height: 1, background: 'var(--app-tint-med)' }} />
                   </div>
 
                   <button
@@ -6549,7 +6567,7 @@ function App() {
                     Sign up with Google
                   </button>
 
-                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.9rem', color: '#9AA3B5' }}>
+                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.9rem', color: 'var(--app-dim)' }}>
                     Already have an account? <span onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
                   </p>
                 </div>
@@ -6574,7 +6592,7 @@ function App() {
 
               {/* Support */}
               <div style={{ marginTop: 20, textAlign: 'center' }}>
-                <p style={{ fontSize: '0.82rem', color: '#646E84' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--app-faint)' }}>
                   Need help? <a href={`https://wa.me/2349028617178?text=${encodeURIComponent("Hi Scholar's Circle team, I need help with my account.")}`} target="_blank" rel="noopener noreferrer" style={{ color: '#25D366', fontWeight: 600 }}>WhatsApp us</a> or <a href="tel:09028617178" style={{ color: '#FFD700', fontWeight: 600 }}>call 09028617178</a>
                 </p>
               </div>
@@ -6618,7 +6636,7 @@ function App() {
 
             transform: "translateX(-50%)",
 
-            background: "#232328",
+            background: "var(--app-card2)",
 
             color: "white",
 
@@ -6810,7 +6828,7 @@ function App() {
 
             transform: "translateX(-50%)",
 
-            background: "#232328",
+            background: "var(--app-card2)",
 
             color: "white",
 
@@ -7064,7 +7082,7 @@ function App() {
 
           transform: "translateX(-50%)",
 
-          background: "#232328",
+          background: "var(--app-card2)",
 
           color: "white",
 
@@ -7370,7 +7388,7 @@ function App() {
 
           transform: "translateX(-50%)",
 
-          background: "#232328",
+          background: "var(--app-card2)",
 
           color: "white",
 
@@ -7487,7 +7505,7 @@ function App() {
         <div className="modal-overlay" onClick={() => setShowPaymentModal(false)} style={{ zIndex: 10001 }}>
           <div ref={paymentModalA11y.focusRef} {...paymentModalA11y.modalProps} className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, padding: 0 }}>
             {/* Compact header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--app-tint-med)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 700 }}>
                 <span>⭐</span> Upgrade
               </div>
@@ -7503,22 +7521,22 @@ function App() {
                     style={{
                       flex: "1 1 40%",
                       position: "relative",
-                      border: selectedPlan === p.id ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.15)",
+                      border: selectedPlan === p.id ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
                       borderRadius: 10,
                       padding: "12px 8px",
                       cursor: "pointer",
-                      background: selectedPlan === p.id ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.03)",
+                      background: selectedPlan === p.id ? "rgba(255,215,0,0.1)" : "var(--app-tint-soft)",
                       textAlign: "center",
                       transition: "all 0.2s",
                     }}
                   >
                     {p.best && (
-                      <div style={{ position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)", background: "#10b981", color: "#fff", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 700, whiteSpace: "nowrap" }}>BEST VALUE</div>
+                      <div style={{ position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)", background: "#10b981", color: "var(--app-text)", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 700, whiteSpace: "nowrap" }}>BEST VALUE</div>
                     )}
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{p.label}</div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: "#FFD700" }}>{naira(p.price)}</div>
                     {selectedPlan === p.id && (
-                      <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#FFD700", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>?</div>
+                      <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#FFD700", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "var(--app-text)" }}>?</div>
                     )}
                   </div>
                 ))}
@@ -7530,15 +7548,15 @@ function App() {
                     <button
                       onClick={() => setPaymentMethod("paystack")}
                       style={{
-                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "paystack" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.15)",
-                        background: paymentMethod === "paystack" ? "rgba(255,215,0,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "paystack" ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
+                        background: paymentMethod === "paystack" ? "rgba(255,215,0,0.1)" : "transparent", color: "var(--app-text)", fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >💳 Pay Online</button>
                     <button
                       onClick={() => setPaymentMethod("transfer")}
                       style={{
-                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "transfer" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.15)",
-                        background: paymentMethod === "transfer" ? "rgba(255,215,0,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "transfer" ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
+                        background: paymentMethod === "transfer" ? "rgba(255,215,0,0.1)" : "transparent", color: "var(--app-text)", fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >🏦 Bank Transfer</button>
                   </div>
@@ -7584,7 +7602,7 @@ function App() {
                       style={{
                         width: "100%", padding: "14px", borderRadius: 10, border: "none",
                         fontSize: 15, fontWeight: 700, cursor: "pointer",
-                        background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "#fff",
+                        background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "var(--app-text)",
                       }}
                     >💳 Pay {naira(getPlan(selectedPlan)?.price)} → Instant Activation</button>
                   )}
@@ -7605,7 +7623,7 @@ function App() {
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                          display: "block", textAlign: "center", background: "#25D366", color: "#fff",
+                          display: "block", textAlign: "center", background: "#25D366", color: "var(--app-text)",
                           textDecoration: "none", padding: "12px", borderRadius: 8, fontWeight: 600, fontSize: 14,
                         }}
                       >💬 Send Payment Proof on WhatsApp</a>
@@ -7704,7 +7722,7 @@ function App() {
 
                 onClick={() => setShowFreeTierSummary(false)}
 
-                style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
+                style={{ background: "transparent", color: "white", border: "1px solid var(--app-tint-strong)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
 
               >
 
@@ -7750,7 +7768,7 @@ function App() {
 
             border: "2px solid rgba(239, 68, 68, 0.5)",
 
-            background: "linear-gradient(135deg, rgba(20, 20, 20, 0.98), rgba(239, 68, 68, 0.15))",
+            background: "linear-gradient(135deg, rgba(var(--app-glass-rgb),0.98), rgba(239, 68, 68, 0.15))",
 
             boxShadow: "0 25px 50px -12px rgba(239, 68, 68, 0.25)"
 
@@ -7768,7 +7786,7 @@ function App() {
 
             <p style={{ marginBottom: 16, lineHeight: 1.6 }}>{globalAnnouncement.content}</p>
 
-            <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: "var(--app-dim)", marginBottom: 20 }}>
 
               Posted: {new Date(globalAnnouncement.createdAt).toLocaleString()}
 
@@ -7907,13 +7925,13 @@ function App() {
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
               <button
                 onClick={() => setShowTrialEnded(false)}
-                style={{ background: "transparent", color: "inherit", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
+                style={{ background: "transparent", color: "inherit", border: "1px solid var(--app-tint-strong)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
               >
                 Continue Free
               </button>
               <button
                 onClick={() => { setShowTrialEnded(false); setShowPaymentModal(true); }}
-                style={{ background: "#FFD700", color: "#111", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                style={{ background: "#FFD700", color: "var(--app-ink)", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
               >
                 Upgrade Now
               </button>
@@ -7952,7 +7970,7 @@ function App() {
 
           <div style={{
 
-            background: darkMode ? "#1e1e22" : "#ffffff",
+            background: darkMode ? "var(--app-card2)" : "#ffffff",
 
             color: darkMode ? "white" : "black",
 
@@ -8587,7 +8605,7 @@ function App() {
       )}
 
       {homeViewerToken && createPortal(
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0a0a0a", display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--app-bg)", display: "flex", flexDirection: "column" }}>
           <ErrorBoundary>
             <Suspense fallback={<TabSkeleton />}>
               <ResourceViewer
@@ -9445,7 +9463,7 @@ function App() {
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            background: "#1e1e22", borderRadius: 16, padding: 24, maxWidth: 380, width: "100%",
+            background: "var(--app-card2)", borderRadius: 16, padding: 24, maxWidth: 380, width: "100%",
             border: "1px solid rgba(255,215,0,0.3)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
           }}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>
@@ -9458,17 +9476,17 @@ function App() {
               Add the app to your Home Screen for the best experience.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--app-tint-soft)", borderRadius: 10 }}>
                 <span style={{ fontSize: 20 }}>1</span>
                 <span style={{ fontSize: 13 }}>Tap the <b>Share</b> button at the bottom of Safari</span>
                 <span style={{ fontSize: 22 }}>⬆️</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--app-tint-soft)", borderRadius: 10 }}>
                 <span style={{ fontSize: 20 }}>2</span>
                 <span style={{ fontSize: 13 }}>Scroll down and tap <b>"Add to Home Screen"</b></span>
                 <span style={{ fontSize: 22 }}>➕</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--app-tint-soft)", borderRadius: 10 }}>
                 <span style={{ fontSize: 20 }}>3</span>
                 <span style={{ fontSize: 13 }}>Tap <b>"Add"</b> — that's it!</span>
                 <span style={{ fontSize: 22 }}>✅</span>
@@ -9476,7 +9494,7 @@ function App() {
             </div>
             <button onClick={() => setShowIOSInstall(false)} style={{
               marginTop: 20, width: "100%", padding: "12px", borderRadius: 10, border: "none",
-              background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "#fff",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "var(--app-text)",
               fontSize: 14, fontWeight: 700, cursor: "pointer",
             }}>
               Got it

@@ -92,8 +92,8 @@ export default function UniversityManager() {
           onClick={() => { setShowAddForm(!showAddForm); cancelEdit(); }}
           style={{
             padding: "10px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
-            background: showAddForm ? "#1a1a1a" : "linear-gradient(135deg, #B8860B, #DAA520)",
-            color: showAddForm ? "#7b82b8" : "#0a0a0a", border: "none", cursor: "pointer",
+            background: showAddForm ? "var(--app-card)" : "linear-gradient(135deg, #B8860B, #DAA520)",
+            color: showAddForm ? "#7b82b8" : "var(--app-ink)", border: "none", cursor: "pointer",
           }}
         >
           {showAddForm ? "Cancel" : "+ Add University"}
@@ -145,7 +145,7 @@ export default function UniversityManager() {
           {saveError && <div style={{ fontSize: "12px", color: "#ef9a9a" }}>{saveError}</div>}
           <button type="submit" style={{
             padding: "10px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
-            background: "linear-gradient(135deg, #B8860B, #DAA520)", color: "#0a0a0a",
+            background: "linear-gradient(135deg, #B8860B, #DAA520)", color: "var(--app-ink)",
             border: "none", cursor: "pointer", alignSelf: "flex-start",
           }}>
             {editingId ? "Save Changes" : "Create University"}
@@ -182,7 +182,7 @@ export default function UniversityManager() {
                 onClick={() => editingId === uni.id ? cancelEdit() : startEdit(uni)}
                 style={{
                   padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600,
-                  background: editingId === uni.id ? "#1a1a1a" : "#111328",
+                  background: editingId === uni.id ? "var(--app-card)" : "#111328",
                   color: editingId === uni.id ? "#7b82b8" : "#7986cb",
                   border: "0.5px solid #252860", cursor: "pointer", flexShrink: 0,
                 }}

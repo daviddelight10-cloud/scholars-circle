@@ -1398,7 +1398,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
 
   // ═══════════ RENDER ═══════════
   return (
-    <div className="ss-root" data-theme={save.theme || 'cyan'} style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: 'radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)' }}>
+    <div className="ss-root" data-theme={save.theme || 'cyan'} style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: 'radial-gradient(ellipse at top, var(--app-surface) 0%, var(--app-bg) 55%)' }}>
       <canvas ref={canvasRef} className="confetti-canvas" />
       <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
 
@@ -1476,7 +1476,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                 </span>
                 <button
                   className="mc-arrow"
-                  style={{ border: 0, background: 'linear-gradient(135deg,#FFB627,#FF7A9E)', color: '#111', fontWeight: 700, borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
+                  style={{ border: 0, background: 'linear-gradient(135deg,#FFB627,#FF7A9E)', color: 'var(--app-ink)', fontWeight: 700, borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
                   onClick={() => window.dispatchEvent(new CustomEvent('sc-open-premium'))}
                 >
                   Go Premium

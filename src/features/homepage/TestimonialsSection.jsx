@@ -49,14 +49,14 @@ export default function TestimonialsSection() {
   return (
     <section id="testimonials" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0D0E18 0%, #0a0a0a 100%)'
+      background: 'linear-gradient(180deg, var(--app-surface) 0%, var(--app-bg) 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
           <h2 style={{
             fontSize: 'clamp(1.875rem, 4vw, 3rem)',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--app-text)',
             marginBottom: '16px'
           }}>
             What Our Users Say
@@ -78,7 +78,7 @@ export default function TestimonialsSection() {
         }}>
           {testimonials.map((testimonial, index) => (
             <div key={index} style={{
-              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
+              background: 'linear-gradient(145deg, rgba(var(--app-glass-rgb),0.5), rgba(var(--app-glass-rgb),0.5))',
               border: '1px solid rgba(51, 65, 85, 0.5)',
               borderRadius: '16px',
               padding: '24px',
@@ -107,13 +107,13 @@ export default function TestimonialsSection() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#fff',
+                  color: 'var(--app-text)',
                   fontWeight: 600
                 }}>
                   {testimonial.avatar || testimonial.name.charAt(0)}
                 </div>
                 <div>
-                  <div style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>
+                  <div style={{ color: 'var(--app-text)', fontWeight: 600, fontSize: '14px' }}>
                     {testimonial.name}
                   </div>
                   <div style={{ color: '#94a3b8', fontSize: '12px' }}>

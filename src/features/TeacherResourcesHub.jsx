@@ -600,7 +600,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
     const currentList = folderCategorized[activeFolderTab] || [];
     const tabBtnStyle = (active) => ({
       padding: "8px 16px", borderRadius: "10px", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer",
-      background: active ? "#1a1a1a" : "none", color: active ? "#FFD700" : "#4a5080", display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap",
+      background: active ? "var(--app-card)" : "none", color: active ? "#FFD700" : "#4a5080", display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap",
     });
 
     return (
@@ -648,7 +648,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
           {folderSubTabs.map(([key, label, count]) => (
             <button key={key} onClick={() => setActiveFolderTab(key)} style={tabBtnStyle(activeFolderTab === key)}>
               {label}
-              {count > 0 && <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: "999px", fontSize: "10px", padding: "1px 6px" }}>{count}</span>}
+              {count > 0 && <span style={{ background: "var(--app-tint-strong)", borderRadius: "999px", fontSize: "10px", padding: "1px 6px" }}>{count}</span>}
             </button>
           ))}
         </div>
@@ -685,7 +685,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
           <p style={{ fontSize: "14px", color: "#7b82b8" }}>Manage your uploaded resources</p>
         </div>
         <button onClick={() => navigate("/teacher/resources/upload")} style={{
-          padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#FFD700", cursor: "pointer",
+          padding: "10px 20px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#FFD700", cursor: "pointer",
         }}>+ Upload New</button>
       </div>
 
@@ -707,12 +707,12 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
         )}
         <button onClick={() => setShowFilterSheet(true)} style={{
           ...filterBtnStyle,
-          background: activeFilterCount > 0 ? "#1a1a1a" : "#0f1128",
+          background: activeFilterCount > 0 ? "var(--app-card)" : "#0f1128",
           border: activeFilterCount > 0 ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
           color: activeFilterCount > 0 ? "#FFD700" : "#DAA520",
         }}>
           <span>🔧 Filters</span>
-          {activeFilterCount > 0 && <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: "999px", fontSize: "10px", padding: "1px 6px" }}>{activeFilterCount}</span>}
+          {activeFilterCount > 0 && <span style={{ background: "var(--app-tint-strong)", borderRadius: "999px", fontSize: "10px", padding: "1px 6px" }}>{activeFilterCount}</span>}
         </button>
       </div>
 
@@ -722,7 +722,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
           onClick={() => setFilters((p) => ({ ...p, department: "all" }))}
           style={{
             padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer",
-            background: filters.department === "all" ? "#1a1a1a" : "#0f1128",
+            background: filters.department === "all" ? "var(--app-card)" : "#0f1128",
             border: filters.department === "all" ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
             color: filters.department === "all" ? "#FFD700" : "#7b82b8",
           }}
@@ -735,7 +735,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
             onClick={() => setFilters((p) => ({ ...p, department: d.name }))}
             style={{
               padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer",
-              background: filters.department === d.name ? "#1a1a1a" : "#0f1128",
+              background: filters.department === d.name ? "var(--app-card)" : "#0f1128",
               border: filters.department === d.name ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
               color: filters.department === d.name ? "#FFD700" : "#7b82b8",
             }}
@@ -764,7 +764,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
                   onClick={() => setGroupByUniversity((v) => !v)}
                   style={{
                     padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                    background: groupByUniversity ? "#1a1a1a" : "#0f1128",
+                    background: groupByUniversity ? "var(--app-card)" : "#0f1128",
                     border: groupByUniversity ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
                     color: groupByUniversity ? "#FFD700" : "#7b82b8",
                   }}
@@ -776,7 +776,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
                     onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
                     style={{
                       padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                      background: selectMode ? "#1a1a1a" : "#0f1128",
+                      background: selectMode ? "var(--app-card)" : "#0f1128",
                       border: selectMode ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
                       color: selectMode ? "#FFD700" : "#7b82b8",
                     }}
@@ -821,7 +821,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
                       } catch (err) { showToast(err.message); }
                       setBulkBusy(false);
                     }}
-                    style={{ padding: "7px 14px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "7px", fontSize: "12px", fontWeight: 700, color: "#FFD700", cursor: "pointer" }}
+                    style={{ padding: "7px 14px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "7px", fontSize: "12px", fontWeight: 700, color: "#FFD700", cursor: "pointer" }}
                   >
                     {bulkBusy ? "Applying…" : "Apply"}
                   </button>
@@ -883,7 +883,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ fontSize: 14, color: "#7b82b8" }}>Create shared folders for your departments. Students can contribute materials for your approval.</div>
-              <button onClick={() => setShowCreateFolder(true)} style={{ padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer", flexShrink: 0 }}>+ New folder</button>
+              <button onClick={() => setShowCreateFolder(true)} style={{ padding: "10px 20px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer", flexShrink: 0 }}>+ New folder</button>
             </div>
 
             {folders.length === 0 ? (
@@ -893,7 +893,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
                 <div style={{ fontSize: 13, color: "#4a5080", maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
                   Create shared folders to organize materials by course or department. Students can upload into your folders for approval.
                 </div>
-                <button onClick={() => setShowCreateFolder(true)} style={{ marginTop: 16, padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer" }}>+ Create your first folder</button>
+                <button onClick={() => setShowCreateFolder(true)} style={{ marginTop: 16, padding: "10px 20px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer" }}>+ Create your first folder</button>
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "14px" }}>
@@ -987,7 +987,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
               </button>
               <button
                 onClick={() => setShowFilterSheet(false)}
-                style={{ flex: 1, padding: "10px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer" }}
+                style={{ flex: 1, padding: "10px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer" }}
               >
                 Apply
               </button>
@@ -1050,7 +1050,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
                   return (
                     <button key={d.id} type="button" onClick={() => setEditDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])} style={{
                       padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                      background: selected ? "#1a1a1a" : "#0a0c1e", border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245", color: selected ? "#FFD700" : "#7b82b8",
+                      background: selected ? "var(--app-card)" : "#0a0c1e", border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245", color: selected ? "#FFD700" : "#7b82b8",
                     }}>
                       {d.icon || "🏛️"} {d.name}
                     </button>
@@ -1068,7 +1068,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
 
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => setEditResource(null)} style={{ flex: 1, padding: "10px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#DAA520", cursor: "pointer" }}>Cancel</button>
-              <button onClick={submitEdit} disabled={editSaving} style={{ flex: 1, padding: "10px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.5 : 1 }}>
+              <button onClick={submitEdit} disabled={editSaving} style={{ flex: 1, padding: "10px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.5 : 1 }}>
                 {editSaving ? "Saving…" : "Save Changes"}
               </button>
             </div>
@@ -1126,7 +1126,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
               <button onClick={() => setMcqDrafts((prev) => [...prev, { question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" }])} style={{ background: "#0d0f1f", border: "0.5px dashed #2a3080", borderRadius: 10, padding: "10px", fontSize: 12, color: "#DAA520", cursor: "pointer", fontWeight: 600 }}>
                 + Add Question
               </button>
-              <button onClick={saveMcq} disabled={mcqSaving} style={{ background: mcqSaving ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: mcqSaving ? "#4a5080" : "#FFD700", cursor: mcqSaving ? "not-allowed" : "pointer", fontWeight: 700, marginTop: 4 }}>
+              <button onClick={saveMcq} disabled={mcqSaving} style={{ background: mcqSaving ? "#12142a" : "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: mcqSaving ? "#4a5080" : "#FFD700", cursor: mcqSaving ? "not-allowed" : "pointer", fontWeight: 700, marginTop: 4 }}>
                 {mcqSaving ? "Saving…" : `Save ${mcqDrafts.length} Question${mcqDrafts.length !== 1 ? "s" : ""}`}
               </button>
             </div>
@@ -1185,7 +1185,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
                   return (
                     <button key={d.id} type="button" onClick={() => setNewFolderDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])} style={{
                       padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                      background: selected ? "#1a1a1a" : "#0a0c1e", border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245", color: selected ? "#FFD700" : "#7b82b8",
+                      background: selected ? "var(--app-card)" : "#0a0c1e", border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245", color: selected ? "#FFD700" : "#7b82b8",
                     }}>
                       {d.icon || "🏛️"} {d.name}
                     </button>
@@ -1199,12 +1199,12 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Visibility</label>
               <div style={{ display: "flex", gap: "6px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "4px" }}>
                 {[["shared", "👥 Department"], ["link", "🔗 Link share"], ["private", "🔒 Private"]].map(([key, label]) => (
-                  <button key={key} onClick={() => setNewFolderVisibility(key)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: newFolderVisibility === key ? "#1a1a1a" : "none", fontSize: "13px", fontWeight: 700, color: newFolderVisibility === key ? "#FFD700" : "#4a5080", cursor: "pointer" }}>{label}</button>
+                  <button key={key} onClick={() => setNewFolderVisibility(key)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: newFolderVisibility === key ? "var(--app-card)" : "none", fontSize: "13px", fontWeight: 700, color: newFolderVisibility === key ? "#FFD700" : "#4a5080", cursor: "pointer" }}>{label}</button>
                 ))}
               </div>
             </div>
 
-            <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ width: "100%", padding: "12px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: !newFolderName.trim() ? "not-allowed" : "pointer", opacity: !newFolderName.trim() ? 0.5 : 1 }}>
+            <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ width: "100%", padding: "12px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: !newFolderName.trim() ? "not-allowed" : "pointer", opacity: !newFolderName.trim() ? 0.5 : 1 }}>
               Create folder
             </button>
           </div>
@@ -1267,6 +1267,6 @@ const tabStyle = {
 };
 
 const tabActiveStyle = {
-  padding: "8px 16px", borderRadius: "999px", background: "#1a1a1a", border: "none",
+  padding: "8px 16px", borderRadius: "999px", background: "var(--app-card)", border: "none",
   fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer",
 };

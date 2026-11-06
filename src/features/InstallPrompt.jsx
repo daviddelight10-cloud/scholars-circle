@@ -114,10 +114,10 @@ export function InstallPrompt() {
       zIndex: 1090,
       padding: 12,
       borderRadius: 12,
-      background: "linear-gradient(135deg, #0f172a, #232328)",
+      background: "linear-gradient(135deg, #0f172a, var(--app-card2))",
       border: "1px solid rgba(255,215,0,0.4)",
       boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-      color: "#fff",
+      color: "var(--app-text)",
       fontSize: 13,
       lineHeight: 1.4
     }}>
@@ -134,7 +134,7 @@ export function InstallPrompt() {
           </div>
 
           {ios && (
-            <div style={{ marginTop: 8, padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.05)", fontSize: 11, color: "#FFD700" }}>
+            <div style={{ marginTop: 8, padding: 8, borderRadius: 6, background: "var(--app-tint-soft)", fontSize: 11, color: "#FFD700" }}>
               <b>How:</b> Open Safari → tap the <b>Share</b> button at the bottom → scroll down → tap <b>"Add to Home Screen"</b>.
             </div>
           )}
@@ -160,7 +160,7 @@ const primaryBtn = {
   borderRadius: 8,
   border: "none",
   background: "linear-gradient(135deg, #FFD700, #DAA520)",
-  color: "#fff",
+  color: "var(--app-text)",
   fontWeight: 600,
   fontSize: 13,
   cursor: "pointer"
@@ -169,7 +169,7 @@ const primaryBtn = {
 const secondaryBtn = {
   padding: "8px 16px",
   borderRadius: 8,
-  border: "1px solid rgba(255,255,255,0.2)",
+  border: "1px solid var(--app-tint-strong)",
   background: "transparent",
   color: "#cbd5e1",
   fontSize: 13,

@@ -122,10 +122,10 @@ export default function UniversitySelect({
           padding: "12px 14px",
           width: "100%",
           boxSizing: "border-box",
-          background: "rgba(20,20,20,0.6)",
+          background: "rgba(var(--app-glass-rgb),0.6)",
           border: "1px solid rgba(255,215,0,0.2)",
           borderRadius: 12,
-          color: "#fff",
+          color: "var(--app-text)",
           outline: "none",
           transition: "border-color 0.2s",
           ...style,
@@ -164,7 +164,7 @@ export default function UniversitySelect({
               style={{
                 padding: "16px 16px",
                 fontSize: 13,
-                color: "#6b7280",
+                color: "var(--app-dim)",
                 textAlign: "center",
               }}
             >
@@ -195,7 +195,7 @@ export default function UniversitySelect({
                     transition: "background 0.12s",
                     borderBottom:
                       i < filtered.length - 1 || (!exactMatch && value)
-                        ? "1px solid rgba(255,255,255,0.04)"
+                        ? "1px solid var(--app-tint-soft)"
                         : "none",
                   }}
                 >

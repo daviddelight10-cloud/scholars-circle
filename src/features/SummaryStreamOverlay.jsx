@@ -2,12 +2,12 @@ import { useEffect, useRef } from "react";
 import MarkdownText from "../components/MarkdownText";
 
 const D = {
-  bg: "#0a0a0a",
-  bar: "#121212",
-  accent: "#1e1e22",
-  line: "rgba(255,255,255,0.09)",
-  text: "#EDEFF5",
-  muted: "#9AA3B5",
+  bg: "var(--app-bg)",
+  bar: "var(--app-surface)",
+  accent: "var(--app-card2)",
+  line: "var(--app-tint-med)",
+  text: "var(--app-text)",
+  muted: "var(--app-dim)",
   hint: "#646E84",
   gold: "#FFD700",
 };
@@ -72,7 +72,7 @@ export default function SummaryStreamOverlay({ title, text, progress, done, save
           }}>
             {title || "Summary"}
           </div>
-          <div style={{ fontSize: 11, color: "#646E84", marginTop: 3 }}>
+          <div style={{ fontSize: 11, color: "var(--app-faint)", marginTop: 3 }}>
             {done ? "✓ Saved to your space" : (progress || "Writing summary…")}
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function SummaryStreamOverlay({ title, text, progress, done, save
                   onClick={() => onOpen(savedResource.shareToken)}
                   style={{
                     padding: "10px 20px", borderRadius: 999, cursor: "pointer",
-                    background: D.gold, color: "#0a0a0a", border: "none",
+                    background: D.gold, color: "var(--app-ink)", border: "none",
                     fontSize: 13, fontWeight: 700, fontFamily: "Manrope,sans-serif",
                   }}
                 >

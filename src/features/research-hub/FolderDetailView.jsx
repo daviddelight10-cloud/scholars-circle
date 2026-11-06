@@ -100,8 +100,8 @@ export default function FolderDetailView({
           <button
             onClick={onClose}
             aria-label="Back to My Space"
-            className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-            style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+            className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--app-dim)] transition-colors"
+            style={{ background: "var(--app-card)", borderColor: "var(--app-tint-med)" }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
@@ -127,8 +127,8 @@ export default function FolderDetailView({
             <button
               onClick={onClose}
               aria-label="Back to My Space"
-              className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-              style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--app-dim)] transition-colors"
+              style={{ background: "var(--app-card)", borderColor: "var(--app-tint-med)" }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
@@ -136,8 +136,8 @@ export default function FolderDetailView({
             </button>
 
             <div className="min-w-0 flex-1 text-center">
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#646E84]">Course Space</div>
-              <div className="mt-0.5 truncate text-[13px] font-semibold text-[#EDEFF5]">
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--app-faint)]">Course Space</div>
+              <div className="mt-0.5 truncate text-[13px] font-semibold text-[var(--app-text)]">
                 {levelSem || folderDetail?.courseCode || folderDetail?.name || ""}
               </div>
             </div>
@@ -145,8 +145,8 @@ export default function FolderDetailView({
             <div className="cs-menu-wrap shrink-0" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-                style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+                className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--app-dim)] transition-colors"
+                style={{ background: "var(--app-card)", borderColor: "var(--app-tint-med)" }}
                 aria-label="Space options"
                 aria-expanded={menuOpen}
               >
@@ -367,7 +367,7 @@ export default function FolderDetailView({
       {preparingStudy && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both" }}
+          style={{ background: "var(--app-surface)", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both" }}
           role="status"
         >
           <span className="animate-spin" style={{ display: "inline-block" }}>⏳</span>
@@ -380,7 +380,7 @@ export default function FolderDetailView({
       {generatingId && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
+          style={{ background: "var(--app-surface)", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
           role="status"
         >
           <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#F5A623", borderTopColor: "transparent" }} />

@@ -114,7 +114,7 @@ export default function SaveToSpaceSheet({ open, resource, onClose, onSaved, not
               className={`rounded-lg px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
                 busy || !newName.trim()
                   ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-60"
-                  : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                  : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
               }`}
             >
               {busy ? "Creating…" : "Create & save ✓"}
@@ -147,7 +147,7 @@ export default function SaveToSpaceSheet({ open, resource, onClose, onSaved, not
                 </button>
                 <button
                   onClick={() => setLoadFailed(false)}
-                  className="rounded-lg bg-gradient-to-br from-[#b8860b] to-gold px-4 py-2 text-sm font-bold text-[#0a0a0a]"
+                  className="rounded-lg bg-gradient-to-br from-[#b8860b] to-gold px-4 py-2 text-sm font-bold text-[var(--app-bg)]"
                 >
                   Retry
                 </button>

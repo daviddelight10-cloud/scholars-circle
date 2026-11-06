@@ -195,7 +195,7 @@ export default function UploadModal({
               />
             </div>
             <button onClick={onSubmitFile} disabled={uploading || !uploadDescription.trim()} className={`w-full rounded-lg py-3 text-sm font-bold transition-all active:scale-95 ${
-              uploading || !uploadDescription.trim() ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+              uploading || !uploadDescription.trim() ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
             }`}>
               {uploading ? "Uploading..." : "Publish note"}
             </button>
@@ -235,7 +235,7 @@ export default function UploadModal({
             )}
 
             <button onClick={onSubmitFile} disabled={uploading || !uploadFile} className={`mt-3 w-full rounded-lg py-3 text-sm font-bold transition-all active:scale-95 ${
-              uploading || !uploadFile ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+              uploading || !uploadFile ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
             }`}>
               {uploading ? "Uploading..." : "Upload"}
             </button>
@@ -317,7 +317,7 @@ export default function UploadModal({
                   onClick={generateAiMcqs}
                   disabled={aiGenerating || !aiFile}
                   className={`flex-1 cursor-pointer rounded-lg border border-gold-border py-2.5 text-[13px] font-bold transition-all active:scale-95 ${
-                    aiGenerating || !aiFile ? "cursor-not-allowed bg-gold-dim text-gold opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                    aiGenerating || !aiFile ? "cursor-not-allowed bg-gold-dim text-gold opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
                   }`}
                 >
                   {aiGenerating ? "Generating…" : "🤖 Generate Rapid Recall"}
@@ -377,7 +377,7 @@ export default function UploadModal({
             )}
 
             <button onClick={onSubmitMcq} disabled={uploading} className={`w-full rounded-lg py-3 text-sm font-bold transition-all active:scale-95 ${
-              uploading ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+              uploading ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[var(--app-bg)]"
             }`}>
               {uploading ? "Submitting..." : `Submit Rapid Recall (${mcqRows.filter((r) => r.question.trim()).length})`}
             </button>

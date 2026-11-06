@@ -642,7 +642,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   }
 
   // ── Colors ──
-  const ink = "#0a0a0a", cardBg = "#141414", cardBorder = "rgba(255,255,255,0.08)";
+  const ink = "var(--app-bg)", cardBg = "var(--app-surface)", cardBorder = "var(--app-tint-med)";
   const blue = "#00E5FF", gold = "#FFB627", coral = "#FF5E7E", green = "#4ADE80";
   const textHi = "#EAEEF7", textDim = "#8b93a7";
   const sc = getSubjectColor(resource?.subject);
@@ -662,7 +662,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
       <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#060818", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, fontFamily: "Manrope, sans-serif" }}>
         <div style={{ fontSize: 40 }}>📭</div>
         <div style={{ color: "#7b82b8", fontSize: 15 }}>No flashcards available</div>
-        <button onClick={onBack} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#9aa2d8", cursor: "pointer", fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>← Back</button>
+        <button onClick={onBack} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid var(--app-tint-med)", background: "transparent", color: "#9aa2d8", cursor: "pointer", fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>← Back</button>
       </div>
     );
   }
@@ -670,7 +670,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Start Over confirmation ──
   if (showStartOverConfirm) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(var(--app-glass-rgb),0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
           <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: textHi, fontFamily: "Manrope, sans-serif" }}>Start over?</div>
           <div style={{ fontSize: 14, color: textDim, marginBottom: 20, fontFamily: "Manrope, sans-serif" }}>Your saved progress will be erased and you'll begin from Level 1.</div>
@@ -688,7 +688,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
     const saved = loadProgress(resource?.id || "default");
     const savedLevel = saved?.currentLevelIdx || 0;
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, var(--app-surface) 0%, var(--app-bg) 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
         <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📚</div>
@@ -700,7 +700,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
               <div style={{ fontSize: 13, color: textDim, marginTop: 4 }}>{saved?.knownCount || 0} known · {saved?.retiredWeakCount || 0} mastered</div>
             </div>
             <button onClick={handleResume} style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Continue from {levelLabel(savedLevel)} →</button>
-            <button onClick={handleStartNew} style={{ width: "100%", padding: 14, borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: `1px solid ${cardBorder}`, color: textDim, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Start Over</button>
+            <button onClick={handleStartNew} style={{ width: "100%", padding: 14, borderRadius: 10, cursor: "pointer", background: "var(--app-tint-soft)", border: `1px solid ${cardBorder}`, color: textDim, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Start Over</button>
             <button onClick={onBack} style={{ width: "100%", padding: 12, borderRadius: 10, cursor: "pointer", background: "transparent", border: "none", color: textDim, fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: 13 }}>← Back</button>
           </div>
         </div>
@@ -712,7 +712,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   if (showLevelComplete && levelCompleteData) {
     const d = levelCompleteData;
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, var(--app-surface) 0%, var(--app-bg) 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
         <canvas ref={confettiCanvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50 }} />
         <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))" }}>
           <div style={{ textAlign: "center" }}>
@@ -735,7 +735,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Completion screen ──
   if (gameState === "complete") {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, var(--app-surface) 0%, var(--app-bg) 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
         <canvas ref={confettiCanvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50 }} />
         <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))" }}>
           <div style={{ textAlign: "center" }}>
@@ -753,7 +753,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
             )}
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <button onClick={handleRestart} style={{ flex: 1, padding: 14, background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink, fontSize: 15, fontWeight: 700, border: "none", borderRadius: 10, cursor: "pointer", fontFamily: "Manrope, sans-serif" }}>Run again</button>
-              <button onClick={onBack} style={{ flex: 1, padding: 14, background: "rgba(255,255,255,0.04)", border: `1px solid ${cardBorder}`, color: textDim, fontSize: 15, fontWeight: 700, borderRadius: 10, cursor: "pointer", fontFamily: "Manrope, sans-serif" }}>← Back</button>
+              <button onClick={onBack} style={{ flex: 1, padding: 14, background: "var(--app-tint-soft)", border: `1px solid ${cardBorder}`, color: textDim, fontSize: 15, fontWeight: 700, borderRadius: 10, cursor: "pointer", fontFamily: "Manrope, sans-serif" }}>← Back</button>
             </div>
           </div>
         </div>
@@ -764,7 +764,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Exit confirm ──
   if (showExitConfirm) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(var(--app-glass-rgb),0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
           <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: textHi, fontFamily: "Manrope, sans-serif" }}>Leave the cascade?</div>
           <div style={{ fontSize: 14, color: textDim, marginBottom: 20, fontFamily: "Manrope, sans-serif" }}>Your progress will be saved so you can resume later.</div>
@@ -783,7 +783,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   const card = currentCard;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, var(--app-surface) 0%, var(--app-bg) 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
       <canvas ref={confettiCanvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50 }} />
 
       <div className={shake ? "cascade-shake" : ""} style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", padding: "max(14px, env(safe-area-inset-top)) clamp(12px, 4vw, 20px) max(14px, env(safe-area-inset-bottom))" }}>
@@ -791,7 +791,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
         {/* Topbar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={() => setShowExitConfirm(true)} style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: `1px solid ${cardBorder}`, color: textDim, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            <button onClick={() => setShowExitConfirm(true)} style={{ width: 28, height: 28, borderRadius: 8, background: "var(--app-tint-soft)", border: `1px solid ${cardBorder}`, color: textDim, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>{levelLabel(currentLevelIdx)}</span>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
@@ -808,7 +808,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
 
         {/* Rail (collapsible) */}
         {railCollapsed ? (
-          <div onClick={() => setRailCollapsed(false)} style={{ position: "relative", background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))", border: `1px solid ${cardBorder}`, borderRadius: 12, height: 36, overflow: "hidden", flexShrink: 0, marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", padding: "0 12px", gap: 10 }}>
+          <div onClick={() => setRailCollapsed(false)} style={{ position: "relative", background: "linear-gradient(180deg, var(--app-tint-soft), var(--app-tint-soft))", border: `1px solid ${cardBorder}`, borderRadius: 12, height: 36, overflow: "hidden", flexShrink: 0, marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", padding: "0 12px", gap: 10 }}>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
               <defs>
                 <linearGradient id="fcCascadeGradMini" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -818,7 +818,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                   <stop offset="100%" stopColor="#4ADE80" />
                 </linearGradient>
               </defs>
-              <path d={pathD} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              <path d={pathD} fill="none" stroke="var(--app-tint-med)" strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
               <path d={pathD} fill="none" stroke="url(#fcCascadeGradMini)" strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ strokeDasharray: 1000, strokeDashoffset: 1000 * (1 - progress), transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
             </svg>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: textDim, zIndex: 2, whiteSpace: "nowrap" }}>{levelLabel(currentLevelIdx)}</span>
@@ -827,7 +827,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: textDim, zIndex: 2 }}>▾</span>
           </div>
         ) : (
-          <div ref={railRef} style={{ position: "relative", background: "radial-gradient(circle at 20% 85%, rgba(0,229,255,0.08), transparent 42%), radial-gradient(circle at 75% 10%, rgba(74,222,128,0.09), transparent 46%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))", border: `1px solid ${cardBorder}`, borderRadius: 16, height: isMobile ? 120 : 140, overflow: "hidden", flexShrink: 0, marginBottom: 10 }}>
+          <div ref={railRef} style={{ position: "relative", background: "radial-gradient(circle at 20% 85%, rgba(0,229,255,0.08), transparent 42%), radial-gradient(circle at 75% 10%, rgba(74,222,128,0.09), transparent 46%), linear-gradient(180deg, var(--app-tint-soft), var(--app-tint-soft))", border: `1px solid ${cardBorder}`, borderRadius: 16, height: isMobile ? 120 : 140, overflow: "hidden", flexShrink: 0, marginBottom: 10 }}>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
               <defs>
                 <linearGradient id="fcCascadeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -837,7 +837,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                   <stop offset="100%" stopColor="#4ADE80" />
                 </linearGradient>
               </defs>
-              <path d={pathD} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="0.6 2.4" vectorEffect="non-scaling-stroke" />
+              <path d={pathD} fill="none" stroke="var(--app-tint-med)" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="0.6 2.4" vectorEffect="non-scaling-stroke" />
               <path d={pathD} fill="none" stroke="url(#fcCascadeGrad)" strokeWidth="1.3" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ strokeDasharray: 1000, strokeDashoffset: 1000 * (1 - progress), transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
             </svg>
             {railPoints.map((p, i) => {
@@ -869,7 +869,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
             })}
             {chipAnim && <CascadeChip from={railPoints[chipAnim.from]} to={railPoints[Math.min(chipAnim.to, railPoints.length - 1)]} color={chipAnim.color} key={chipAnim.ts} onComplete={() => { setChipAnim(null); setRailCollapsed(true); }} />}
             {pingAnim && <CascadePing point={railPoints[Math.min(pingAnim.idx, railPoints.length - 1)]} color={pingAnim.color} double={pingAnim.double} key={pingAnim.ts} onComplete={() => { setPingAnim(null); setRailCollapsed(true); }} />}
-            <button onClick={() => setRailCollapsed(true)} style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 6, background: "rgba(255,255,255,0.06)", border: `1px solid ${cardBorder}`, color: textDim, cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 }}>▴</button>
+            <button onClick={() => setRailCollapsed(true)} style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 6, background: "var(--app-tint-soft)", border: `1px solid ${cardBorder}`, color: textDim, cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 }}>▴</button>
           </div>
         )}
 
@@ -918,14 +918,14 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                     backdropFilter: "blur(20px)",
                     WebkitBackdropFilter: "blur(20px)",
                     border: `0.5px solid ${sc.border}`,
-                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                    borderTop: "1px solid var(--app-tint-soft)",
                     borderLeft: `4px solid ${sc.accent}`,
                     borderRadius: "24px",
                     padding: "48px 36px",
                     display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center",
                     textAlign: "center",
-                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04), 0 0 30px ${sc.bg}`,
+                    boxShadow: `inset 0 1px 0 var(--app-tint-soft), 0 0 30px ${sc.bg}`,
                   }}>
                     <div style={{
                       fontSize: 11, color: sc.text, marginBottom: 20,
@@ -949,18 +949,18 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                     backfaceVisibility: "hidden",
                     WebkitBackfaceVisibility: "hidden",
                     transform: "rotateY(180deg)",
-                    background: "rgba(14,20,17,0.85)",
+                    background: "rgba(var(--app-glass-rgb),0.85)",
                     backdropFilter: "blur(20px)",
                     WebkitBackdropFilter: "blur(20px)",
                     border: `0.5px solid ${sc.border}`,
-                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                    borderTop: "1px solid var(--app-tint-soft)",
                     borderLeft: `4px solid ${sc.accent}`,
                     borderRadius: "24px",
                     padding: "48px 36px",
                     display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center",
                     textAlign: "center",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 30px rgba(102,187,106,0.12)",
+                    boxShadow: "inset 0 1px 0 var(--app-tint-soft), 0 0 30px rgba(102,187,106,0.12)",
                   }}>
                     <div style={{
                       fontSize: 11, color: "#66bb6a", marginBottom: 20,
@@ -987,8 +987,8 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
             {flipped && (
               <div className="fc-fade-in-up" style={{
                 marginTop: 20, padding: "16px 14px", borderRadius: "18px",
-                background: "rgba(13,15,32,0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
-                border: "0.5px solid rgba(255,255,255,0.06)",
+                background: "rgba(var(--app-glass-rgb),0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+                border: "0.5px solid var(--app-tint-soft)",
               }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#9aa2d8", textAlign: "center", marginBottom: 14 }}>
                   How well did you know this?
@@ -1048,13 +1048,13 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
             {/* Previous + Continue buttons */}
             {rating != null && (
               <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                <button onClick={handlePrevious} disabled={historyStack.length === 0} style={{ padding: "13px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: historyStack.length === 0 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: historyStack.length === 0 ? "rgba(139,147,167,0.4)" : textDim, opacity: historyStack.length === 0 ? 0.5 : 1 }}>← Prev</button>
+                <button onClick={handlePrevious} disabled={historyStack.length === 0} style={{ padding: "13px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: historyStack.length === 0 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "var(--app-tint-soft)", color: historyStack.length === 0 ? "rgba(139,147,167,0.4)" : textDim, opacity: historyStack.length === 0 ? 0.5 : 1 }}>← Prev</button>
                 <button onClick={handleContinue} style={{ flex: 1, padding: 13, borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink }}>Continue →</button>
               </div>
             )}
             {rating == null && historyStack.length > 0 && (
               <div style={{ marginTop: 10 }}>
-                <button onClick={handlePrevious} style={{ width: "100%", padding: 10, borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.03)", color: textDim }}>← Previous card</button>
+                <button onClick={handlePrevious} style={{ width: "100%", padding: 10, borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", border: `1px solid ${cardBorder}`, background: "var(--app-tint-soft)", color: textDim }}>← Previous card</button>
               </div>
             )}
           </div>
@@ -1062,11 +1062,11 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
 
         {/* Review previous card overlay */}
         {reviewingCard && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(var(--app-glass-rgb),0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", overflowY: "auto" }}>
             <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", padding: "max(14px, env(safe-area-inset-top)) clamp(12px, 4vw, 20px) max(14px, env(safe-area-inset-bottom))" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>Card {reviewIndex + 1} / {historyStack.length} · {levelLabel(reviewingCard.levelIdx)}</span>
-                <button onClick={handleBackFromReview} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: textDim, cursor: "pointer", fontSize: 12, fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>Back to current →</button>
+                <button onClick={handleBackFromReview} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${cardBorder}`, background: "var(--app-tint-soft)", color: textDim, cursor: "pointer", fontSize: 12, fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>Back to current →</button>
               </div>
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div onClick={() => setReviewingFlipped(f => !f)} style={{ perspective: "1400px", cursor: "pointer", width: "100%", maxWidth: "760px", minHeight: "320px", filter: `drop-shadow(0 24px 50px rgba(0,0,0,0.4)) drop-shadow(0 6px 14px ${sc.bg})` }}>
@@ -1076,11 +1076,11 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                       <div style={{ fontSize: 22, fontWeight: 600, color: "#eef0fb", lineHeight: 1.65 }}>{reviewingCard.card.front}</div>
                       <div style={{ fontSize: 13, color: "#565c8f", marginTop: 28 }}>👆 Tap to flip</div>
                     </div>
-                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "rgba(14,20,17,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: `0.5px solid ${sc.border}`, borderLeft: `4px solid ${sc.accent}`, borderRadius: "24px", padding: "48px 36px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "rgba(var(--app-glass-rgb),0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: `0.5px solid ${sc.border}`, borderLeft: `4px solid ${sc.accent}`, borderRadius: "24px", padding: "48px 36px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
                       <div style={{ fontSize: 11, color: "#66bb6a", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, padding: "5px 14px", borderRadius: "999px", background: "rgba(102,187,106,0.12)", border: "0.5px solid rgba(102,187,106,0.35)" }}>Back</div>
                       <div style={{ fontSize: 18, fontWeight: 500, color: "#b9e8bb", lineHeight: 1.65 }}>{reviewingCard.card.back}</div>
                       {reviewingCard.rating != null && (
-                        <div style={{ marginTop: 20, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.color || textDim, padding: "4px 12px", borderRadius: 8, background: (GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.bg || "rgba(255,255,255,0.05)"), border: `1px solid ${GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.border || cardBorder}` }}>
+                        <div style={{ marginTop: 20, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.color || textDim, padding: "4px 12px", borderRadius: 8, background: (GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.bg || "var(--app-tint-soft)"), border: `1px solid ${GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.border || cardBorder}` }}>
                           {GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.icon} {GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.label}
                         </div>
                       )}
@@ -1089,9 +1089,9 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 14, flexShrink: 0 }}>
-                <button onClick={handleReviewOlder} disabled={reviewIndex <= 0} style={{ padding: "12px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: reviewIndex <= 0 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: reviewIndex <= 0 ? "rgba(139,147,167,0.4)" : textDim, opacity: reviewIndex <= 0 ? 0.5 : 1 }}>← Older</button>
+                <button onClick={handleReviewOlder} disabled={reviewIndex <= 0} style={{ padding: "12px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: reviewIndex <= 0 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "var(--app-tint-soft)", color: reviewIndex <= 0 ? "rgba(139,147,167,0.4)" : textDim, opacity: reviewIndex <= 0 ? 0.5 : 1 }}>← Older</button>
                 <button onClick={handleBackFromReview} style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Back to current →</button>
-                <button onClick={handleReviewNewer} disabled={reviewIndex >= historyStack.length - 1} style={{ padding: "12px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: reviewIndex >= historyStack.length - 1 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: reviewIndex >= historyStack.length - 1 ? "rgba(139,147,167,0.4)" : textDim, opacity: reviewIndex >= historyStack.length - 1 ? 0.5 : 1 }}>Newer →</button>
+                <button onClick={handleReviewNewer} disabled={reviewIndex >= historyStack.length - 1} style={{ padding: "12px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: reviewIndex >= historyStack.length - 1 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "var(--app-tint-soft)", color: reviewIndex >= historyStack.length - 1 ? "rgba(139,147,167,0.4)" : textDim, opacity: reviewIndex >= historyStack.length - 1 ? 0.5 : 1 }}>Newer →</button>
               </div>
             </div>
           </div>
@@ -1099,7 +1099,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
 
         {/* Level transition overlay */}
         {showLevelTransition && levelTransitionData && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(10,10,10,0.7)", backdropFilter: "blur(6px)" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(var(--app-glass-rgb),0.7)", backdropFilter: "blur(6px)" }}>
             <div className="cascade-level-slide" style={{ textAlign: "center" }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: levelTransitionData.color, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>Now entering</div>
               <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 42, fontWeight: 800, color: levelTransitionData.color, textShadow: `0 0 30px ${levelTransitionData.color}55` }}>{levelTransitionData.label}</div>

@@ -772,7 +772,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       {notice && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", maxWidth: "calc(100vw - 32px)" }}
+          style={{ background: "var(--app-surface)", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", maxWidth: "calc(100vw - 32px)" }}
           role="status"
         >
           <span className="truncate">{notice}</span>

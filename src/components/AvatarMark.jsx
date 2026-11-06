@@ -24,7 +24,7 @@ export default function AvatarMark({ avatar, name = "?", size = 38, color, class
     width: size, height: size, borderRadius: "50%", overflow: "hidden",
     display: "flex", alignItems: "center", justifyContent: "center",
     background: def || isEmoji(avatar) ? "none" : color || COLORS[nameHash(display) % COLORS.length],
-    color: "#fff", fontWeight: 700, fontSize: size * 0.36, flexShrink: 0,
+    color: "var(--app-text)", fontWeight: 700, fontSize: size * 0.36, flexShrink: 0,
     fontFamily: "inherit", lineHeight: 1, userSelect: "none",
     ...style,
   };

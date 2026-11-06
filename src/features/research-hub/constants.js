@@ -13,16 +13,16 @@ export const PRESET_SUBJECTS = [
 ];
 
 export const contentTypeConfig = {
-  pdf: { label: "PDF", icon: "📄", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  image: { label: "Image", icon: "🖼", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  docx: { label: "DOCX", icon: "📝", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  pptx: { label: "PPT", icon: "📊", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  txt: { label: "Text", icon: "📃", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  note: { label: "Note", icon: "📝", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  mcq: { label: "Rapid Recall", icon: "✎", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  flashcard_deck: { label: "Flashcards", icon: "🎴", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  tutorial_question: { label: "Tutorial Q", icon: "❓", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  exam: { label: "Exam", icon: "🎓", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  pdf: { label: "PDF", icon: "📄", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  image: { label: "Image", icon: "🖼", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  docx: { label: "DOCX", icon: "📝", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  pptx: { label: "PPT", icon: "📊", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  txt: { label: "Text", icon: "📃", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  note: { label: "Note", icon: "📝", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  mcq: { label: "Rapid Recall", icon: "✎", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  flashcard_deck: { label: "Flashcards", icon: "🎴", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  tutorial_question: { label: "Tutorial Q", icon: "❓", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  exam: { label: "Exam", icon: "🎓", bg: "var(--app-card)", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
 };
 
 export function formatRelativeDate(dateStr) {

@@ -3236,7 +3236,7 @@ Passage:
         .sc-chips-row::-webkit-scrollbar { display: none; }
         .sc-shimmer-bar::after {
           content: ""; position: absolute; inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+          background: linear-gradient(90deg, transparent, var(--app-tint-strong), transparent);
           background-size: 200% 100%; animation: sc-shimmer 2s infinite;
         }
         .page-anim-exit-next { animation: slideExitLeft 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
@@ -3833,7 +3833,7 @@ Passage:
                         ...s.themeSwatch,
                         background: THEMES.light.bg,
                         color: THEMES.light.text,
-                        borderColor: theme === "light" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        borderColor: theme === "light" ? CHROME.blue : "var(--app-tint-med)",
                         boxShadow: theme === "light" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
                       onClick={() => { setTheme("light"); }}
@@ -3845,7 +3845,7 @@ Passage:
                         ...s.themeSwatch,
                         background: THEMES.dim.bg,
                         color: THEMES.dim.text,
-                        borderColor: theme === "dim" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        borderColor: theme === "dim" ? CHROME.blue : "var(--app-tint-med)",
                         boxShadow: theme === "dim" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
                       onClick={() => { setTheme("dim"); }}
@@ -3858,7 +3858,7 @@ Passage:
                         ...s.themeSwatch,
                         background: THEMES.dark.bg,
                         color: THEMES.dark.text,
-                        borderColor: theme === "dark" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        borderColor: theme === "dark" ? CHROME.blue : "var(--app-tint-med)",
                         boxShadow: theme === "dark" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
                       onClick={() => { setTheme("dark"); }}
@@ -3871,7 +3871,7 @@ Passage:
                         ...s.themeSwatch,
                         background: THEMES.sepia.bg,
                         color: THEMES.sepia.text,
-                        borderColor: theme === "sepia" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        borderColor: theme === "sepia" ? CHROME.blue : "var(--app-tint-med)",
                         boxShadow: theme === "sepia" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
                       onClick={() => { setTheme("sepia"); }}
@@ -4289,7 +4289,7 @@ Passage:
           style={{
             position: "fixed", bottom: isMobile ? 100 : 30, left: "50%", transform: "translateX(-50%)",
             zIndex: 400, background: deckToast.type === "error" ? "#5a1f28" : "#123a24",
-            color: "#fff", padding: "10px 18px", borderRadius: 999, fontSize: 12.5, fontWeight: 600,
+            color: "var(--app-text)", padding: "10px 18px", borderRadius: 999, fontSize: 12.5, fontWeight: 600,
             boxShadow: "0 8px 26px rgba(0,0,0,0.4)", maxWidth: "92vw", textAlign: "center",
           }}
         >
@@ -4302,7 +4302,7 @@ Passage:
         <div
           style={{
             position: "fixed", bottom: isMobile ? 160 : 80, left: "50%", transform: "translateX(-50%)",
-            zIndex: 400, background: "#123a24", color: "#fff", padding: "9px 16px", borderRadius: 999,
+            zIndex: 400, background: "#123a24", color: "var(--app-text)", padding: "9px 16px", borderRadius: 999,
             fontSize: 12, fontWeight: 600, boxShadow: "0 8px 26px rgba(0,0,0,0.4)",
             display: "flex", alignItems: "center", gap: 8, maxWidth: "92vw",
           }}
@@ -5428,7 +5428,7 @@ Passage:
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              background: "rgba(8, 11, 18, 0.55)",
+              background: "rgba(var(--app-glass-rgb),0.55)",
               backdropFilter: "blur(24px) saturate(1.15)",
               WebkitBackdropFilter: "blur(24px) saturate(1.15)",
               padding: "0 16px",
@@ -5443,8 +5443,8 @@ Passage:
                 gap: 8,
                 padding: "7px 14px",
                 borderRadius: 999,
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                background: "var(--app-tint-med)",
+                border: "1px solid var(--app-tint-med)",
                 backdropFilter: "blur(12px)",
                 WebkitBackdropFilter: "blur(12px)",
                 fontSize: 12.5,
@@ -5463,8 +5463,8 @@ Passage:
                 right: 20,
                 padding: "7px 14px",
                 borderRadius: 999,
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                background: "var(--app-tint-med)",
+                border: "1px solid var(--app-tint-med)",
                 backdropFilter: "blur(12px)",
                 WebkitBackdropFilter: "blur(12px)",
                 fontSize: 12.5,
@@ -5499,8 +5499,8 @@ Passage:
                 marginTop: 18,
                 padding: "8px 18px",
                 borderRadius: 999,
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                background: "var(--app-tint-med)",
+                border: "1px solid var(--app-tint-med)",
                 backdropFilter: "blur(12px)",
                 WebkitBackdropFilter: "blur(12px)",
                 fontSize: 13,
@@ -5530,8 +5530,8 @@ Passage:
                   overflowY: "auto",
                   padding: "10px 12px",
                   borderRadius: 18,
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.09)",
+                  background: "var(--app-tint-soft)",
+                  border: "1px solid var(--app-tint-med)",
                 }}>
                   <TranscriptOverlay transcript={voice.transcript} />
                 </div>
@@ -5547,8 +5547,8 @@ Passage:
                   gap: 6,
                   padding: 6,
                   borderRadius: 999,
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "var(--app-tint-med)",
+                  border: "1px solid var(--app-tint-med)",
                   backdropFilter: "blur(12px)",
                   WebkitBackdropFilter: "blur(12px)",
                 }}>
@@ -5604,8 +5604,8 @@ Passage:
                 alignItems: "center",
                 padding: "8px 10px",
                 borderRadius: 999,
-                background: "rgba(13, 17, 26, 0.55)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(var(--app-glass-rgb),0.55)",
+                border: "1px solid var(--app-tint-med)",
                 backdropFilter: "blur(16px)",
                 WebkitBackdropFilter: "blur(16px)",
                 boxShadow: "0 12px 32px rgba(0,0,0,0.3)",
@@ -5616,7 +5616,7 @@ Passage:
                     width: 44,
                     height: 44,
                     borderRadius: "50%",
-                    border: voice.handsFreeMode ? "none" : "1px solid rgba(255,255,255,0.12)",
+                    border: voice.handsFreeMode ? "none" : "1px solid var(--app-tint-med)",
                     background: voice.handsFreeMode ? COLORS.electric : "transparent",
                     color: voice.handsFreeMode ? "white" : COLORS.textDim,
                     cursor: "pointer",
@@ -5643,7 +5643,7 @@ Passage:
                       height: 52,
                       borderRadius: "50%",
                       border: "none",
-                      background: voice.state === VOICE_STATES.LISTENING ? COLORS.electric : "rgba(255,255,255,0.09)",
+                      background: voice.state === VOICE_STATES.LISTENING ? COLORS.electric : "var(--app-tint-med)",
                       color: voice.state === VOICE_STATES.LISTENING ? "white" : COLORS.text,
                       cursor: "pointer",
                       display: "flex",
@@ -5668,7 +5668,7 @@ Passage:
                     width: 44,
                     height: 44,
                     borderRadius: "50%",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    border: "1px solid var(--app-tint-med)",
                     background: "transparent",
                     color: COLORS.textDim,
                     cursor: "pointer",
@@ -5741,8 +5741,8 @@ Passage:
               gap: 10,
               padding: "7px 10px 7px 8px",
               borderRadius: 999,
-              background: "rgba(13, 17, 26, 0.72)",
-              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(var(--app-glass-rgb),0.72)",
+              border: "1px solid var(--app-tint-med)",
               backdropFilter: "blur(16px)",
               WebkitBackdropFilter: "blur(16px)",
               boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
@@ -5789,7 +5789,7 @@ Passage:
               <button
                 style={{
                   width: 30, height: 30, borderRadius: "50%", border: "none",
-                  background: "rgba(255,255,255,0.08)", color: COLORS.textDim,
+                  background: "var(--app-tint-med)", color: COLORS.textDim,
                   cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                 }}
                 onClick={handleVoiceExpand}

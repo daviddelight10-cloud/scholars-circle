@@ -730,7 +730,7 @@ export default function EmbeddedRoadmapView({
       {/* Roadmap header — stacked so nothing overflows the page on mobile */}
       <div className="rm-head">
         <div className="rm-head-title">
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "'Lora', Georgia, serif", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--app-text)", fontFamily: "'Lora', Georgia, serif", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             Roadmap
             {courseCode && !editingCode && (
               <span style={{
@@ -753,16 +753,16 @@ export default function EmbeddedRoadmapView({
           {editingCode ? (
             <div style={{ marginTop: 8 }}>{codeEditor}</div>
           ) : (
-            <p style={{ fontSize: 11, color: "#646E84", margin: "2px 0 0", fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <p style={{ fontSize: 11, color: "var(--app-faint)", margin: "2px 0 0", fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span>{topics.length} topics · {stats?.mastered || 0} mastered</span>
               <button
                 onClick={() => { setExamInput(prefs?.examDate ? prefs.examDate.slice(0, 10) : ""); setExamOpen(true); }}
                 title={prefs?.examDate ? "Change exam date" : "Set an exam date for pacing"}
                 style={{
                   background: prefs?.examDate ? "rgba(245,166,35,0.10)" : "transparent",
-                  border: `0.5px solid ${prefs?.examDate ? "rgba(245,166,35,0.3)" : "rgba(255,255,255,0.10)"}`,
+                  border: `0.5px solid ${prefs?.examDate ? "rgba(245,166,35,0.3)" : "var(--app-tint-med)"}`,
                   borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: "'Inter', sans-serif",
-                  color: prefs?.examDate ? "#F5A623" : "#646E84", cursor: "pointer",
+                  color: prefs?.examDate ? "#F5A623" : "var(--app-faint)", cursor: "pointer",
                 }}
               >
                 📅 {prefs?.examDate
@@ -772,7 +772,7 @@ export default function EmbeddedRoadmapView({
             </p>
           )}
           {pacing && !pacing.overdue && pacing.remaining > 0 && (
-            <p style={{ fontSize: 10, color: "#646E84", margin: "3px 0 0", fontFamily: "'Inter', sans-serif" }}>
+            <p style={{ fontSize: 10, color: "var(--app-faint)", margin: "3px 0 0", fontFamily: "'Inter', sans-serif" }}>
               {pacing.daysLeft}d left · ~{pacing.perWeek} topic{pacing.perWeek === 1 ? "" : "s"}/wk to finish
             </p>
           )}
@@ -844,7 +844,7 @@ export default function EmbeddedRoadmapView({
       {/* Regenerate prompt */}
       {showRegenPrompt && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 100, background: "rgba(7,9,13,0.7)",
+          position: "fixed", inset: 0, zIndex: 100, background: "rgba(var(--app-glass-rgb),0.7)",
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }} onClick={() => setShowRegenPrompt(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{
@@ -863,7 +863,7 @@ export default function EmbeddedRoadmapView({
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button onClick={() => { setShowRegenPrompt(false); fileInputRef.current?.click(); }} style={{
                 background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none", borderRadius: 10,
-                padding: "12px 20px", fontSize: 13, fontWeight: 600, color: "#0a0a0a",
+                padding: "12px 20px", fontSize: 13, fontWeight: 600, color: "var(--app-ink)",
                 cursor: "pointer", fontFamily: FONTS.body,
               }}>
                 📎 Upload outline — merge new topics
@@ -955,10 +955,10 @@ export default function EmbeddedRoadmapView({
               <div style={{ position: "absolute", top: -16, right: -16, width: 80, height: 80, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.2), transparent 70%)", pointerEvents: "none" }} />
               <div style={{ position: "relative" }}>
                 <span className="sp-start-chip">START HERE</span>
-                <h4 style={{ color: "#fff", fontSize: 16, fontWeight: 700, marginTop: 8, marginBottom: 0, fontFamily: "'Lora', Georgia, serif" }}>
+                <h4 style={{ color: "var(--app-text)", fontSize: 16, fontWeight: 700, marginTop: 8, marginBottom: 0, fontFamily: "'Lora', Georgia, serif" }}>
                   {startHereTopic.title}
                 </h4>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, fontSize: 10, color: "#9AA3B5", fontFamily: "'Inter', sans-serif" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, fontSize: 10, color: "var(--app-dim)", fontFamily: "'Inter', sans-serif" }}>
                   <span>📄 {(matchesByTopic.get(startHereTopic.id) || []).length} docs</span>
                   <span style={{ color: "#3DD68C" }}>● {progress?.[startHereTopic.id]?.label || "New"}</span>
                 </div>
@@ -984,8 +984,8 @@ export default function EmbeddedRoadmapView({
                     style={{
                       flexShrink: 0, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 600,
                       fontFamily: "'Inter', sans-serif", cursor: "pointer",
-                      border: `0.5px solid ${filterChip === key ? "rgba(245,166,35,0.4)" : "rgba(255,255,255,0.08)"}`,
-                      background: filterChip === key ? "rgba(245,166,35,0.12)" : "rgba(255,255,255,0.02)",
+                      border: `0.5px solid ${filterChip === key ? "rgba(245,166,35,0.4)" : "var(--app-tint-med)"}`,
+                      background: filterChip === key ? "rgba(245,166,35,0.12)" : "var(--app-tint-soft)",
                       color: filterChip === key ? "#F5A623" : "#8A8F9C",
                     }}
                   >
@@ -1003,7 +1003,7 @@ export default function EmbeddedRoadmapView({
             style={{ marginTop: 12 }}
           >
             {filteredTopics.length === 0 && (
-              <div style={{ padding: "20px 0", textAlign: "center", fontSize: 12, color: "#646E84", fontFamily: "'Inter', sans-serif" }}>
+              <div style={{ padding: "20px 0", textAlign: "center", fontSize: 12, color: "var(--app-faint)", fontFamily: "'Inter', sans-serif" }}>
                 No topics match {searchQ.trim() ? `“${searchQ.trim()}”` : "this filter"}.
               </div>
             )}
@@ -1019,7 +1019,7 @@ export default function EmbeddedRoadmapView({
                   ? { background: "rgba(224,165,38,0.12)", color: "#E0A526", borderColor: "rgba(224,165,38,0.25)" }
                   : pct > 0
                     ? { background: "rgba(245,166,35,0.12)", color: "#F5A623", borderColor: "rgba(245,166,35,0.2)" }
-                    : { background: "rgba(255,255,255,0.03)", color: "#646E84", borderColor: "rgba(255,255,255,0.07)" };
+                    : { background: "var(--app-tint-soft)", color: "var(--app-faint)", borderColor: "var(--app-tint-med)" };
               const isLast = idx === filteredTopics.length - 1;
               const C = 2 * Math.PI * 16; // r=16 ring
               return (
@@ -1040,7 +1040,7 @@ export default function EmbeddedRoadmapView({
                         disabled={idx === 0}
                         onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, -1); }}
                         style={{
-                          background: "transparent", border: "none", color: idx === 0 ? "#3a4150" : "#9AA3B5",
+                          background: "transparent", border: "none", color: idx === 0 ? "#3a4150" : "var(--app-dim)",
                           cursor: idx === 0 ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
                         }}
                       >
@@ -1050,7 +1050,7 @@ export default function EmbeddedRoadmapView({
                         aria-label={`Drag to reorder ${topic.title}`}
                         onPointerDown={(e) => handleDragStart(e, topic.id)}
                         style={{
-                          background: "transparent", border: "none", color: "#646E84",
+                          background: "transparent", border: "none", color: "var(--app-faint)",
                           cursor: "grab", fontSize: 15, padding: "4px 2px",
                           touchAction: "none",
                         }}
@@ -1062,7 +1062,7 @@ export default function EmbeddedRoadmapView({
                         disabled={isLast}
                         onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, 1); }}
                         style={{
-                          background: "transparent", border: "none", color: isLast ? "#3a4150" : "#9AA3B5",
+                          background: "transparent", border: "none", color: isLast ? "#3a4150" : "var(--app-dim)",
                           cursor: isLast ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
                         }}
                       >
@@ -1073,24 +1073,24 @@ export default function EmbeddedRoadmapView({
                   {/* Ring node on the spine — connector drops from its bottom to the next node */}
                   <div className="sp-spine-node">
                     <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: "block", background: "transparent" }}>
-                      <circle cx="20" cy="20" r="16" fill="#10141C" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+                      <circle cx="20" cy="20" r="16" fill="#10141C" stroke="var(--app-tint-med)" strokeWidth="3" />
                       <circle cx="20" cy="20" r="16" fill="none" stroke={ringColor} strokeWidth="3" strokeLinecap="round"
                         strokeDasharray={C.toFixed(1)} strokeDashoffset={(C * (1 - pct / 100)).toFixed(1)}
                         transform="rotate(-90 20 20)" />
                     </svg>
                     <div style={{
                       position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 9, fontWeight: 700, color: pct > 0 ? ringColor : "#646E84",
+                      fontSize: 9, fontWeight: 700, color: pct > 0 ? ringColor : "var(--app-faint)",
                     }}>
                       {pct}%
                     </div>
                     {!isLast && !editMode && <div className="sp-spine-line" />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 600, color: "#EDEFF5", margin: 0, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--app-text)", margin: 0, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {topic.title}
                     </h3>
-                    <p style={{ fontSize: 10, margin: "2px 0 0", fontFamily: "'Inter', sans-serif", color: pct > 0 ? ringColor : "#646E84" }}>
+                    <p style={{ fontSize: 10, margin: "2px 0 0", fontFamily: "'Inter', sans-serif", color: pct > 0 ? ringColor : "var(--app-faint)" }}>
                       {label} · {docCount} doc{docCount === 1 ? "" : "s"}
                     </p>
                   </div>
@@ -1115,13 +1115,13 @@ export default function EmbeddedRoadmapView({
               onClick={() => setEditTopic("new")}
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 12,
-                border: "1px dashed rgba(255,255,255,0.15)", background: "transparent",
-                color: "#646E84", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                border: "1px dashed var(--app-tint-strong)", background: "transparent",
+                color: "var(--app-faint)", fontSize: 12, fontWeight: 600, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 fontFamily: "'Inter', sans-serif", transition: "all 0.2s",
               }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F5A623"; e.currentTarget.style.color = "#F5A623"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "#646E84"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--app-tint-strong)"; e.currentTarget.style.color = "#646E84"; }}
             >
               + Add Topic
             </button>
@@ -1130,8 +1130,8 @@ export default function EmbeddedRoadmapView({
               disabled={generating || uploading}
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.07)", background: "#1a1a1c",
-                color: "#EDEFF5", fontSize: 12, fontWeight: 600, cursor: generating ? "not-allowed" : "pointer",
+                border: "1px solid var(--app-tint-med)", background: "var(--app-card)",
+                color: "var(--app-text)", fontSize: 12, fontWeight: 600, cursor: generating ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 fontFamily: "'Inter', sans-serif", transition: "background 0.2s",
                 opacity: generating || uploading ? 0.5 : 1,

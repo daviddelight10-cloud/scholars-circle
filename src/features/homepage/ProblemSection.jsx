@@ -4,14 +4,14 @@ export default function ProblemSection() {
   return (
     <section id="problem" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #0D0E18 100%)'
+      background: 'linear-gradient(180deg, var(--app-bg) 0%, var(--app-surface) 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
           <h2 style={{
             fontSize: 'clamp(1.875rem, 4vw, 3rem)',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--app-text)',
             marginBottom: '16px'
           }}>
             The Problem Medical Students Face
@@ -34,13 +34,13 @@ export default function ProblemSection() {
           marginBottom: '64px'
         }}>
           <div style={{
-            background: 'linear-gradient(145deg, rgba(239, 68, 68, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(239, 68, 68, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(239, 68, 68, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>📖</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               Information Overload
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -50,13 +50,13 @@ export default function ProblemSection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(249, 115, 22, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(249, 115, 22, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(249, 115, 22, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>😫</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               No Clinical Reasoning Practice
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -66,13 +66,13 @@ export default function ProblemSection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(250, 204, 21, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(250, 204, 21, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(250, 204, 21, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>⏰</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               Exam Anxiety & Poor Prep
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -95,7 +95,7 @@ export default function ProblemSection() {
             alignItems: 'center'
           }}>
             <div>
-              <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--app-text)', marginBottom: '16px' }}>
                 Scholar's Circle: The Medical Solution
               </h3>
               <p style={{ color: '#cbd5e1', marginBottom: '24px' }}>
@@ -127,7 +127,7 @@ export default function ProblemSection() {
               gap: '16px'
             }}>
               <div style={{
-                background: 'rgba(20, 20, 20, 0.5)',
+                background: 'rgba(var(--app-glass-rgb),0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'
@@ -136,7 +136,7 @@ export default function ProblemSection() {
                 <div style={{ color: '#94a3b8', fontSize: '14px' }}>Faster Clinical Recall</div>
               </div>
               <div style={{
-                background: 'rgba(20, 20, 20, 0.5)',
+                background: 'rgba(var(--app-glass-rgb),0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'
@@ -145,7 +145,7 @@ export default function ProblemSection() {
                 <div style={{ color: '#94a3b8', fontSize: '14px' }}>Better Retention</div>
               </div>
               <div style={{
-                background: 'rgba(20, 20, 20, 0.5)',
+                background: 'rgba(var(--app-glass-rgb),0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'
@@ -154,7 +154,7 @@ export default function ProblemSection() {
                 <div style={{ color: '#94a3b8', fontSize: '14px' }}>Medical Programs</div>
               </div>
               <div style={{
-                background: 'rgba(20, 20, 20, 0.5)',
+                background: 'rgba(var(--app-glass-rgb),0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'

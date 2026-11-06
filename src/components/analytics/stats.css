@@ -3,13 +3,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
 
 .sd-root {
-  --sd-screen: #0a0a0a;
-  --sd-card: rgba(255,255,255,.035);
-  --sd-stroke: rgba(255,255,255,.09);
-  --sd-stroke-soft: rgba(255,255,255,.06);
-  --sd-text: #F5F5F7;
-  --sd-muted: #8B8B98;
-  --sd-faint: #5B5B66;
+  --sd-screen: var(--app-bg);
+  --sd-card: var(--app-tint-soft);
+  --sd-stroke: var(--app-line);
+  --sd-stroke-soft: var(--app-tint-med);
+  --sd-text: var(--app-text);
+  --sd-muted: var(--app-dim);
+  --sd-faint: var(--app-faint);
   --sd-amber: #FFB547;
   --sd-blue: #6C9EFF;
   --sd-green: #4ADE80;
@@ -94,7 +94,7 @@
 .sd-dot { width: 8px; height: 8px; border-radius: 3px; display: inline-block; }
 
 /* XP bar */
-.sd-xpbar { height: 9px; border-radius: 5px; background: rgba(255,255,255,.06); overflow: hidden; }
+.sd-xpbar { height: 9px; border-radius: 5px; background: var(--app-tint-soft); overflow: hidden; }
 .sd-xpbar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg,#FFC55C,#F5A623); transition: width .4s; }
 
 /* Daily goal */
@@ -102,7 +102,7 @@
 .sd-goal {
   flex: 1; padding: 10px; border-radius: 11px; cursor: pointer;
   font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
-  background: rgba(255,255,255,.03); color: var(--sd-muted); border: 1px solid var(--sd-stroke-soft);
+  background: var(--app-tint-soft); color: var(--sd-muted); border: 1px solid var(--sd-stroke-soft);
   transition: all .15s;
 }
 .sd-goal.on { color: #211302; background: linear-gradient(180deg,#FFC55C,#F5A623); border-color: transparent; }
@@ -113,7 +113,7 @@
 .sd-subj-info { flex: 1; min-width: 0; }
 .sd-subj-info h4 { font-size: 12.5px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sd-subj-info span { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--sd-faint); }
-.sd-subj-bar { width: 90px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.06); overflow: hidden; flex-shrink: 0; }
+.sd-subj-bar { width: 90px; height: 6px; border-radius: 3px; background: var(--app-tint-soft); overflow: hidden; flex-shrink: 0; }
 .sd-subj-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg,#4ADE80,#22c55e); }
 .sd-subj-pct { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: var(--sd-green); width: 34px; text-align: right; flex-shrink: 0; }
 
@@ -132,7 +132,7 @@
 
 .sd-badge {
   position: relative; display: flex; gap: 9px; align-items: flex-start;
-  background: rgba(255,255,255,.025); border: 1px solid var(--sd-stroke-soft);
+  background: var(--app-tint-soft); border: 1px solid var(--sd-stroke-soft);
   border-radius: 12px; padding: 10px 10px 9px;
 }
 .sd-badge-ic {
@@ -144,7 +144,7 @@
 .sd-badge-desc { display: block; font-size: 10px; color: var(--sd-faint); line-height: 1.35; margin-top: 2px; }
 
 .sd-badge-prog { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-.sd-badge-bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.07); overflow: hidden; }
+.sd-badge-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--app-tint-med); overflow: hidden; }
 .sd-badge-bar i { display: block; height: 100%; border-radius: 2px; background: var(--sd-blue); }
 .sd-badge-prog em { font-family: 'JetBrains Mono', monospace; font-style: normal; font-size: 8.5px; color: var(--sd-faint); }
 

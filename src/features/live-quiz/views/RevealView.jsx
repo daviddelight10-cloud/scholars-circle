@@ -103,7 +103,7 @@ export default function RevealView({ room, myId, actions }) {
         <div className="lq-explain">
           <p className="lq-explain-title">WHY {r.correct}</p>
           <p className="lq-explain-text">{r.explanation}</p>
-          <p style={{ fontSize: 11, color: "#6B7280", marginTop: 8, marginBottom: 0 }}>
+          <p style={{ fontSize: 11, color: "var(--app-dim)", marginTop: 8, marginBottom: 0 }}>
             {myPick
               ? <>You answered with <strong style={{ color: confColor(myPick.confidence) }}>{myPick.confidence}</strong> confidence.</>
               : "You ran out of time."}
@@ -115,7 +115,7 @@ export default function RevealView({ room, myId, actions }) {
       {iAmTeacher && !tbSent && (
         <div className="lq-teachback">
           <p className="lq-ready-text" style={{ color: "#3DD68C" }}>Teach Back Time!</p>
-          <p style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", margin: 0 }}>
+          <p style={{ fontSize: 12, color: "var(--app-dim)", textAlign: "center", margin: 0 }}>
             You got it right! Explain to the group why.
           </p>
           <textarea
@@ -141,7 +141,7 @@ export default function RevealView({ room, myId, actions }) {
       {teacherWaiting && !room.teachBack?.text && (
         <div className="lq-teachback" style={{ background: "rgba(255,107,94,0.05)", borderColor: "rgba(255,107,94,0.2)" }}>
           <p className="lq-ready-text" style={{ color: "#FF6B5E" }}>Teach Back Time!</p>
-          <p style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", margin: 0 }}>
+          <p style={{ fontSize: 12, color: "var(--app-dim)", textAlign: "center", margin: 0 }}>
             {teacher?.username} got it right. Waiting for their explanation…
           </p>
         </div>

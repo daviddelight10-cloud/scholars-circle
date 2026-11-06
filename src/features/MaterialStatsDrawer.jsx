@@ -6,7 +6,7 @@ import McIcon from "./research-hub/McIcon.jsx";
 import AvatarMark from "../components/AvatarMark.jsx";
 
 const C = {
-  bg: "#0B0B0D", card: "#151518", line: "#26262B",
+  bg: "var(--app-bg)", card: "var(--app-card)", line: "var(--app-border)",
   text: "#F2F0EA", muted: "#8A8F9C", hint: "#5B606C",
   gold: "#DAA520", goldBright: "#FFD700",
   green: "#34d399", red: "#f87171", orange: "#fb923c", purple: "#c084fc", teal: "#5eead4", pink: "#f48fb1",
@@ -35,7 +35,7 @@ function MiniChart({ days, data }) {
         const isToday = day === new Date().toDateString();
         return (
           <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }} title={`${d.getMonth() + 1}/${d.getDate()}: ${data[i]} views`}>
-            <div style={{ width: "100%", height: `${Math.max(3, (data[i] / max) * 48)}px`, background: isToday ? C.gold : "#3A3A41", borderRadius: 2 }} />
+            <div style={{ width: "100%", height: `${Math.max(3, (data[i] / max) * 48)}px`, background: isToday ? C.gold : "var(--app-border)", borderRadius: 2 }} />
             {i % 5 === 0 && <div style={{ fontSize: 7.5, color: C.hint }}>{d.getMonth() + 1}/{d.getDate()}</div>}
           </div>
         );
@@ -111,7 +111,7 @@ function StudentPanel({ student, studentId, resourceTitle, token, onBack }) {
         <McIcon name="chev-r" size={13} style={{ transform: "rotate(180deg)" }} /> Back to stats
       </button>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <AvatarMark avatar={s.avatar} name={s.name} size={46} style={{ background: s.avatar ? "none" : "linear-gradient(135deg,#DAA520,#8a6d0b)", color: s.avatar ? undefined : "#0B0B0D" }} />
+        <AvatarMark avatar={s.avatar} name={s.name} size={46} style={{ background: s.avatar ? "none" : "linear-gradient(135deg,#DAA520,#8a6d0b)", color: s.avatar ? undefined : "var(--app-ink)" }} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "Syne,sans-serif", lineHeight: 1.25 }}>{s.name}</div>
           {s.username && <div style={{ fontSize: 10.5, color: C.hint }}>@{s.username}</div>}
@@ -188,7 +188,7 @@ function StudentPanel({ student, studentId, resourceTitle, token, onBack }) {
             />
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button onClick={() => { setMsgOpen(false); setDraft(""); }} style={{ flex: 1, background: "none", border: `0.5px solid ${C.line}`, color: C.muted, borderRadius: 8, padding: "8px 0", fontSize: 11.5, cursor: "pointer" }}>Cancel</button>
-              <button onClick={sendMessage} disabled={sending || !draft.trim()} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: draft.trim() ? "linear-gradient(135deg,#FFD700,#DAA520)" : C.card, border: "none", color: draft.trim() ? "#0B0B0D" : C.hint, borderRadius: 8, padding: "8px 0", fontSize: 11.5, fontWeight: 700, cursor: sending ? "wait" : "pointer" }}>
+              <button onClick={sendMessage} disabled={sending || !draft.trim()} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: draft.trim() ? "linear-gradient(135deg,#FFD700,#DAA520)" : C.card, border: "none", color: draft.trim() ? "var(--app-ink)" : C.hint, borderRadius: 8, padding: "8px 0", fontSize: 11.5, fontWeight: 700, cursor: sending ? "wait" : "pointer" }}>
                 <McIcon name="send" size={12} /> {sending ? "Sending…" : "Send"}
               </button>
             </div>
@@ -217,7 +217,7 @@ export default function MaterialStatsDrawer({ resourceId, token, onClose }) {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(5,6,12,0.7)", zIndex: 400 }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.7)", zIndex: 400 }} />
       <div style={{
         position: "fixed", top: 0, right: 0, bottom: 0, width: "min(440px,100vw)",
         background: C.bg, borderLeft: `0.5px solid ${C.line}`, zIndex: 401,

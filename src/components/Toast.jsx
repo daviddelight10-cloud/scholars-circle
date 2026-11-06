@@ -106,7 +106,7 @@ function ToastItem({ toast, onDismiss }) {
         borderRadius: 10,
         background: colors.bg,
         border: `1px solid ${colors.border}`,
-        color: "#fff",
+        color: "var(--app-text)",
         fontSize: 13,
         fontWeight: 500,
         display: "flex",
@@ -122,7 +122,7 @@ function ToastItem({ toast, onDismiss }) {
     >
       <span style={{
         width: 24, height: 24, borderRadius: "50%",
-        background: "rgba(255,255,255,0.2)",
+        background: "var(--app-tint-strong)",
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 13, fontWeight: 700, flexShrink: 0,
       }}>

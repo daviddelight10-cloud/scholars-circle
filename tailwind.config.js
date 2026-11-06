@@ -7,36 +7,39 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Dark theme palette matching existing constants.js
+        // Theme tokens — resolve through the --app-* vars defined in
+        // styles.css (:root dark defaults, html[data-theme="light"] overrides)
         hub: {
-          bg: "#0a0a0a",
-          surface: "#141414",
-          "surface-hover": "#1a1a1a",
-          border: "#2a2a2a",
-          "border-active": "#FFD700",
-          text: "#e8e8e8",
-          "text-muted": "#888888",
-          "text-dim": "#555555",
-          "text-bright": "#FFD700",
+          bg: "var(--app-bg)",
+          surface: "var(--app-surface)",
+          "surface-95": "color-mix(in srgb, var(--app-surface) 95%, transparent)",
+          "surface-hover": "var(--app-surface-hover)",
+          border: "var(--app-border)",
+          "border-active": "var(--app-accent)",
+          text: "var(--app-text)",
+          "text-muted": "var(--app-dim)",
+          "text-dim": "var(--app-faint)",
+          "text-bright": "var(--app-accent)",
         },
         gold: {
-          DEFAULT: "#FFD700",
-          dim: "rgba(255,215,0,0.15)",
-          border: "rgba(255,215,0,0.35)",
+          DEFAULT: "var(--app-accent)",
+          fill: "var(--app-accent-fill)",
+          dim: "var(--app-accent-soft)",
+          border: "var(--app-accent-line)",
         },
         coral: {
-          DEFAULT: "#ef4444",
+          DEFAULT: "var(--app-red)",
           50: "rgba(239,68,68,0.08)",
           100: "rgba(239,68,68,0.12)",
           200: "rgba(239,68,68,0.20)",
           300: "rgba(239,68,68,0.30)",
           400: "#f87171",
-          500: "#ef4444",
+          500: "var(--app-red)",
         },
         success: {
-          bg: "#0f2a1a",
-          border: "#2a6a3a",
-          text: "#a5d6a7",
+          bg: "var(--app-success-bg)",
+          border: "var(--app-success-border)",
+          text: "var(--app-success-text)",
         },
       },
       fontFamily: {

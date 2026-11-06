@@ -21,15 +21,15 @@ function saveSession(entry) {
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
-  bg:     "#0a0a0a",
-  card:   "#1a1a1c",
-  bar:    "#121212",
-  accent: "#1e1e22",
+  bg:     "var(--app-bg)",
+  card:   "var(--app-card)",
+  bar:    "var(--app-surface)",
+  accent: "var(--app-card2)",
   border: "#FFD700",
-  line:   "rgba(255,255,255,0.09)",
-  line2:  "rgba(255,255,255,0.05)",
-  text:   "#EDEFF5",
-  muted:  "#9AA3B5",
+  line:   "var(--app-tint-med)",
+  line2:  "var(--app-tint-soft)",
+  text:   "var(--app-text)",
+  muted:  "var(--app-dim)",
   hint:   "#646E84",
   faint:  "#2A3242",
   green:  "#3DD68C",
@@ -480,7 +480,7 @@ function SectionCard({ section, index, status, isNext, onStudy }) {
   const statusBg = isFuzzy ? "rgba(245,166,35,0.06)" : studied ? "rgba(255,215,0,0.05)" : D.card;
   const statusBorder = isFuzzy ? "rgba(245,166,35,0.35)" : studied ? "rgba(255,215,0,0.3)" : D.line;
   const dotBg = isFuzzy ? "rgba(245,166,35,0.14)" : studied ? "rgba(255,215,0,0.12)" : D.faint;
-  const dotBorder = isFuzzy ? D.amber : studied ? D.border : "rgba(255,255,255,0.12)";
+  const dotBorder = isFuzzy ? D.amber : studied ? D.border : "var(--app-tint-med)";
   const dotColor = isFuzzy ? D.amber : studied ? "#FFD700" : D.muted;
   return (
     <div className="gs-animate" style={{
@@ -506,7 +506,7 @@ function SectionCard({ section, index, status, isNext, onStudy }) {
           {isNext && (
             <span style={{
               marginLeft:7, fontSize:9, fontWeight:700, letterSpacing:"0.06em",
-              color:"#0a0a0a", background:"linear-gradient(90deg, #F5A623, #FFD700)",
+              color: "var(--app-ink)", background:"linear-gradient(90deg, #F5A623, #FFD700)",
               borderRadius:6, padding:"2px 6px", verticalAlign:"middle",
             }}>▶ UP NEXT</span>
           )}
@@ -1171,7 +1171,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           <span style={{ fontSize:12, color:"#ef9a9a", fontFamily:"Manrope,sans-serif", flex:1 }}>{autoError}</span>
           <button
             onClick={() => { setAutoError(""); isAutoLaunch && (topic.trim() ? handleRoadmap() : null); }}
-            style={{ background:"#e53935", border:"none", borderRadius:8, padding:"4px 10px", fontSize:11, color:"#fff", cursor:"pointer", fontFamily:"Manrope,sans-serif", fontWeight:600 }}
+            style={{ background:"#e53935", border:"none", borderRadius:8, padding:"4px 10px", fontSize:11, color:"var(--app-text)", cursor:"pointer", fontFamily:"Manrope,sans-serif", fontWeight:600 }}
           >Retry</button>
         </div>
       )}
@@ -1196,7 +1196,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         placeholder="e.g. Photosynthesis, Recursion, The French Revolution…"
         style={{
           width:"100%", boxSizing:"border-box",
-          background:"#121212", border:`0.5px solid ${D.line}`,
+          background:"var(--app-surface)", border:`0.5px solid ${D.line}`,
           borderRadius:14, padding:"12px 16px", fontSize:13,
           color:D.text, fontFamily:"Manrope,sans-serif", outline:"none",
           marginBottom:10, transition:"border-color 0.2s",
@@ -1221,7 +1221,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           rows={5}
           style={{
             width:"100%", boxSizing:"border-box", resize:"vertical",
-            background:"#121212", border:`0.5px solid ${D.line}`,
+            background:"var(--app-surface)", border:`0.5px solid ${D.line}`,
             borderRadius:12, padding:"10px 14px", fontSize:12,
             color:D.muted, fontFamily:"Manrope,sans-serif", outline:"none",
             marginBottom:10,
@@ -1459,7 +1459,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                             <MarkdownText plain>{chunk.heading}</MarkdownText>
                           </div>
                         )}
-                        <div style={{ fontSize:13.5, color:"#EDEFF5", lineHeight:1.75, fontFamily:"Manrope,sans-serif" }}>
+                        <div style={{ fontSize:13.5, color:"var(--app-text)", lineHeight:1.75, fontFamily:"Manrope,sans-serif" }}>
                           <MarkdownText theme="gold">{chunk.markdown}</MarkdownText>
                         </div>
                         {chunk.check && (
@@ -1516,7 +1516,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                   <>
                     <div className="gs-animate" style={{
                       padding:"4px 0",
-                      fontSize:13.5, color:"#EDEFF5", lineHeight:1.75,
+                      fontSize:13.5, color:"var(--app-text)", lineHeight:1.75,
                       fontFamily:"Manrope,sans-serif", marginBottom:12,
                     }}>
                       <MarkdownText theme="gold">{sectionData.text}</MarkdownText>
@@ -1565,7 +1565,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                   rows={4}
                   style={{
                     width:"100%", boxSizing:"border-box", resize:"vertical",
-                    background:"#121212", border:`0.5px solid ${D.line}`,
+                    background:"var(--app-surface)", border:`0.5px solid ${D.line}`,
                     borderRadius:13, padding:"11px 14px", fontSize:12,
                     color:D.text, fontFamily:"Manrope,sans-serif",
                     outline:"none", marginBottom:10,

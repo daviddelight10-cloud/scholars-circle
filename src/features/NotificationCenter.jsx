@@ -97,23 +97,23 @@ export function PushPermissionBanner({ token }) {
       zIndex: 1100,
       padding: 14,
       borderRadius: 20,
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.07)",
+      background: "var(--app-tint-soft)",
+      border: "1px solid var(--app-tint-med)",
       backdropFilter: "blur(18px)",
       WebkitBackdropFilter: "blur(18px)",
       boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
       fontSize: 14,
       lineHeight: 1.4,
       fontFamily: "'Manrope', sans-serif",
-      color: "#EDEFF5"
+      color: "var(--app-text)"
     }}>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
         <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 012 4.5V15l1.5 2.5h-15L8 15v-2.5A6 6 0 0118 8z" stroke="#4F8EF7" strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 19a2 2 0 004 0" stroke="#4F8EF7" strokeWidth="1.6" strokeLinecap="round"/></svg>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Stay in the loop</div>
-          <div style={{ fontSize: 12, color: "#9AA3B5", marginTop: 4 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Syne', sans-serif", color: "var(--app-text)" }}>Stay in the loop</div>
+          <div style={{ fontSize: 12, color: "var(--app-dim)", marginTop: 4 }}>
             {iosNeedsInstall
               ? "On iPhone/iPad: tap Share → \"Add to Home Screen\". Open the installed app to turn on alerts for announcements, live classes & messages."
               : "Enable push notifications for announcements, live class alerts, assignments, and direct messages."}
@@ -283,14 +283,14 @@ export function NotificationSettings({ token }) {
 
   if (!pushSupported) {
     return (
-      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
+      <div style={{ background: "var(--app-tint-soft)", border: "1px solid var(--app-tint-med)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 012 4.5V15l1.5 2.5h-15L8 15v-2.5A6 6 0 0118 8z" stroke="#4F8EF7" strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 19a2 2 0 004 0" stroke="#4F8EF7" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </div>
-          <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Notifications</span>
+          <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "var(--app-text)" }}>Notifications</span>
         </div>
-        <p style={{ fontSize: 13, color: "#9AA3B5", marginTop: 0, fontFamily: "'Manrope', sans-serif" }}>
+        <p style={{ fontSize: 13, color: "var(--app-dim)", marginTop: 0, fontFamily: "'Manrope', sans-serif" }}>
           Your browser doesn't support push notifications. Try Chrome, Edge, Firefox, or Safari on an installed PWA.
         </p>
       </div>
@@ -298,12 +298,12 @@ export function NotificationSettings({ token }) {
   }
 
   return (
-    <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
+    <div style={{ background: "var(--app-tint-soft)", border: "1px solid var(--app-tint-med)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 012 4.5V15l1.5 2.5h-15L8 15v-2.5A6 6 0 0118 8z" stroke="#4F8EF7" strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 19a2 2 0 004 0" stroke="#4F8EF7" strokeWidth="1.6" strokeLinecap="round"/></svg>
         </div>
-        <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Push Notifications</span>
+        <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "var(--app-text)" }}>Push Notifications</span>
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 6,
           padding: "4px 12px", borderRadius: 99, fontSize: 11, fontWeight: 700,
@@ -316,7 +316,7 @@ export function NotificationSettings({ token }) {
           {subscribed ? "Active" : "Off"}
         </span>
       </div>
-      <p style={{ marginTop: 0, fontSize: 13, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>
+      <p style={{ marginTop: 0, fontSize: 13, color: "var(--app-dim)", fontFamily: "'Manrope', sans-serif" }}>
         Get instant alerts for announcements, live classes, assignments, and messages — even when the app is closed.
       </p>
 
@@ -358,7 +358,7 @@ export function NotificationSettings({ token }) {
       {/* Per-category preferences */}
       {prefs && subscribed && (
         <div style={{ marginTop: 18 }}>
-          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#EDEFF5", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>What to notify me about</h4>
+          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--app-text)", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>What to notify me about</h4>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {CATEGORIES.map((c) => (
               <label key={c.key} style={{
@@ -367,14 +367,14 @@ export function NotificationSettings({ token }) {
                 gap: 10,
                 padding: 12,
                 borderRadius: 12,
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                background: "var(--app-tint-soft)",
+                border: "1px solid var(--app-tint-soft)",
                 cursor: "pointer"
               }}>
                 <span style={{ fontSize: 20 }}>{c.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, fontFamily: "'Manrope', sans-serif", color: "#EDEFF5" }}>{c.label}</div>
-                  <div style={{ fontSize: 11, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>{c.desc}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, fontFamily: "'Manrope', sans-serif", color: "var(--app-text)" }}>{c.label}</div>
+                  <div style={{ fontSize: 11, color: "var(--app-dim)", fontFamily: "'Manrope', sans-serif" }}>{c.desc}</div>
                 </div>
                 <input
                   type="checkbox"
@@ -391,7 +391,7 @@ export function NotificationSettings({ token }) {
       {/* Devices list */}
       {devices.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#EDEFF5", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>Your devices ({devices.length})</h4>
+          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--app-text)", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>Your devices ({devices.length})</h4>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {devices.map((d) => (
               <div key={d.id} style={{
@@ -400,16 +400,16 @@ export function NotificationSettings({ token }) {
                 gap: 10,
                 padding: 12,
                 borderRadius: 12,
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                background: "var(--app-tint-soft)",
+                border: "1px solid var(--app-tint-soft)",
                 fontSize: 12
               }}>
                 <span style={{ fontSize: 18 }}>{deviceIcon(d.userAgent)}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Manrope', sans-serif", color: "#EDEFF5" }}>
+                  <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Manrope', sans-serif", color: "var(--app-text)" }}>
                     {deviceName(d.userAgent)}
                   </div>
-                  <div style={{ color: "#9AA3B5", fontSize: 11, fontFamily: "'Manrope', sans-serif" }}>
+                  <div style={{ color: "var(--app-dim)", fontSize: 11, fontFamily: "'Manrope', sans-serif" }}>
                     Last used: {new Date(d.lastUsed).toLocaleString()}
                   </div>
                 </div>
@@ -454,7 +454,7 @@ const primaryBtn = {
   borderRadius: 12,
   border: "none",
   background: "linear-gradient(135deg, #F5A623, #D4881A)",
-  color: "#fff",
+  color: "var(--app-text)",
   fontWeight: 700,
   fontSize: 13,
   fontFamily: "'Manrope', sans-serif",
@@ -466,9 +466,9 @@ const primaryBtn = {
 const secondaryBtn = {
   padding: "10px 16px",
   borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.03)",
-  color: "#EDEFF5",
+  border: "1px solid var(--app-tint-med)",
+  background: "var(--app-tint-soft)",
+  color: "var(--app-text)",
   fontWeight: 600,
   fontSize: 13,
   fontFamily: "'Manrope', sans-serif",

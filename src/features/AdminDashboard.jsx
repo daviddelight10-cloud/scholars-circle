@@ -3,10 +3,10 @@ import { api } from "../lib/appUtils";
 import { toast } from "../components/Toast";
 
 const D = {
-  bg: "#0B0B0D",
-  card: "#151518",
+  bg: "var(--app-bg)",
+  card: "var(--app-card)",
   faint: "#1B1B20",
-  line: "#26262B",
+  line: "var(--app-border)",
   gold: "#DAA520",
   goldBright: "#FFD700",
   text: "#F2F0EA",
@@ -30,7 +30,7 @@ const CSS = `
   .ad-tab { background:${D.faint}; border:0.5px solid ${D.line}; color:${D.hint}; border-radius:999px; padding:8px 16px; font-size:12px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.04em; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
   .ad-tab:hover { color:${D.muted}; }
   .ad-tab.on { background:rgba(218,165,32,0.14); border-color:${D.gold}; color:${D.goldBright}; }
-  .ad-tab .badge { display:inline-block; margin-left:6px; background:${D.red}; color:#fff; border-radius:999px; font-size:9px; padding:1px 6px; font-family:'Manrope',sans-serif; }
+  .ad-tab .badge { display:inline-block; margin-left:6px; background:${D.red}; color:var(--app-text); border-radius:999px; font-size:9px; padding:1px 6px; font-family:'Manrope',sans-serif; }
   .ad-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
   .ad-kpi { background:${D.card}; border:0.5px solid ${D.line}; border-radius:16px; padding:14px; cursor:default; transition:border-color 0.2s; }
   .ad-kpi:hover { border-color:${D.hint}; }
@@ -44,7 +44,7 @@ const CSS = `
   .ad-pill { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; border-radius:6px; padding:2.5px 8px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Manrope',sans-serif; }
   .ad-btn { border:none; border-radius:9px; padding:8px 16px; font-size:11.5px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.04em; cursor:pointer; transition:all 0.15s; }
   .ad-btn:disabled { opacity:0.45; cursor:default; }
-  .ad-btn.gold { background:linear-gradient(135deg,#DAA520,#b8860b); color:#fff; }
+  .ad-btn.gold { background:linear-gradient(135deg,#DAA520,#b8860b); color:var(--app-text); }
   .ad-btn.ghost { background:${D.faint}; border:0.5px solid ${D.line}; color:${D.muted}; }
   .ad-btn.ghost:hover { color:${D.text}; border-color:${D.hint}; }
   .ad-btn.green { background:rgba(52,211,153,0.15); border:0.5px solid rgba(52,211,153,0.4); color:${D.green}; }
@@ -53,9 +53,9 @@ const CSS = `
   .ad-input:focus { border-color:${D.gold}; }
   .ad-fp { background:transparent; border:0.5px solid ${D.line}; color:${D.hint}; border-radius:999px; padding:5px 13px; font-size:11px; font-weight:700; font-family:'Manrope',sans-serif; cursor:pointer; transition:all 0.15s; }
   .ad-fp.on { background:rgba(218,165,32,0.12); border-color:${D.gold}; color:${D.goldBright}; }
-  .ad-drawer-bg { position:fixed; inset:0; background:rgba(5,6,12,0.7); z-index:200; animation:ad-fade 0.2s ease; }
+  .ad-drawer-bg { position:fixed; inset:0; background:rgba(var(--app-glass-rgb),0.7); z-index:200; animation:ad-fade 0.2s ease; }
   .ad-drawer { position:fixed; top:0; right:0; bottom:0; width:min(420px,100vw); background:${D.card}; border-left:0.5px solid ${D.line}; z-index:201; overflow-y:auto; animation:ad-drawer 0.25s ease; padding:20px; }
-  .ad-modal-bg { position:fixed; inset:0; background:rgba(5,6,12,0.8); display:flex; align-items:center; justify-content:center; z-index:300; padding:20px; animation:ad-fade 0.15s ease; }
+  .ad-modal-bg { position:fixed; inset:0; background:rgba(var(--app-glass-rgb),0.8); display:flex; align-items:center; justify-content:center; z-index:300; padding:20px; animation:ad-fade 0.15s ease; }
   .ad-modal { background:${D.card}; border:0.5px solid ${D.line}; border-radius:18px; padding:22px; width:100%; max-width:400px; }
   .ad-two { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:760px) {
@@ -127,7 +127,7 @@ function DualChart({ days, a, b, labelA, labelB }) {
             <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }} title={`${d.getMonth() + 1}/${d.getDate()} — ${labelA}: ${a[i]}, ${labelB}: ${b[i]}`}>
               <div style={{ display: "flex", gap: 2, alignItems: "flex-end", width: "100%", justifyContent: "center", height: 64 }}>
                 <div style={{ width: "42%", height: `${Math.max(4, (a[i] / max) * 64)}px`, background: "linear-gradient(180deg,#DAA520,#8a6d0b)", borderRadius: 3 }} />
-                <div style={{ width: "42%", height: `${Math.max(4, (b[i] / max) * 64)}px`, background: isToday ? "#9A9EA8" : "#3A3A41", borderRadius: 3 }} />
+                <div style={{ width: "42%", height: `${Math.max(4, (b[i] / max) * 64)}px`, background: isToday ? "#9A9EA8" : "var(--app-border)", borderRadius: 3 }} />
               </div>
               {i % 2 === 0 && <div style={{ fontSize: 8, color: isToday ? D.gold : D.hint }}>{d.getMonth() + 1}/{d.getDate()}</div>}
             </div>

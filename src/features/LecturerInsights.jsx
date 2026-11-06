@@ -5,7 +5,7 @@ import ShareSheet from "./research-hub/ShareSheet.jsx";
 import McIcon from "./research-hub/McIcon.jsx";
 
 const C = {
-  bg: "#0B0B0D", card: "#151518", line: "#26262B",
+  bg: "var(--app-bg)", card: "var(--app-card)", line: "var(--app-border)",
   text: "#F2F0EA", muted: "#8A8F9C", hint: "#5B606C",
   gold: "#DAA520", goldBright: "#FFD700",
   green: "#34d399", red: "#f87171", orange: "#fb923c", purple: "#c084fc", teal: "#5eead4", pink: "#f48fb1",
@@ -28,7 +28,7 @@ function BigChart({ days, data }) {
         const isToday = day === new Date().toDateString();
         return (
           <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }} title={`${d.getMonth() + 1}/${d.getDate()}: ${data[i]} views`}>
-            <div style={{ width: "100%", height: `${Math.max(3, (data[i] / max) * 64)}px`, background: isToday ? "linear-gradient(180deg,#DAA520,#8a6d0b)" : "#3A3A41", borderRadius: 3 }} />
+            <div style={{ width: "100%", height: `${Math.max(3, (data[i] / max) * 64)}px`, background: isToday ? "linear-gradient(180deg,#DAA520,#8a6d0b)" : "var(--app-border)", borderRadius: 3 }} />
             {i % 5 === 0 && <div style={{ fontSize: 8, color: isToday ? C.gold : C.hint }}>{d.getMonth() + 1}/{d.getDate()}</div>}
           </div>
         );

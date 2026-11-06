@@ -3,7 +3,7 @@ export function CardSkeleton({ index = 0 }) {
   return (
     <div
       className="stagger-in animate-pulse rounded-xl border border-hub-border bg-hub-surface p-4"
-      style={{ borderLeftWidth: "3px", borderLeftColor: "#2a2a2a", animationDelay: delay }}
+      style={{ borderLeftWidth: "3px", borderLeftColor: "var(--app-border)", animationDelay: delay }}
     >
       <div className="mb-3 flex items-center gap-3">
         <div className="h-11 w-11 shrink-0 rounded-lg bg-hub-bg" />

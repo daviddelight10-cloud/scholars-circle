@@ -148,7 +148,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
           top: -40, right: -40,
           width: 170, height: 170,
           borderRadius: "50%",
-          background: "#1a1a1a",
+          background: "var(--app-card)",
           opacity: 0.12,
           pointerEvents: "none",
         }} />

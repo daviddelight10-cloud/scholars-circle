@@ -49,8 +49,8 @@ function Resources({
             style={{
               padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
               border: resourcesSubTab === id ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.25)",
-              background: resourcesSubTab === id ? "linear-gradient(135deg,#d97706,#f59e0b)" : "rgba(20,20,20,0.6)",
-              color: resourcesSubTab === id ? "#fff" : "#fcd34d",
+              background: resourcesSubTab === id ? "linear-gradient(135deg,#d97706,#f59e0b)" : "rgba(var(--app-glass-rgb),0.6)",
+              color: resourcesSubTab === id ? "var(--app-text)" : "#fcd34d",
             }}
           >{label}</button>
         ))}

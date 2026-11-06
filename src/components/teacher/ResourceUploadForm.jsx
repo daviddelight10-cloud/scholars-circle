@@ -446,7 +446,7 @@ export default function ResourceUploadForm() {
                     onClick={() => setSelectedDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])}
                     style={{
                       padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                      background: selected ? "#1a1a1a" : "#0a0c1e",
+                      background: selected ? "var(--app-card)" : "#0a0c1e",
                       border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
                       color: selected ? "#FFD700" : "#7b82b8",
                     }}
@@ -595,7 +595,7 @@ export default function ResourceUploadForm() {
                   flex: 1,
                   padding: "10px",
                   borderRadius: "10px",
-                  background: mcqMode === "manual" ? "#1a1a1a" : "#0f1128",
+                  background: mcqMode === "manual" ? "var(--app-card)" : "#0f1128",
                   border: mcqMode === "manual" ? "0.5px solid #B8860B" : "0.5px solid #252860",
                   fontSize: "12px",
                   fontWeight: 600,
@@ -612,7 +612,7 @@ export default function ResourceUploadForm() {
                   flex: 1,
                   padding: "10px",
                   borderRadius: "10px",
-                  background: mcqMode === "ai" ? "#1a1a1a" : "#0f1128",
+                  background: mcqMode === "ai" ? "var(--app-card)" : "#0f1128",
                   border: mcqMode === "ai" ? "0.5px solid #B8860B" : "0.5px solid #252860",
                   fontSize: "12px",
                   fontWeight: 600,
@@ -822,7 +822,7 @@ export default function ResourceUploadForm() {
                   style={{
                     width: "100%",
                     padding: "10px",
-                    background: "linear-gradient(135deg, #1a1a1a, #0a0a0a)",
+                    background: "linear-gradient(135deg, var(--app-card), var(--app-bg))",
                     border: "0.5px solid #B8860B",
                     borderRadius: "8px",
                     fontSize: "12px",
@@ -967,7 +967,7 @@ export default function ResourceUploadForm() {
             style={{
               width: "34px",
               height: "18px",
-              background: formData.isPremium ? "#1a1a1a" : "#1e2245",
+              background: formData.isPremium ? "var(--app-card)" : "#1e2245",
               borderRadius: "9px",
               position: "relative",
               cursor: "pointer",
@@ -1013,7 +1013,7 @@ export default function ResourceUploadForm() {
           style={{
             width: "100%",
             padding: "12px",
-            background: "#1a1a1a",
+            background: "var(--app-card)",
             border: "0.5px solid #B8860B",
             borderRadius: "8px",
             fontSize: "14px",

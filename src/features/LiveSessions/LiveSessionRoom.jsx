@@ -132,7 +132,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
     }}>
       <div style={{
         padding: "10px 16px",
-        background: "linear-gradient(135deg, #232328, #0f172a)",
+        background: "linear-gradient(135deg, var(--app-card2), #0f172a)",
         borderBottom: "1px solid rgba(255,215,0,0.3)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
         flexWrap: "wrap", gap: 8
@@ -143,11 +143,11 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
               width: 10, height: 10, borderRadius: "50%",
               background: "#ef4444", animation: "pulse 1.5s infinite"
             }} />
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{session.title}</span>
+            <span style={{ color: "var(--app-text)", fontWeight: 700, fontSize: 16 }}>{session.title}</span>
             <span style={{ color: "#FFD700", fontSize: 12 }}>LIVE</span>
           </div>
           {session.classroom?.name && (
-            <div style={{ color: "#9ca3af", fontSize: 11, marginTop: 2 }}>
+            <div style={{ color: "var(--app-dim)", fontSize: 11, marginTop: 2 }}>
               {session.classroom.name}
             </div>
           )}
@@ -156,7 +156,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
           {isHost && (
             <button onClick={handleEndSession} style={{
               padding: "8px 16px", borderRadius: 8, border: "none",
-              background: "#ef4444", color: "#fff",
+              background: "#ef4444", color: "var(--app-text)",
               fontWeight: 600, cursor: "pointer"
             }}>
               ⏹ End Session for All
@@ -164,7 +164,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
           )}
           <button onClick={handleLeave} style={{
             padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,215,0,0.4)",
-            background: "rgba(20,20,20,0.6)", color: "#fff", cursor: "pointer"
+            background: "rgba(var(--app-glass-rgb),0.6)", color: "var(--app-text)", cursor: "pointer"
           }}>
             ← Leave
           </button>

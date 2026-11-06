@@ -4,10 +4,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { getPostBySlug, formatDate, posts } from './blogData';
 
-const ink = '#0a0a0a';
-const inkSoft = '#121212';
-const line = 'rgba(255,255,255,0.08)';
-const lineStrong = 'rgba(255,255,255,0.14)';
+const ink = 'var(--app-bg)';
+const inkSoft = 'var(--app-surface)';
+const line = 'var(--app-tint-med)';
+const lineStrong = 'var(--app-tint-strong)';
 const text = '#EDEFF5';
 const textDim = '#9AA3B5';
 const textFaint = '#646E84';
@@ -119,7 +119,7 @@ function BlogPostView({ post, slug }) {
   const shareBtn = {
     display: 'inline-flex', alignItems: 'center', gap: 7,
     padding: '8px 15px', borderRadius: 999, fontSize: '0.82rem', fontWeight: 700,
-    border: `1px solid ${lineStrong}`, background: 'rgba(255,255,255,0.04)',
+    border: `1px solid ${lineStrong}`, background: 'var(--app-tint-soft)',
     color: textDim, cursor: 'pointer', textDecoration: 'none', fontFamily: 'Manrope, sans-serif',
   };
 
@@ -166,7 +166,7 @@ function BlogPostView({ post, slug }) {
         @media (max-width: 760px) { .wrap { padding: 0 20px !important; } .prose { font-size: 16px !important; } }
       `}</style>
 
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,10,10,0.78)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${line}` }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(var(--app-glass-rgb),0.78)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${line}` }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: gold, boxShadow: `0 0 0 4px rgba(245,166,35,0.14)` }} />

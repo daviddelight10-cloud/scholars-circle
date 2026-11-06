@@ -59,7 +59,7 @@
 .wp-install-btn {
   padding: 8px 14px;
   background: linear-gradient(135deg, #daa520, #ffd700);
-  color: #fff;
+  color: var(--app-text);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -96,8 +96,8 @@
 }
 
 .wp-card {
-  background: rgba(20, 22, 30, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--app-glass-rgb),0.75);
+  border: 1px solid var(--app-tint-med);
   border-radius: 18px;
   padding: 22px;
   position: relative;
@@ -106,12 +106,12 @@
 
 .wp-card-trial {
   border: 2px solid rgba(16, 185, 129, 0.35);
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(20, 22, 30, 0.75));
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(var(--app-glass-rgb),0.75));
 }
 
 .wp-card-premium {
   border: 2px solid rgba(255, 215, 0, 0.35);
-  background: linear-gradient(180deg, rgba(255, 215, 0, 0.08), rgba(20, 22, 30, 0.75));
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.08), rgba(var(--app-glass-rgb),0.75));
 }
 
 .wp-badge {
@@ -123,7 +123,7 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #fff;
+  color: var(--app-text);
   text-transform: uppercase;
 }
 
@@ -198,7 +198,7 @@
   font-weight: 600;
   padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--app-tint-soft);
   color: #cbd5e1;
 }
 
@@ -211,8 +211,8 @@
 }
 
 .wp-plan-tab {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--app-tint-soft);
+  border: 1px solid var(--app-tint-med);
   color: #9aa3b5;
   font-size: 12px;
   font-weight: 600;
@@ -244,7 +244,7 @@
 
 .wp-btn-trial {
   background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff;
+  color: var(--app-text);
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
 }
 
@@ -254,7 +254,7 @@
 
 .wp-btn-premium {
   background: linear-gradient(135deg, #ffd700, #daa520);
-  color: #fff;
+  color: var(--app-text);
   box-shadow: 0 4px 14px rgba(255, 215, 0, 0.35);
 }
 
@@ -277,7 +277,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--app-tint-med);
 }
 
 .wp-benefits h4 {
@@ -377,7 +377,7 @@
 .wp-check-btn {
   padding: 8px 18px;
   background: #ffd700;
-  color: #fff;
+  color: var(--app-text);
   border: none;
   border-radius: 6px;
   cursor: pointer;

@@ -241,8 +241,8 @@ export default function SharedResourceView() {
 
   if (loading) {
     return (
-      <div className="mc-root" style={{ minHeight: "100dvh", background: "#0a0a0a" }}>
-        <div style={{ padding: "80px 20px", textAlign: "center", color: "#9AA3B5", fontSize: 14 }}>
+      <div className="mc-root" style={{ minHeight: "100dvh", background: "var(--app-bg)" }}>
+        <div style={{ padding: "80px 20px", textAlign: "center", color: "var(--app-dim)", fontSize: 14 }}>
           Loading shared material…
         </div>
       </div>
@@ -251,11 +251,11 @@ export default function SharedResourceView() {
 
   if (error || !resource || !file) {
     return (
-      <div className="mc-root" style={{ minHeight: "100dvh", background: "#0a0a0a" }}>
+      <div className="mc-root" style={{ minHeight: "100dvh", background: "var(--app-bg)" }}>
         <div style={{ padding: "80px 20px", textAlign: "center" }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "#EDEFF5", marginBottom: 6 }}>Material not accessible</div>
-          <div style={{ fontSize: 13, color: "#646E84", marginBottom: 18 }}>{error || "The owner may have turned off link sharing, or this link expired."}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--app-text)", marginBottom: 6 }}>Material not accessible</div>
+          <div style={{ fontSize: 13, color: "var(--app-faint)", marginBottom: 18 }}>{error || "The owner may have turned off link sharing, or this link expired."}</div>
           <button
             onClick={goBack}
             style={{ padding: "10px 22px", background: "rgba(255,179,0,0.12)", border: "1px solid rgba(255,179,0,0.35)", borderRadius: "10px", fontSize: 13, fontWeight: 800, color: "#FFB300", cursor: "pointer" }}
@@ -274,7 +274,7 @@ export default function SharedResourceView() {
   const tools = [file.variants?.mcq ? IC.pencil : null, hasSummary ? IC.notes : null].filter(Boolean);
 
   return (
-    <div className="mc-root" style={{ minHeight: "100dvh", background: "#0a0a0a" }}>
+    <div className="mc-root" style={{ minHeight: "100dvh", background: "var(--app-bg)" }}>
       <div className="mx-auto w-full max-w-[1400px]" style={{ paddingBottom: "96px" }}>
 
         {/* Header */}
@@ -283,24 +283,24 @@ export default function SharedResourceView() {
             <button
               onClick={goBack}
               aria-label="Back"
-              className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-              style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--app-dim)] transition-colors"
+              style={{ background: "var(--app-card)", borderColor: "var(--app-tint-med)" }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
               </svg>
             </button>
             <div className="min-w-0 flex-1 text-center">
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#646E84]">Shared Material</div>
-              <div className="mt-0.5 truncate text-[13px] font-semibold text-[#EDEFF5]">
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--app-faint)]">Shared Material</div>
+              <div className="mt-0.5 truncate text-[13px] font-semibold text-[var(--app-text)]">
                 {metaLine || file.title}
               </div>
             </div>
             <button
               onClick={() => setShareOpen(true)}
               aria-label="Share this material"
-              className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-              style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--app-dim)] transition-colors"
+              style={{ background: "var(--app-card)", borderColor: "var(--app-tint-med)" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" /><path d="M16 6l-4-4-4 4" /><path d="M12 2v14" />
@@ -328,7 +328,7 @@ export default function SharedResourceView() {
                   <button
                     onClick={() => openMySpace(resource.folderId)}
                     className="rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all active:scale-95"
-                    style={{ background: "rgba(255,255,255,0.07)", color: "#EDEFF5", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}
+                    style={{ background: "var(--app-tint-med)", color: "var(--app-text)", border: "1px solid var(--app-tint-med)", cursor: "pointer" }}
                   >
                     Open in My Space
                   </button>
@@ -338,9 +338,9 @@ export default function SharedResourceView() {
                     disabled={bookmarkBusy}
                     className="rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all active:scale-95"
                     style={{
-                      background: bookmarked ? "rgba(255,255,255,0.07)" : "linear-gradient(135deg,#d98f0f,#F5A623)",
-                      color: bookmarked ? "#EDEFF5" : "#0a0a0a",
-                      border: bookmarked ? "1px solid rgba(255,255,255,0.12)" : "none",
+                      background: bookmarked ? "var(--app-tint-med)" : "linear-gradient(135deg,#d98f0f,#F5A623)",
+                      color: bookmarked ? "var(--app-text)" : "var(--app-ink)",
+                      border: bookmarked ? "1px solid var(--app-tint-med)" : "none",
                       cursor: bookmarkBusy ? "wait" : "pointer",
                       opacity: bookmarkBusy ? 0.6 : 1,
                     }}
@@ -351,7 +351,7 @@ export default function SharedResourceView() {
                 <button
                   onClick={() => setSheetOpen(true)}
                   className="rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all active:scale-95"
-                  style={{ background: "rgba(255,255,255,0.07)", color: "#EDEFF5", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}
+                  style={{ background: "var(--app-tint-med)", color: "var(--app-text)", border: "1px solid var(--app-tint-med)", cursor: "pointer" }}
                 >
                   ⚡ Practice
                 </button>
@@ -406,14 +406,14 @@ export default function SharedResourceView() {
                 {tools.length > 0 && <span className="sp-row-tools">{tools.map((t, ti) => <span key={ti}>{t}</span>)}</span>}
               </div>
             </div>
-            <span style={{ color: "#646E84", flexShrink: 0, display: "flex" }}>
+            <span style={{ color: "var(--app-faint)", flexShrink: 0, display: "flex" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9 6 6 6-6 6" />
               </svg>
             </span>
           </div>
           {resource.description && (
-            <div className="col-span-full mt-1 px-1" style={{ color: "#9AA3B5", fontSize: 13, lineHeight: 1.6 }}>
+            <div className="col-span-full mt-1 px-1" style={{ color: "var(--app-dim)", fontSize: 13, lineHeight: 1.6 }}>
               <div
                 style={descExpanded
                   ? { whiteSpace: "pre-wrap" }
@@ -492,7 +492,7 @@ export default function SharedResourceView() {
       {toast && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
+          style={{ background: "var(--app-surface)", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
           role="status"
         >
           <span style={{ whiteSpace: "normal", textAlign: "center" }}>{toast}</span>

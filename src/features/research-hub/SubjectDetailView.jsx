@@ -57,8 +57,8 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
           <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-hub-text-muted">
             <div><span className="font-bold text-hub-text">{resources.length}</span> materials</div>
             <div><span className="font-bold text-hub-text">{totalCount}</span> FSRS items</div>
-            <div><span className="font-bold" style={{ color: dueCount > 0 ? "#ef4444" : "#888" }}>{dueCount}</span> due</div>
-            <div><span className="font-bold" style={{ color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "#888" }}>{masteredCount}</span> mastered ({masteryPct}%)</div>
+            <div><span className="font-bold" style={{ color: dueCount > 0 ? "#ef4444" : "var(--app-dim)" }}>{dueCount}</span> due</div>
+            <div><span className="font-bold" style={{ color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "var(--app-dim)" }}>{masteredCount}</span> mastered ({masteryPct}%)</div>
           </div>
         )}
       </div>

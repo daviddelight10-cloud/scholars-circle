@@ -10,6 +10,7 @@ import { planLabel } from "../../lib/plans";
 import { version } from "../../../package.json";
 import ExitPill from "../../components/ExitPill.jsx";
 import AvatarMark from "../../components/AvatarMark.jsx";
+import { getAppearancePref, setAppearancePref } from "../../lib/theme.js";
 
 const NotificationSettings = lazy(() =>
   import("../NotificationCenter.jsx").then((m) => ({ default: m.NotificationSettings }))
@@ -34,6 +35,7 @@ export default function SettingsPage({
 }) {
   const [confirm, setConfirm] = useState(null); // "logout" | "reset" | null
   const [notifExpanded, setNotifExpanded] = useState(false);
+  const [appearance, setAppearance] = useState(() => getAppearancePref());
   const [referral, setReferral] = useState(null);
   const [copied, setCopied] = useState(false);
 
@@ -163,8 +165,27 @@ export default function SettingsPage({
       <div className="st-group">
         <div className="st-row" style={{ cursor: "default" }}>
           <span className="st-ricon">🌗</span>
-          <span className="st-rlabel">Appearance</span>
-          <span className="st-rvalue">Dark</span>
+          <span className="st-rlabel">
+            Appearance
+            <span className="st-rdesc">Follow your device, or pick a theme</span>
+          </span>
+        </div>
+        <div className="st-seg" role="radiogroup" aria-label="Appearance">
+          {[
+            { id: "system", icon: "✨", label: "System" },
+            { id: "light", icon: "☀️", label: "Light" },
+            { id: "dark", icon: "🌙", label: "Dark" },
+          ].map((o) => (
+            <button
+              key={o.id}
+              role="radio"
+              aria-checked={appearance === o.id}
+              className={`st-seg-btn st-press${appearance === o.id ? " on" : ""}`}
+              onClick={() => { setAppearancePref(o.id); setAppearance(o.id); }}
+            >
+              {o.icon} {o.label}
+            </button>
+          ))}
         </div>
         <button className="st-row st-press" onClick={() => setNotifExpanded((v) => !v)}>
           <span className="st-ricon">🔔</span>
@@ -282,7 +303,7 @@ export default function SettingsPage({
               <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>
                 Completion: {Math.round(((freeTierUsage.freeTierProgress.achievements?.length || 0) / FREE_TIER_ACHIEVEMENTS.length) * 100)}%
               </div>
-              <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ height: 6, background: "var(--app-tint-soft)", borderRadius: 3, overflow: "hidden" }}>
                 <div style={{
                   height: "100%",
                   width: `${((freeTierUsage.freeTierProgress.achievements?.length || 0) / FREE_TIER_ACHIEVEMENTS.length) * 100}%`,

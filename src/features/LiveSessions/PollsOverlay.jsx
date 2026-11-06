@@ -55,7 +55,7 @@ export function PollsOverlay({ sessionId, isHost, token }) {
           borderRadius: 999,
           border: "none",
           background: activePoll && !isHost ? "#ef4444" : "linear-gradient(135deg, #FFD700, #DAA520)",
-          color: "#fff",
+          color: "var(--app-text)",
           fontWeight: 700,
           fontSize: 13,
           cursor: "pointer",
@@ -64,7 +64,7 @@ export function PollsOverlay({ sessionId, isHost, token }) {
         }}
       >
         📊 {open ? "Close Polls" : activePoll && !isHost ? "Active Poll!" : "Polls"}
-        {polls.length > 0 && !open && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.25)", fontSize: 11 }}>{polls.length}</span>}
+        {polls.length > 0 && !open && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 99, background: "var(--app-tint-strong)", fontSize: 11 }}>{polls.length}</span>}
       </button>
 
       {open && (
@@ -77,7 +77,7 @@ export function PollsOverlay({ sessionId, isHost, token }) {
           maxHeight: "70vh",
           overflowY: "auto",
           zIndex: 10000,
-          background: "#232328",
+          background: "var(--app-card2)",
           border: "1px solid rgba(255,215,0,0.4)",
           borderRadius: 12,
           padding: 14,
@@ -97,7 +97,7 @@ export function PollsOverlay({ sessionId, isHost, token }) {
           )}
 
           {polls.length === 0 && !showCreate && (
-            <div style={{ color: "#9ca3af", fontSize: 13, textAlign: "center", padding: 20 }}>
+            <div style={{ color: "var(--app-dim)", fontSize: 13, textAlign: "center", padding: 20 }}>
               {isHost ? "No polls yet — create one!" : "No polls yet."}
             </div>
           )}
@@ -145,7 +145,7 @@ function CreatePollForm({ sessionId, token, onCreated }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ marginBottom: 12, padding: 10, background: "rgba(10,10,10,0.6)", borderRadius: 8 }}>
+    <form onSubmit={submit} style={{ marginBottom: 12, padding: 10, background: "rgba(var(--app-glass-rgb),0.6)", borderRadius: 8 }}>
       <input
         required
         value={question}
@@ -227,7 +227,7 @@ function PollCard({ poll, isHost, token, onChange }) {
     <div style={{
       marginBottom: 10,
       padding: 10,
-      background: poll.status === "active" ? "rgba(255,215,0,0.15)" : "rgba(10,10,10,0.6)",
+      background: poll.status === "active" ? "rgba(255,215,0,0.15)" : "rgba(var(--app-glass-rgb),0.6)",
       border: `1px solid ${poll.status === "active" ? "rgba(255,215,0,0.4)" : "rgba(255,215,0,0.15)"}`,
       borderRadius: 8
     }}>
@@ -235,7 +235,7 @@ function PollCard({ poll, isHost, token, onChange }) {
         <b style={{ flex: 1, fontSize: 13 }}>{results.question}</b>
         <span style={{
           padding: "2px 8px", borderRadius: 99, fontSize: 10, fontWeight: 700,
-          background: poll.status === "active" ? "#10b981" : "#64748b", color: "#fff"
+          background: poll.status === "active" ? "#10b981" : "#64748b", color: "var(--app-text)"
         }}>
           {poll.status === "active" ? "● LIVE" : "ENDED"}
         </span>
@@ -252,7 +252,7 @@ function PollCard({ poll, isHost, token, onChange }) {
                   <span>{voted && "✓ "}{opt}</span>
                   <span style={{ color: "#FFD700" }}>{pct}% ({count})</span>
                 </div>
-                <div style={{ height: 6, background: "rgba(10,10,10,0.6)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: 6, background: "rgba(var(--app-glass-rgb),0.6)", borderRadius: 3, overflow: "hidden" }}>
                   <div style={{ width: `${pct}%`, height: "100%", background: voted ? "#10b981" : "#FFD700", transition: "width 0.5s" }} />
                 </div>
               </div>
@@ -267,8 +267,8 @@ function PollCard({ poll, isHost, token, onChange }) {
                 display: "block", width: "100%", marginBottom: 4,
                 padding: "8px 10px", borderRadius: 6, fontSize: 12,
                 border: "1px solid rgba(255,215,0,0.4)",
-                background: "rgba(20,20,20,0.6)",
-                color: "#fff", textAlign: "left", cursor: "pointer"
+                background: "rgba(var(--app-glass-rgb),0.6)",
+                color: "var(--app-text)", textAlign: "left", cursor: "pointer"
               }}
             >
               {opt}
@@ -276,7 +276,7 @@ function PollCard({ poll, isHost, token, onChange }) {
           );
         })}
       </div>
-      <div style={{ marginTop: 6, fontSize: 11, color: "#9ca3af", display: "flex", justifyContent: "space-between" }}>
+      <div style={{ marginTop: 6, fontSize: 11, color: "var(--app-dim)", display: "flex", justifyContent: "space-between" }}>
         <span>{total} vote{total !== 1 ? "s" : ""}</span>
         {isHost && poll.status === "active" && (
           <button onClick={endPoll} style={{ ...btnSm, background: "rgba(239,68,68,0.3)", padding: "2px 8px" }}>End Poll</button>
@@ -291,8 +291,8 @@ const inp = {
   padding: 6,
   borderRadius: 6,
   border: "1px solid rgba(255,215,0,0.3)",
-  background: "rgba(10,10,10,0.7)",
-  color: "#fff",
+  background: "rgba(var(--app-glass-rgb),0.7)",
+  color: "var(--app-text)",
   fontSize: 13,
   boxSizing: "border-box"
 };
@@ -301,7 +301,7 @@ const btnSm = {
   borderRadius: 6,
   border: "none",
   background: "rgba(255,215,0,0.3)",
-  color: "#fff",
+  color: "var(--app-text)",
   cursor: "pointer",
   fontSize: 11,
   fontWeight: 600

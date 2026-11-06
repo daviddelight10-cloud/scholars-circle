@@ -4,11 +4,11 @@ import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#0a0a0a",
-  card:    "#0D0E18",
-  cardHov: "#111220",
-  border:  "rgba(255,255,255,0.07)",
-  borderB: "rgba(255,255,255,0.04)",
+  bg:      "var(--app-bg)",
+  card:    "var(--app-surface)",
+  cardHov: "var(--app-card)",
+  border:  "var(--app-tint-med)",
+  borderB: "var(--app-tint-soft)",
   blue:    "#3D7EFF",
   blueG:   "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
   text:    "#F1F5F9",
@@ -199,12 +199,12 @@ export default function NotificationsTab({ token, currentUser }) {
         @keyframes scFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes scSpin { to { transform: rotate(360deg); } }
         .sc-notif-scroll::-webkit-scrollbar { width: 6px; }
-        .sc-notif-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 10px; }
+        .sc-notif-scroll::-webkit-scrollbar-track { background: var(--app-tint-soft); border-radius: 10px; }
         .sc-notif-scroll::-webkit-scrollbar-thumb { background: rgba(61,126,255,0.3); border-radius: 10px; }
         .sc-notif-scroll::-webkit-scrollbar-thumb:hover { background: rgba(61,126,255,0.5); }
         .sc-notif-input::placeholder { color: #475569; }
         .sc-notif-row-unread { background: rgba(61,126,255,0.04) !important; border-color: rgba(61,126,255,0.15) !important; }
-        .sc-notif-row:hover { background: #111220 !important; transform: translateX(4px); }
+        .sc-notif-row:hover { background: var(--app-card) !important; transform: translateX(4px); }
         .sc-notif-row { transition: all 0.2s ease; }
         .sc-notif-tab { 
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
@@ -224,7 +224,7 @@ export default function NotificationsTab({ token, currentUser }) {
         }
         .sc-notif-tab:hover::before { left: 100%; }
         .sc-notif-tab:hover { 
-          background: rgba(255,255,255,0.06) !important; 
+          background: var(--app-tint-soft) !important; 
           transform: translateY(-2px);
         }
         .sc-notif-tab-active { 
@@ -247,8 +247,8 @@ export default function NotificationsTab({ token, currentUser }) {
           animation: scFadeIn 0.2s ease;
         }
         .sc-notif-modal { 
-          background: #0D0E18;
-          border: 1px solid rgba(255,255,255,0.07);
+          background: var(--app-surface);
+          border: 1px solid var(--app-tint-med);
           border-radius: 22px;
           width: 100%;
           max-width: 580px;
@@ -272,7 +272,7 @@ export default function NotificationsTab({ token, currentUser }) {
                 </div>
                 <button onClick={()=>setShowComments(false)}
                   style={{ background:"none", border:"none", color:T.dim, cursor:"pointer", padding:6, lineHeight:0, borderRadius:9, transition:"color 0.2s,background 0.2s" }}
-                  onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color=T.text; }}
+                  onMouseEnter={e=>{ e.currentTarget.style.background="var(--app-tint-soft)"; e.currentTarget.style.color=T.text; }}
                   onMouseLeave={e=>{ e.currentTarget.style.background="none"; e.currentTarget.style.color=T.dim; }}>
                   <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -292,9 +292,9 @@ export default function NotificationsTab({ token, currentUser }) {
               <div className="sc-notif-scroll" style={{ padding:"16px 22px", overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:10 }}>
                 {(a.comments && a.comments.length > 0) ? a.comments.map((c) => (
                   <div key={c.id}>
-                    <div style={{ background:"rgba(255,255,255,0.025)", border:`1px solid ${T.borderB}`, borderRadius:13, padding:"12px 14px" }}>
+                    <div style={{ background:"var(--app-tint-soft)", border:`1px solid ${T.borderB}`, borderRadius:13, padding:"12px 14px" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-                        <div style={{ width:28, height:28, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:11, color:"#fff", flexShrink:0 }}>
+                        <div style={{ width:28, height:28, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:11, color:"var(--app-text)", flexShrink:0 }}>
                           {(c.user?.username||"?")[0].toUpperCase()}
                         </div>
                         <span style={{ fontFamily:T.syne, fontWeight:700, fontSize:13, color:T.text }}>{c.user?.username}</span>
@@ -345,7 +345,7 @@ export default function NotificationsTab({ token, currentUser }) {
                             autoFocus
                             style={{ 
                               flex:1, 
-                              background:"rgba(255,255,255,0.03)", 
+                              background:"var(--app-tint-soft)", 
                               border:`1px solid ${T.border}`, 
                               borderRadius:10, 
                               padding:"8px 12px", 
@@ -364,7 +364,7 @@ export default function NotificationsTab({ token, currentUser }) {
                               borderRadius:10, 
                               background: (isSubmittingComment||!replyText.trim()) ? "rgba(61,126,255,0.3)" : T.blueG, 
                               border:"none", 
-                              color:"#fff", 
+                              color:"var(--app-text)", 
                               fontFamily:T.syne, 
                               fontWeight:700, 
                               fontSize:12, 
@@ -375,7 +375,7 @@ export default function NotificationsTab({ token, currentUser }) {
                               gap:4
                             }}>
                             {isSubmittingComment
-                              ? <div style={{ width:11, height:11, border:"2px solid rgba(255,255,255,0.4)", borderTopColor:"#fff", borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
+                              ? <div style={{ width:11, height:11, border:"2px solid var(--app-tint-strong)", borderTopColor:"#fff", borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
                               : <><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Send</>}
                           </button>
                         </form>
@@ -388,7 +388,7 @@ export default function NotificationsTab({ token, currentUser }) {
                         {c.replies.map((reply) => (
                           <div key={reply.id} style={{ background:"rgba(61,126,255,0.05)", border:`1px solid rgba(61,126,255,0.15)`, borderRadius:10, padding:"10px 12px" }}>
                             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                              <div style={{ width:24, height:24, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:10, color:"#fff", flexShrink:0 }}>
+                              <div style={{ width:24, height:24, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:10, color:"var(--app-text)", flexShrink:0 }}>
                                 {(reply.user?.username||"?")[0].toUpperCase()}
                               </div>
                               <span style={{ fontFamily:T.syne, fontWeight:700, fontSize:12, color:T.text }}>{reply.user?.username}</span>
@@ -417,14 +417,14 @@ export default function NotificationsTab({ token, currentUser }) {
                     className="sc-notif-input"
                     type="text" value={newComment} onChange={e=>setNewComment(e.target.value)}
                     placeholder="Add a comment..." disabled={isSubmittingComment}
-                    style={{ flex:1, background:"rgba(255,255,255,0.03)", border:`1px solid ${T.border}`, borderRadius:12, padding:"10px 14px", fontSize:14, fontFamily:T.body, color:T.text, outline:"none", transition:"border-color 0.2s" }}
+                    style={{ flex:1, background:"var(--app-tint-soft)", border:`1px solid ${T.border}`, borderRadius:12, padding:"10px 14px", fontSize:14, fontFamily:T.body, color:T.text, outline:"none", transition:"border-color 0.2s" }}
                     onFocus={e=>e.target.style.borderColor=T.blue}
                     onBlur={e=>e.target.style.borderColor=T.border}
                   />
                   <button type="submit" disabled={isSubmittingComment || !newComment.trim()}
-                    style={{ padding:"10px 18px", borderRadius:12, background: (isSubmittingComment||!newComment.trim()) ? "rgba(61,126,255,0.3)" : T.blueG, border:"none", color:"#fff", fontFamily:T.syne, fontWeight:700, fontSize:13, cursor:(isSubmittingComment||!newComment.trim())?"not-allowed":"pointer", transition:"all 0.2s", boxShadow:(isSubmittingComment||!newComment.trim())?"none":"0 0 14px rgba(61,126,255,0.25)", display:"flex", alignItems:"center", gap:6 }}>
+                    style={{ padding:"10px 18px", borderRadius:12, background: (isSubmittingComment||!newComment.trim()) ? "rgba(61,126,255,0.3)" : T.blueG, border:"none", color:"var(--app-text)", fontFamily:T.syne, fontWeight:700, fontSize:13, cursor:(isSubmittingComment||!newComment.trim())?"not-allowed":"pointer", transition:"all 0.2s", boxShadow:(isSubmittingComment||!newComment.trim())?"none":"0 0 14px rgba(61,126,255,0.25)", display:"flex", alignItems:"center", gap:6 }}>
                     {isSubmittingComment
-                      ? <div style={{ width:13, height:13, border:"2px solid rgba(255,255,255,0.4)", borderTopColor:"#fff", borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
+                      ? <div style={{ width:13, height:13, border:"2px solid var(--app-tint-strong)", borderTopColor:"#fff", borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
                       : <><svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Send</>}
                   </button>
                 </form>
@@ -462,7 +462,7 @@ export default function NotificationsTab({ token, currentUser }) {
                     style={{
                       padding:"10px 18px",
                       borderRadius:12,
-                      background: activeTab === tab.id ? "rgba(61,126,255,0.15)" : "rgba(255,255,255,0.04)",
+                      background: activeTab === tab.id ? "rgba(61,126,255,0.15)" : "var(--app-tint-soft)",
                       border: `1px solid ${activeTab === tab.id ? "rgba(61,126,255,0.4)" : T.border}`,
                       color: activeTab === tab.id ? T.blue : T.muted,
                       fontFamily:T.mono,
@@ -478,7 +478,7 @@ export default function NotificationsTab({ token, currentUser }) {
                     <span>{tab.label}</span>
                     {tab.count > 0 && (
                       <span style={{
-                        background: activeTab === tab.id ? "rgba(61,126,255,0.25)" : "rgba(255,255,255,0.1)",
+                        background: activeTab === tab.id ? "rgba(61,126,255,0.25)" : "var(--app-tint-med)",
                         borderRadius:99,
                         padding:"2px 7px",
                         fontSize:10,
@@ -588,7 +588,7 @@ export default function NotificationsTab({ token, currentUser }) {
                               )}
                             </div>
                             {a.commentCount > 0 && (
-                              <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:8, background:"rgba(255,255,255,0.04)", border:`1px solid ${T.borderB}` }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:8, background:"var(--app-tint-soft)", border:`1px solid ${T.borderB}` }}>
                                 <svg width="13" height="13" fill="none" stroke={T.muted} strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                 <span style={{ fontFamily:T.mono, fontSize:11, color:T.muted, fontWeight:600 }}>{a.commentCount}</span>
                               </div>

@@ -81,7 +81,7 @@ const tab = {
   padding: "10px 16px",
   borderRadius: 10,
   border: "1px solid rgba(255,215,0,0.2)",
-  background: "rgba(20,20,20,0.6)",
+  background: "rgba(var(--app-glass-rgb),0.6)",
   color: "#FFD700",
   cursor: "pointer",
   fontSize: 13,
@@ -92,5 +92,5 @@ const activeTab = {
   ...tab,
   border: "2px solid #FFD700",
   background: "linear-gradient(135deg, #FFD700, #DAA520)",
-  color: "#fff"
+  color: "var(--app-text)"
 };

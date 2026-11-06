@@ -139,7 +139,7 @@ export function TeacherInvitesPanel({ token }) {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Recipient email <span style={{ color: "#9ca3af", fontSize: 11 }}>(optional, locks to this email)</span></label>
+            <label style={labelStyle}>Recipient email <span style={{ color: "var(--app-dim)", fontSize: 11 }}>(optional, locks to this email)</span></label>
             <input
               type="email"
               value={newEmail}
@@ -153,7 +153,7 @@ export function TeacherInvitesPanel({ token }) {
         {/* Row 2: notes + expiry + button */}
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "end" }}>
           <div>
-            <label style={labelStyle}>Notes <span style={{ color: "#9ca3af", fontSize: 11 }}>(your own reference)</span></label>
+            <label style={labelStyle}>Notes <span style={{ color: "var(--app-dim)", fontSize: 11 }}>(your own reference)</span></label>
             <input
               value={newNotes}
               onChange={(e) => setNewNotes(e.target.value)}
@@ -180,7 +180,7 @@ export function TeacherInvitesPanel({ token }) {
               borderRadius: 8,
               border: "none",
               background: creating ? "rgba(255,215,0,0.5)" : "linear-gradient(135deg, #FFD700, #DAA520)",
-              color: "#fff",
+              color: "var(--app-text)",
               fontWeight: 700,
               cursor: creating ? "wait" : "pointer"
             }}
@@ -188,7 +188,7 @@ export function TeacherInvitesPanel({ token }) {
             {creating ? "..." : "Generate"}
           </button>
         </div>
-        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: "var(--app-dim)", marginTop: 8 }}>
           💡 Tip: Leave "Expires in" as 0 for a code that never expires. Codes are single-use.
         </div>
       </div>
@@ -209,9 +209,9 @@ export function TeacherInvitesPanel({ token }) {
           </div>
         )}
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading invites...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--app-dim)" }}>Loading invites...</div>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--app-dim)" }}>
             {filter === "all" ? "No invite codes yet. Generate one above." : `No ${filter} codes.`}
           </div>
         ) : (
@@ -253,14 +253,14 @@ export function TeacherInvitesPanel({ token }) {
                     </td>
                     <td style={tdStyle}>
                       <div style={{ fontSize: 13 }}>{i.email || <span style={{ color: "#64748b" }}>(any email)</span>}</div>
-                      {i.notes && <div style={{ fontSize: 11, color: "#9ca3af" }}>{i.notes}</div>}
+                      {i.notes && <div style={{ fontSize: 11, color: "var(--app-dim)" }}>{i.notes}</div>}
                     </td>
                     <td style={tdStyle}>
                       {i.usedByUser ? (
                         <div>
                           <div style={{ fontSize: 13 }}>{i.usedByUser.username}</div>
-                          <div style={{ fontSize: 11, color: "#9ca3af" }}>{i.usedByUser.email}</div>
-                          <div style={{ fontSize: 10, color: "#9ca3af" }}>{i.usedAt ? new Date(i.usedAt).toLocaleString() : ""}</div>
+                          <div style={{ fontSize: 11, color: "var(--app-dim)" }}>{i.usedByUser.email}</div>
+                          <div style={{ fontSize: 10, color: "var(--app-dim)" }}>{i.usedAt ? new Date(i.usedAt).toLocaleString() : ""}</div>
                         </div>
                       ) : (
                         <span style={{ color: "#64748b" }}>—</span>
@@ -315,13 +315,13 @@ function StatCard({ label, value, color, onClick, active }) {
         padding: 14,
         borderRadius: 10,
         border: active ? `2px solid ${color}` : "1px solid rgba(255,215,0,0.2)",
-        background: active ? `${color}22` : "rgba(20,20,20,0.6)",
-        color: "#fff",
+        background: active ? `${color}22` : "rgba(var(--app-glass-rgb),0.6)",
+        color: "var(--app-text)",
         cursor: "pointer",
         textAlign: "left"
       }}
     >
-      <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontSize: 11, color: "var(--app-dim)", textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontSize: 28, fontWeight: 700, color, marginTop: 4 }}>{value}</div>
     </button>
   );
@@ -333,8 +333,8 @@ const inputStyle = {
   padding: 10,
   borderRadius: 8,
   border: "1px solid rgba(255,215,0,0.3)",
-  background: "rgba(10,10,10,0.8)",
-  color: "#fff",
+  background: "rgba(var(--app-glass-rgb),0.8)",
+  color: "var(--app-text)",
   fontSize: 13,
   boxSizing: "border-box"
 };

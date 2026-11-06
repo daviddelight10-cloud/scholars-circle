@@ -8,7 +8,7 @@ export function UpgradeGate({ title, description, icon = "🔒", features = [], 
   const openPremium = () => window.dispatchEvent(new CustomEvent("sc-open-premium"));
 
   return (
-    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto", background: "var(--card-bg, #232328)", border: "1px solid var(--border-color, #3a3a40)" }}>
+    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto", background: "var(--card-bg, var(--app-card2))", border: "1px solid var(--border-color, #3a3a40)" }}>
       <div style={{ fontSize: 48, marginBottom: 12 }}>{icon}</div>
       <h2 style={{ margin: "0 0 8px 0", fontSize: 20, color: "var(--text-primary, #f1f5f9)" }}>⭐ Premium Feature</h2>
       <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "var(--text-primary, #f1f5f9)" }}>{title}</h3>
@@ -34,7 +34,7 @@ export function UpgradeGate({ title, description, icon = "🔒", features = [], 
                   border: "1px solid var(--border-color, #3a3a40)",
                   borderRadius: 10,
                   padding: 14,
-                  background: "var(--item-bg, rgba(255,255,255,0.05))",
+                  background: "var(--item-bg, var(--app-tint-soft))",
                   position: "relative",
                   textAlign: "left",
                 }}
@@ -60,7 +60,7 @@ export function UpgradeGate({ title, description, icon = "🔒", features = [], 
           onClick={openPremium}
           style={{
             background: "var(--accent-color, #FFD700)",
-            color: "#111",
+            color: "var(--app-ink)",
             fontWeight: 600,
             padding: "12px 24px",
             fontSize: 14,

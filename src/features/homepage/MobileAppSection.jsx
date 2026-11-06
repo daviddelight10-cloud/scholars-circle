@@ -4,14 +4,14 @@ export default function MobileAppSection() {
   return (
     <section id="mobile" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #0D0E18 100%)'
+      background: 'linear-gradient(180deg, var(--app-bg) 0%, var(--app-surface) 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
           <h2 style={{
             fontSize: 'clamp(1.875rem, 4vw, 3rem)',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--app-text)',
             marginBottom: '16px'
           }}>
             Study Anywhere, Anytime
@@ -50,7 +50,7 @@ export default function MobileAppSection() {
                   📱
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
                     Responsive Design
                   </h3>
                   <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -74,7 +74,7 @@ export default function MobileAppSection() {
                   ⚡
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
                     Fast Performance
                   </h3>
                   <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -98,7 +98,7 @@ export default function MobileAppSection() {
                   🔄
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
                     Sync Across Devices
                   </h3>
                   <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -122,7 +122,7 @@ export default function MobileAppSection() {
                   🔔
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
                     Study Reminders
                   </h3>
                   <p style={{ color: '#94a3b8', fontSize: '14px' }}>

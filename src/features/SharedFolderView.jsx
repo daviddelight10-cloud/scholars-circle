@@ -240,8 +240,8 @@ export default function SharedFolderView() {
 
   if (loading) {
     return (
-      <div className="mc-root" style={{ minHeight: "100dvh", background: "#0a0a0a" }}>
-        <div style={{ padding: "80px 20px", textAlign: "center", color: "#9AA3B5", fontSize: 14 }}>
+      <div className="mc-root" style={{ minHeight: "100dvh", background: "var(--app-bg)" }}>
+        <div style={{ padding: "80px 20px", textAlign: "center", color: "var(--app-dim)", fontSize: 14 }}>
           Loading shared space…
         </div>
       </div>
@@ -250,13 +250,13 @@ export default function SharedFolderView() {
 
   if (error || !folder) {
     return (
-      <div className="mc-root" style={{ minHeight: "100dvh", background: "#0a0a0a" }}>
+      <div className="mc-root" style={{ minHeight: "100dvh", background: "var(--app-bg)" }}>
         <div style={{ padding: "80px 20px", textAlign: "center" }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>{deleted ? "�️" : "�🔒"}</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "#EDEFF5", marginBottom: 6 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--app-text)", marginBottom: 6 }}>
             {deleted ? "This space has been deleted" : "Space not accessible"}
           </div>
-          <div style={{ fontSize: 13, color: "#646E84", marginBottom: 18 }}>
+          <div style={{ fontSize: 13, color: "var(--app-faint)", marginBottom: 18 }}>
             {deleted
               ? "The owner removed this space and everything in it."
               : (error || "The owner may have turned off link sharing, or this link expired.")}
@@ -276,7 +276,7 @@ export default function SharedFolderView() {
   const metaLine = [folder.courseCode, folder.level, folder.semester].filter(Boolean).join(" · ");
 
   return (
-    <div className="mc-root" style={{ minHeight: "100dvh", background: "#0a0a0a" }}>
+    <div className="mc-root" style={{ minHeight: "100dvh", background: "var(--app-bg)" }}>
       <div className="mx-auto w-full max-w-[1400px]" style={{ paddingBottom: "96px" }}>
 
         {/* Header */}
@@ -285,24 +285,24 @@ export default function SharedFolderView() {
             <button
               onClick={goBack}
               aria-label="Back"
-              className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-              style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--app-dim)] transition-colors"
+              style={{ background: "var(--app-card)", borderColor: "var(--app-tint-med)" }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
               </svg>
             </button>
             <div className="min-w-0 flex-1 text-center">
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#646E84]">Shared Space</div>
-              <div className="mt-0.5 truncate text-[13px] font-semibold text-[#EDEFF5]">
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--app-faint)]">Shared Space</div>
+              <div className="mt-0.5 truncate text-[13px] font-semibold text-[var(--app-text)]">
                 {metaLine || folder.name}
               </div>
             </div>
             <button
               onClick={() => setShareOpen(true)}
               aria-label="Share this space"
-              className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-              style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--app-dim)] transition-colors"
+              style={{ background: "var(--app-card)", borderColor: "var(--app-tint-med)" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" /><path d="M16 6l-4-4-4 4" /><path d="M12 2v14" />
@@ -332,9 +332,9 @@ export default function SharedFolderView() {
                   disabled={bookmarkBusy}
                   className="rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all active:scale-95"
                   style={{
-                    background: (folderBookmarked || isOwner) ? "rgba(255,255,255,0.07)" : "linear-gradient(135deg,#d98f0f,#F5A623)",
-                    color: (folderBookmarked || isOwner) ? "#EDEFF5" : "#0a0a0a",
-                    border: (folderBookmarked || isOwner) ? "1px solid rgba(255,255,255,0.12)" : "none",
+                    background: (folderBookmarked || isOwner) ? "var(--app-tint-med)" : "linear-gradient(135deg,#d98f0f,#F5A623)",
+                    color: (folderBookmarked || isOwner) ? "#EDEFF5" : "var(--app-ink)",
+                    border: (folderBookmarked || isOwner) ? "1px solid var(--app-tint-med)" : "none",
                     cursor: bookmarkBusy ? "wait" : "pointer",
                     opacity: bookmarkBusy ? 0.6 : 1,
                   }}
@@ -425,7 +425,7 @@ export default function SharedFolderView() {
                       {tools.length > 0 && <span className="sp-row-tools">{tools.map((t, ti) => <span key={ti}>{t}</span>)}</span>}
                     </div>
                   </div>
-                  <span style={{ color: "#646E84", flexShrink: 0, display: "flex" }}>
+                  <span style={{ color: "var(--app-faint)", flexShrink: 0, display: "flex" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="m9 6 6 6-6 6" />
                     </svg>
@@ -500,7 +500,7 @@ export default function SharedFolderView() {
       {toast && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
+          style={{ background: "var(--app-surface)", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
           role="status"
         >
           <span style={{ whiteSpace: "normal", textAlign: "center" }}>{toast}</span>

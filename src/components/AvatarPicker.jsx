@@ -31,7 +31,7 @@ export default function AvatarPicker({ value, onPick, size = 56, cols = 4, style
                 position: "absolute", bottom: -2, right: -2, width: 18, height: 18,
                 borderRadius: "50%", background: "#FFD700", color: "#1A1300",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 11, fontWeight: 800, border: "2px solid #0B0B0D",
+                fontSize: 11, fontWeight: 800, border: "2px solid var(--app-ink)",
               }}>✓</span>
             )}
           </button>

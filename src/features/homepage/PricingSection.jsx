@@ -28,12 +28,12 @@ export default function PricingSection() {
   const goldBright = '#FFD700';
   const textDim = '#A8B0C4';
   const textFaint = '#707A90';
-  const line = 'rgba(255,255,255,0.09)';
+  const line = 'var(--app-tint-med)';
 
   return (
     <section id="pricing" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #0d0c08 100%)',
+      background: 'linear-gradient(180deg, var(--app-bg) 0%, #0d0c08 100%)',
       fontFamily: 'Manrope, sans-serif'
     }}>
       <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
@@ -46,7 +46,7 @@ export default function PricingSection() {
           <h2 style={{
             fontSize: 'clamp(1.875rem, 4vw, 2.6rem)',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--app-text)',
             marginBottom: '14px',
             fontFamily: 'Sora, sans-serif',
             letterSpacing: '-0.02em'
@@ -74,16 +74,16 @@ export default function PricingSection() {
         }}>
           {/* Free */}
           <div style={{
-            background: 'linear-gradient(145deg, rgba(23,23,27,0.9), rgba(13,13,14,0.9))',
+            background: 'linear-gradient(145deg, rgba(var(--app-glass-rgb),0.9), rgba(var(--app-glass-rgb),0.9))',
             border: `1px solid ${line}`,
             borderRadius: '18px',
             padding: '26px 24px',
             display: 'flex',
             flexDirection: 'column'
           }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: '4px', fontFamily: 'Sora, sans-serif' }}>Free</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--app-text)', marginBottom: '4px', fontFamily: 'Sora, sans-serif' }}>Free</h3>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '18px' }}>
-              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', fontFamily: 'Sora, sans-serif' }}>₦0</span>
+              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--app-text)', fontFamily: 'Sora, sans-serif' }}>₦0</span>
               <span style={{ color: textFaint, fontSize: '0.85rem' }}>/ forever</span>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 22px', flex: 1 }}>
@@ -97,8 +97,8 @@ export default function PricingSection() {
             <Link to="/signup" style={{
               display: 'block', padding: '12px 18px', borderRadius: '12px',
               fontWeight: 800, textAlign: 'center', fontSize: '0.88rem',
-              border: '1px solid rgba(255,255,255,0.14)',
-              background: 'rgba(255,255,255,0.06)', color: '#fff', textDecoration: 'none'
+              border: '1px solid var(--app-tint-strong)',
+              background: 'var(--app-tint-soft)', color: 'var(--app-text)', textDecoration: 'none'
             }}>
               Start free
             </Link>
@@ -108,7 +108,7 @@ export default function PricingSection() {
           {PLANS.map((plan) => (
             <div key={plan.id} style={{
               position: 'relative',
-              background: 'linear-gradient(145deg, rgba(23,23,27,0.9), rgba(13,13,14,0.9))',
+              background: 'linear-gradient(145deg, rgba(var(--app-glass-rgb),0.9), rgba(var(--app-glass-rgb),0.9))',
               border: plan.best ? `1px solid rgba(245,166,35,0.55)` : `1px solid ${line}`,
               borderRadius: '18px',
               padding: '26px 24px',
@@ -127,11 +127,11 @@ export default function PricingSection() {
                   BEST VALUE
                 </div>
               )}
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: '4px', fontFamily: 'Sora, sans-serif' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--app-text)', marginBottom: '4px', fontFamily: 'Sora, sans-serif' }}>
                 {plan.icon} {plan.label}
               </h3>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '1.8rem', fontWeight: 800, color: plan.best ? gold : '#fff', fontFamily: 'Sora, sans-serif' }}>
+                <span style={{ fontSize: '1.8rem', fontWeight: 800, color: plan.best ? gold : 'var(--app-text)', fontFamily: 'Sora, sans-serif' }}>
                   {naira(plan.price)}
                 </span>
               </div>
@@ -147,9 +147,9 @@ export default function PricingSection() {
               <Link to="/signup" style={{
                 display: 'block', padding: '12px 18px', borderRadius: '12px',
                 fontWeight: 800, textAlign: 'center', fontSize: '0.88rem',
-                background: plan.best ? `linear-gradient(135deg, ${goldBright}, ${gold})` : 'rgba(255,255,255,0.06)',
-                border: plan.best ? 'none' : '1px solid rgba(255,255,255,0.14)',
-                color: plan.best ? '#1A1300' : '#fff', textDecoration: 'none'
+                background: plan.best ? `linear-gradient(135deg, ${goldBright}, ${gold})` : 'var(--app-tint-soft)',
+                border: plan.best ? 'none' : '1px solid var(--app-tint-strong)',
+                color: plan.best ? '#1A1300' : 'var(--app-text)', textDecoration: 'none'
               }}>
                 {plan.id === 'week1' ? 'Try Premium' : 'Get Premium'}
               </Link>
@@ -170,7 +170,7 @@ export default function PricingSection() {
               style={{
                 padding: '11px 22px',
                 background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                color: '#fff', fontWeight: 800, borderRadius: '10px',
+                color: 'var(--app-text)', fontWeight: 800, borderRadius: '10px',
                 textDecoration: 'none', display: 'inline-flex',
                 alignItems: 'center', gap: '6px', fontSize: '0.9rem'
               }}
@@ -181,9 +181,9 @@ export default function PricingSection() {
               href="mailto:dsilearn1@gmail.com"
               style={{
                 padding: '11px 22px',
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                color: '#fff', fontWeight: 800, borderRadius: '10px',
+                background: 'var(--app-tint-soft)',
+                border: '1px solid var(--app-tint-strong)',
+                color: 'var(--app-text)', fontWeight: 800, borderRadius: '10px',
                 textDecoration: 'none', display: 'inline-flex',
                 alignItems: 'center', gap: '6px', fontSize: '0.9rem'
               }}

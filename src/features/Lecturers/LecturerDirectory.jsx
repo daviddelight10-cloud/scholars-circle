@@ -84,13 +84,13 @@ export function LecturerDirectory({ token, onSelect, onMessage }) {
         )}
 
         {loading && (
-          <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading lecturers...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--app-dim)" }}>Loading lecturers...</div>
         )}
         {error && (
           <div style={{ padding: 16, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8 }}>{error}</div>
         )}
         {!loading && !error && lecturers.length === 0 && (
-          <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--app-dim)" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🎓</div>
             <p>No lecturer profiles found.</p>
             <p style={{ fontSize: 12 }}>Lecturers can create their profile from the Lecturers tab.</p>
@@ -132,7 +132,7 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
             alignItems: "center",
             justifyContent: "center",
             fontSize: 24,
-            color: "#fff",
+            color: "var(--app-text)",
             fontWeight: 700,
             flexShrink: 0
           }}
@@ -145,7 +145,7 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
             {lecturer.isVerified && <span title="Verified">✅</span>}
           </div>
           <div style={{ fontSize: 12, color: "#FFD700" }}>{lecturer.department || "—"}</div>
-          {lecturer.institution && <div style={{ fontSize: 11, color: "#9ca3af" }}>🏛️ {lecturer.institution}</div>}
+          {lecturer.institution && <div style={{ fontSize: 11, color: "var(--app-dim)" }}>🏛️ {lecturer.institution}</div>}
         </div>
       </div>
 
@@ -165,7 +165,7 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid rgba(255,215,0,0.15)" }}>
         <div style={{ fontSize: 12, color: "#fbbf24" }}>
-          ⭐ {(lecturer.rating || 0).toFixed(1)} <span style={{ color: "#9ca3af", fontSize: 11 }}>({lecturer.totalRatings || 0})</span>
+          ⭐ {(lecturer.rating || 0).toFixed(1)} <span style={{ color: "var(--app-dim)", fontSize: 11 }}>({lecturer.totalRatings || 0})</span>
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onMessage?.(lecturer); }}
@@ -190,7 +190,7 @@ const inputStyle = {
   padding: 10,
   borderRadius: 8,
   border: "1px solid rgba(255,215,0,0.3)",
-  background: "rgba(20,20,20,0.8)",
-  color: "#fff",
+  background: "rgba(var(--app-glass-rgb),0.8)",
+  color: "var(--app-text)",
   fontSize: 13
 };

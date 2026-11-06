@@ -60,7 +60,7 @@ function TransitionView({ room }) {
       <div style={{ textAlign: "center" }}>
         <p className="lq-q-label">GET READY</p>
         <p key={count} className="lq-countdown">{count}</p>
-        <p style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
+        <p style={{ fontSize: 13, color: "var(--app-dim)", marginTop: 8 }}>
           Question {(room.nextIndex ?? 0) + 1} of {room.question?.total || room.settings.numQuestions}
         </p>
       </div>
@@ -294,7 +294,7 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
               </div>
             ))}
             {room.chat.length === 0 && (
-              <p style={{ fontSize: 12, color: "#6B7280", textAlign: "center" }}>No messages yet — say hi!</p>
+              <p style={{ fontSize: 12, color: "var(--app-dim)", textAlign: "center" }}>No messages yet — say hi!</p>
             )}
           </div>
           <div className="lq-chat-row">

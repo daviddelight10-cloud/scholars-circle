@@ -23,7 +23,7 @@ function McqProgressRing({ practiced, pct, progress }) {
   return (
     <div title={`${pct}% learned · Mastered: ${progress.mastered || 0}/${progress.total} · Best: ${progress.bestScore}/${progress.bestTotal ?? progress.total} · ${progress.attempts} attempt${progress.attempts > 1 ? "s" : ""}`} className="relative h-7 w-7 shrink-0">
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#2a2a2a" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--app-border)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={stroke}
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: "stroke-dashoffset 0.4s ease" }} />
@@ -225,13 +225,13 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
               top: "-10px",
               right: "-10px",
               background: fabOpen
-                ? "#1a1a1a"
+                ? "var(--app-card)"
                 : "linear-gradient(135deg, #FFD700, #DAA520)",
-              border: "2px solid rgba(255,255,255,0.15)",
+              border: "2px solid var(--app-tint-strong)",
               boxShadow: fabOpen
                 ? "0 2px 12px rgba(0,0,0,0.5)"
                 : "0 4px 16px rgba(255,215,0,0.4), 0 0 0 0 rgba(255,215,0,0.3)",
-              color: fabOpen ? "#FFD700" : "#0a0a0a",
+              color: fabOpen ? "#FFD700" : "var(--app-ink)",
               cursor: isGenerating ? "default" : "pointer",
               animation: fabOpen || isGenerating ? "none" : "fabglow 2.5s ease-in-out infinite",
               zIndex: 10,

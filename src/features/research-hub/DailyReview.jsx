@@ -215,7 +215,7 @@ export default function DailyReview({ onBack, onComplete }) {
         <div className="mb-1 text-sm font-bold text-coral-400">{error}</div>
         <div className="mb-5 text-[11px] text-hub-text-dim">Something went wrong loading your reviews</div>
         <div className="flex gap-2">
-          <button onClick={fetchDue} className="cursor-pointer rounded-xl bg-gold px-5 py-2.5 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-95">↻ Retry</button>
+          <button onClick={fetchDue} className="cursor-pointer rounded-xl bg-gold px-5 py-2.5 text-[12px] font-bold text-[var(--app-bg)] transition-all active:scale-95">↻ Retry</button>
           <button onClick={onBack} className="cursor-pointer rounded-xl border border-hub-border px-5 py-2.5 text-[12px] font-semibold text-hub-text-muted transition-all active:scale-95">← Back</button>
         </div>
       </div>
@@ -260,7 +260,7 @@ export default function DailyReview({ onBack, onComplete }) {
                 <div className="text-[13px] font-bold text-gold">All Folders</div>
                 <div className="text-[10px] text-hub-text-dim">Review everything due across all folders</div>
               </div>
-              <div className="flex h-7 min-w-[28px] items-center justify-center rounded-full bg-gold px-2 text-[11px] font-bold text-[#0a0a0a]">{totalDue}</div>
+              <div className="flex h-7 min-w-[28px] items-center justify-center rounded-full bg-gold px-2 text-[11px] font-bold text-[var(--app-bg)]">{totalDue}</div>
             </button>
           )}
 
@@ -335,7 +335,7 @@ export default function DailyReview({ onBack, onComplete }) {
           {Object.keys(byFolder).length > 1 && (
             <button onClick={() => setSelectedFolder(null)} className="cursor-pointer rounded-xl border border-hub-border px-5 py-2.5 text-[12px] font-semibold text-hub-text-muted transition-all active:scale-95">← Folders</button>
           )}
-          <button onClick={onBack} className="cursor-pointer rounded-xl bg-gold px-6 py-2.5 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-95">← Back to Hub</button>
+          <button onClick={onBack} className="cursor-pointer rounded-xl bg-gold px-6 py-2.5 text-[12px] font-bold text-[var(--app-bg)] transition-all active:scale-95">← Back to Hub</button>
         </div>
       </div>
     );
@@ -440,7 +440,7 @@ export default function DailyReview({ onBack, onComplete }) {
           {Object.keys(byFolder).length > 1 && (
             <button onClick={() => { setFinished(false); setSelectedFolder(null); setReviewPhase(false); setMissedQueue([]); setClearedCount(0); }} className="cursor-pointer rounded-xl border border-hub-border px-5 py-2.5 text-[12px] font-semibold text-hub-text-muted transition-all active:scale-95">← Folders</button>
           )}
-          <button onClick={onBack} className="cursor-pointer rounded-xl bg-gold px-6 py-2.5 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-95">← Back to Hub</button>
+          <button onClick={onBack} className="cursor-pointer rounded-xl bg-gold px-6 py-2.5 text-[12px] font-bold text-[var(--app-bg)] transition-all active:scale-95">← Back to Hub</button>
         </div>
       </div>
     );
@@ -544,7 +544,7 @@ export default function DailyReview({ onBack, onComplete }) {
 
           {/* Action buttons inside card */}
           {!showAnswer && (
-            <button onClick={() => setShowAnswer(true)} className="mt-4 w-full cursor-pointer rounded-xl bg-gold py-3 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-[0.98]">
+            <button onClick={() => setShowAnswer(true)} className="mt-4 w-full cursor-pointer rounded-xl bg-gold py-3 text-[12px] font-bold text-[var(--app-bg)] transition-all active:scale-[0.98]">
               Show Answer
             </button>
           )}
@@ -569,7 +569,7 @@ export default function DailyReview({ onBack, onComplete }) {
 
         {/* Rating feedback */}
         {!isMcqItem(currentItem) && rating !== null && (
-          <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-hub-border bg-hub-surface px-4 py-2.5 text-[12px]" style={{ color: GRADE_LABELS[rating]?.color || "#888" }}>
+          <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-hub-border bg-hub-surface px-4 py-2.5 text-[12px]" style={{ color: GRADE_LABELS[rating]?.color || "var(--app-dim)" }}>
             <span className="text-base">{rating <= 2 ? "😕" : rating === 3 ? "🙂" : "😎"}</span>
             Rated: {GRADE_LABELS[rating]?.label} · Next card…
           </div>

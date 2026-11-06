@@ -152,7 +152,7 @@ export function GlobalSearch({ subjects }) {
             fontSize: 14,
             borderRadius: 6,
             border: "1px solid #374151",
-            background: "#26262a",
+            background: "var(--app-border)",
             color: "white"
           }}
           autoFocus
@@ -203,7 +203,7 @@ export function GlobalSearch({ subjects }) {
               key={item.id}
               style={{
                 padding: 12,
-                background: "#26262a",
+                background: "var(--app-border)",
                 borderRadius: 6,
                 marginBottom: 8,
                 borderLeft: `4px solid ${typeColors[item.type]}`
@@ -213,7 +213,7 @@ export function GlobalSearch({ subjects }) {
                 <span style={{ fontSize: 13, fontWeight: 500 }}>
                   {typeIcons[item.type]} {item.title}
                 </span>
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                <span style={{ fontSize: 11, color: "var(--app-dim)" }}>
                   {item.subject}
                 </span>
               </div>
@@ -233,7 +233,7 @@ export function GlobalSearch({ subjects }) {
                   )
                 }}
               />
-              <span style={{ fontSize: 11, color: "#6b7280" }}>
+              <span style={{ fontSize: 11, color: "var(--app-dim)" }}>
                 {new Date(item.timestamp).toLocaleDateString()}
               </span>
             </div>

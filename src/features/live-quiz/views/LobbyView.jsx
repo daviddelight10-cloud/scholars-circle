@@ -215,7 +215,7 @@ export default function LobbyView({ room, myId, actions }) {
           <div className="lq-section">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <p className="lq-label" style={{ marginBottom: 0 }}>Number of questions</p>
-              <p style={{ fontSize: 11, color: "#6B7280", margin: 0 }}>Max: {room.maxQuestions || 20}</p>
+              <p style={{ fontSize: 11, color: "var(--app-dim)", margin: 0 }}>Max: {room.maxQuestions || 20}</p>
             </div>
             <div className="lq-stepper">
               <button
@@ -298,7 +298,7 @@ export default function LobbyView({ room, myId, actions }) {
             <button className="lq-btn-primary" onClick={actions.start}>
               {allReady ? "Start Session" : "Start Session Anyway"}
             </button>
-            <p style={{ fontSize: 11, color: "#6B7280", textAlign: "center", margin: 0 }}>
+            <p style={{ fontSize: 11, color: "var(--app-dim)", textAlign: "center", margin: 0 }}>
               Friends can only join before the first question starts.
             </p>
           </>

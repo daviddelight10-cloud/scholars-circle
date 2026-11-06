@@ -65,7 +65,7 @@ const DeskCard = memo(function DeskCard({
             fontSize: 16,
             padding: "2px 4px",
             lineHeight: 1,
-            color: isBookmarked ? "#FFD700" : "#555",
+            color: isBookmarked ? "#FFD700" : "var(--app-faint)",
             opacity: bookmarkBusy ? 0.5 : 1,
             transform: hovered ? "scale(1.15)" : "scale(1)",
           }}
@@ -98,7 +98,7 @@ const DeskCard = memo(function DeskCard({
           <div className="text-[11px] text-hub-text-muted">
             <span
               className="font-bold"
-              style={{ color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "#888" }}
+              style={{ color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "var(--app-dim)" }}
             >
               {masteredCount}
             </span>{" "}
@@ -215,7 +215,7 @@ export function CreateDeckCard({ onClick }) {
         background: hovered ? "rgba(255,215,0,0.08)" : "transparent",
       }}
     >
-      <div className="text-3xl" style={{ color: hovered ? "#FFD700" : "#555", transition: "color 0.15s" }}>+</div>
+      <div className="text-3xl" style={{ color: hovered ? "#FFD700" : "var(--app-faint)", transition: "color 0.15s" }}>+</div>
       <div className="text-[11px] font-semibold text-hub-text-muted">Create new space</div>
     </div>
   );

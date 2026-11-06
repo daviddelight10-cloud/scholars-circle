@@ -198,7 +198,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
       {loading && !initialLoadDone && (
         <div className="cr-glass" style={{ textAlign: "center", padding: 40 }}>
           <div className="spinner spinner-lg" style={{ margin: "0 auto 12px" }} />
-          <div style={{ fontSize: 13, color: "#6b7280" }}>Loading classrooms…</div>
+          <div style={{ fontSize: 13, color: "var(--app-dim)" }}>Loading classrooms…</div>
         </div>
       )}
 
@@ -266,7 +266,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                     <div className="cr-header-title">{selectedClassroom.name}</div>
                     {teacherMode && (
                       <div className="cr-header-sub">
-                        ID: <code style={{ background: "rgba(10,10,10,0.8)", padding: "1px 6px", borderRadius: 5, color: "#6b7280", fontSize: 10 }}>{selectedClassroom.id}</code>
+                        ID: <code style={{ background: "rgba(var(--app-glass-rgb),0.8)", padding: "1px 6px", borderRadius: 5, color: "var(--app-dim)", fontSize: 10 }}>{selectedClassroom.id}</code>
                         <button onClick={() => navigator.clipboard.writeText(selectedClassroom.id)} style={{ background: "none", border: "none", color: "#FFD700", cursor: "pointer", fontSize: 10, padding: 0 }}>Copy</button>
                       </div>
                     )}
@@ -274,7 +274,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                   {exams.length > 0 && (
                     <div className="cr-header-badge" style={{ background: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)", color: "#fbbf24" }}>
                       📅 {getDaysUntilExam(exams[0].examDate)}d until {exams[0].title}
-                      <button onClick={() => { if (window.confirm("Start Exam Mode?")) window.dispatchEvent(new CustomEvent("startExamMode", { detail: exams[0] })); }} style={{ marginLeft: 4, background: "#ef4444", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 10, color: "#fff", cursor: "pointer" }}>Prep</button>
+                      <button onClick={() => { if (window.confirm("Start Exam Mode?")) window.dispatchEvent(new CustomEvent("startExamMode", { detail: exams[0] })); }} style={{ marginLeft: 4, background: "#ef4444", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 10, color: "var(--app-text)", cursor: "pointer" }}>Prep</button>
                     </div>
                   )}
                   {teacherMode && <button className="cr-btn-ghost" onClick={() => setShowExamModal(true)}>📅 Add Exam</button>}
@@ -326,7 +326,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                             <input className="cr-input" value={newAnnouncement.title} onChange={e => setNewAnnouncement(p => ({ ...p, title: e.target.value }))} placeholder="Announcement title" style={{ marginBottom: 8 }} />
                             <textarea className="cr-input" value={newAnnouncement.content} onChange={e => setNewAnnouncement(p => ({ ...p, content: e.target.value }))} placeholder="Announcement content…" rows={3} style={{ marginBottom: 8, resize: "vertical" }} />
                             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#9ca3af", cursor: "pointer" }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--app-dim)", cursor: "pointer" }}>
                                 <input type="checkbox" checked={newAnnouncement.isImportant} onChange={e => setNewAnnouncement(p => ({ ...p, isImportant: e.target.checked }))} />⚠️ Important
                               </label>
                               <button className="cr-btn" style={{ marginLeft: "auto" }} onClick={createAnnouncement}>Post</button>
@@ -369,7 +369,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                             <div key={a.id} className="cr-glass-flat" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 7 }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9" }}>{a.title}</div>
-                                <div style={{ fontSize: 10, color: "#6b7280" }}>{subj?.label || ""}{a.due ? ` · Due ${a.due}` : ""}</div>
+                                <div style={{ fontSize: 10, color: "var(--app-dim)" }}>{subj?.label || ""}{a.due ? ` · Due ${a.due}` : ""}</div>
                               </div>
                               <button className={a.done ? "cr-btn-outline" : "cr-btn"} style={a.done ? { borderColor: "rgba(16,185,129,0.4)", color: "#10b981" } : {}} onClick={() => onComplete(a.id)}>
                                 {a.done ? "✓ Done" : "Mark Done"}
@@ -397,7 +397,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                         {links.map(link => (
                           <button key={link.id} className="cr-link-pill" onClick={() => setPopupLink(link)}>🔗 {link.title}</button>
                         ))}
-                        {links.length === 0 && <span style={{ fontSize: 12, color: "#6b7280" }}>No links yet.</span>}
+                        {links.length === 0 && <span style={{ fontSize: 12, color: "var(--app-dim)" }}>No links yet.</span>}
                       </div>
                     </div>
                     <div className="cr-glass">
@@ -405,7 +405,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                       {teacherMode && (
                         <div style={{ marginBottom: 10 }}>
                           <input type="file" accept=".pdf,.docx,.doc,.txt" onChange={uploadDocument} disabled={uploadingDoc} style={{ fontSize: 11 }} />
-                          {uploadingDoc && <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>Uploading…</span>}
+                          {uploadingDoc && <span style={{ fontSize: 11, color: "var(--app-dim)", marginLeft: 8 }}>Uploading…</span>}
                         </div>
                       )}
                       {documents.map(doc => (
@@ -413,7 +413,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                           <span style={{ fontSize: 18 }}>{doc.fileType === "pdf" ? "📕" : doc.fileType === "docx" ? "📘" : "📄"}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
-                            <div style={{ fontSize: 10, color: "#6b7280" }}>{doc.fileType?.toUpperCase()} · {(doc.fileSize / 1024).toFixed(1)} KB</div>
+                            <div style={{ fontSize: 10, color: "var(--app-dim)" }}>{doc.fileType?.toUpperCase()} · {(doc.fileSize / 1024).toFixed(1)} KB</div>
                           </div>
                           <button className="cr-btn-outline" style={{ borderColor: "rgba(16,185,129,0.3)", color: "#10b981" }} onClick={async () => {
                             try {
@@ -426,7 +426,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                           }}>⬇️ Download</button>
                         </div>
                       ))}
-                      {documents.length === 0 && <span style={{ fontSize: 12, color: "#6b7280" }}>No documents yet.</span>}
+                      {documents.length === 0 && <span style={{ fontSize: 12, color: "var(--app-dim)" }}>No documents yet.</span>}
                     </div>
                   </div>
                 )}
@@ -490,7 +490,7 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
         <div className="modal-overlay" onClick={() => { setShowJoinClass(false); setJoinError(""); }}>
           <div className="modal-content cr-modal" onClick={(e) => e.stopPropagation()}>
             <h3 className="cr-modal-title">🔗 Join Classroom</h3>
-            <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 12 }}>Enter the Classroom ID provided by your teacher.</p>
+            <p style={{ fontSize: 13, color: "var(--app-dim)", marginBottom: 12 }}>Enter the Classroom ID provided by your teacher.</p>
             <input className="cr-input" value={joinClassCode} onChange={(e) => setJoinClassCode(e.target.value)} placeholder="Classroom ID (e.g., 'abc123')" style={{ marginBottom: 8 }} />
             {joinError && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 8 }}>{joinError}</p>}
             <div style={{ display: "flex", gap: 8 }}>
@@ -516,14 +516,14 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
 
       {showAnnouncementPopup && (
         <div className="modal-overlay" onClick={() => { markAnnouncementRead(showAnnouncementPopup.id); setShowAnnouncementPopup(null); }}>
-          <div className="modal-content cr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, border: "2px solid rgba(239,68,68,0.5)", background: "linear-gradient(135deg, rgba(20,20,20,0.95), rgba(239,68,68,0.1))" }}>
+          <div className="modal-content cr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, border: "2px solid rgba(239,68,68,0.5)", background: "linear-gradient(135deg, rgba(var(--app-glass-rgb),0.95), rgba(239,68,68,0.1))" }}>
             <div style={{ textAlign: "center", marginBottom: 14 }}>
               <span style={{ fontSize: 40 }}>⚠️</span>
               <h3 style={{ color: "#fbbf24", margin: "4px 0 0 0" }}>Important Announcement</h3>
             </div>
             <h4 style={{ margin: "0 0 8px 0" }}>{showAnnouncementPopup.title}</h4>
             <p style={{ marginBottom: 14, fontSize: 14, lineHeight: 1.6 }}>{showAnnouncementPopup.content}</p>
-            <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 14 }}>Posted: {new Date(showAnnouncementPopup.createdAt).toLocaleString()}</div>
+            <div style={{ fontSize: 12, color: "var(--app-dim)", marginBottom: 14 }}>Posted: {new Date(showAnnouncementPopup.createdAt).toLocaleString()}</div>
             <button className="cr-btn" style={{ width: "100%", background: "rgba(239,68,68,0.2)", borderColor: "rgba(239,68,68,0.4)" }} onClick={() => { markAnnouncementRead(showAnnouncementPopup.id); setShowAnnouncementPopup(null); }}>Got it!</button>
           </div>
         </div>

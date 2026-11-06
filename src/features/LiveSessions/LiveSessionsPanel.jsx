@@ -121,7 +121,7 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
             <input className="cr-input" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Lecture 5: Cell Biology" />
           </div>
           <div style={{ marginBottom: 10 }}>
-            <label className="cr-field-label">Description <span style={{ color: "#6b7280", fontSize: 11 }}>(optional)</span></label>
+            <label className="cr-field-label">Description <span style={{ color: "var(--app-dim)", fontSize: 11 }}>(optional)</span></label>
             <textarea className="cr-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Topic agenda, prerequisites, etc." rows={2} style={{ resize: "vertical" }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
@@ -140,7 +140,7 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
         </form>
       )}
 
-      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading sessions…</div>}
+      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>Loading sessions…</div>}
       {error && <div className="cr-glass" style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", marginBottom: 12 }}>{error}</div>}
 
       {!loading && sessions.length === 0 && (
@@ -192,7 +192,7 @@ function SessionCard({ session, isHost, accent, actionLabel, actionDisabled, onA
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", fontFamily: "Syne, sans-serif" }}>{session.title}</div>
-          {session.description && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{session.description}</div>}
+          {session.description && <div style={{ fontSize: 12, color: "var(--app-dim)", marginTop: 2 }}>{session.description}</div>}
           <div style={{ fontSize: 11, color: "#FFD700", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
             <span>🕐 {dt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>
             <span>⏱ {session.durationMins} min</span>

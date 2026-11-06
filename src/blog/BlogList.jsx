@@ -2,11 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { posts, formatDate } from './blogData';
 
-const ink = '#0a0a0a';
-const inkSoft = '#121212';
-const inkCard = '#1a1a1c';
-const line = 'rgba(255,255,255,0.08)';
-const lineStrong = 'rgba(255,255,255,0.14)';
+const ink = 'var(--app-bg)';
+const inkSoft = 'var(--app-surface)';
+const inkCard = 'var(--app-card)';
+const line = 'var(--app-tint-med)';
+const lineStrong = 'var(--app-tint-strong)';
 const text = '#EDEFF5';
 const textDim = '#9AA3B5';
 const textFaint = '#646E84';
@@ -23,7 +23,7 @@ export default function BlogList() {
         @media (max-width: 760px) { .blog-grid { grid-template-columns: 1fr !important; } .wrap { padding: 0 20px !important; } }
       `}</style>
 
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,10,10,0.78)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${line}` }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(var(--app-glass-rgb),0.78)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${line}` }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: gold, boxShadow: `0 0 0 4px rgba(245,166,35,0.14)` }} />

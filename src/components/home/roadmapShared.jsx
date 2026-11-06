@@ -2,11 +2,11 @@ import { useState } from "react";
 import { FONTS } from "../../lib/theme";
 
 export const D = {
-  ink: "#0a0a0a",
+  ink: "var(--app-bg)",
   ink2: "#10141C",
-  panel: "rgba(255,255,255,0.045)",
-  panel2: "rgba(255,255,255,0.03)",
-  border: "rgba(255,255,255,0.09)",
+  panel: "var(--app-tint-soft)",
+  panel2: "var(--app-tint-soft)",
+  border: "var(--app-tint-med)",
   gold: "#F5A623",
   blue: "#4F8EF7",
   green: "#3DD68C",
@@ -155,29 +155,29 @@ function DocPracticeSheet({ match, variants, topic, onOpenResource, onStartStudy
     <button key={label} onClick={() => { onClose(); fn?.(); }} style={{
       display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
       padding: "12px 14px", borderRadius: 12, cursor: "pointer", marginTop: 6,
-      background: primary ? "linear-gradient(135deg, #b8860b, #F5A623)" : "rgba(255,255,255,0.04)",
+      background: primary ? "linear-gradient(135deg, #b8860b, #F5A623)" : "var(--app-tint-soft)",
       border: primary ? "none" : `0.5px solid ${D.border}`,
     }}>
       <span style={{ fontSize: 16 }}>{icon}</span>
       <span style={{ flex: 1 }}>
-        <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: primary ? "#0a0a0a" : D.textHi, fontFamily: FONTS.body }}>{label}</span>
+        <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: primary ? "var(--app-ink)" : D.textHi, fontFamily: FONTS.body }}>{label}</span>
         {sub && <span style={{ display: "block", fontSize: 10, color: primary ? "rgba(0,0,0,0.55)" : D.textLow, fontFamily: FONTS.body, marginTop: 1 }}>{sub}</span>}
       </span>
-      <span style={{ color: primary ? "#0a0a0a" : D.textLow }}>›</span>
+      <span style={{ color: primary ? "var(--app-ink)" : D.textLow }}>›</span>
     </button>
   );
   return (
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0, zIndex: 10050, background: "rgba(7,9,13,0.72)",
+        position: "fixed", inset: 0, zIndex: 10050, background: "rgba(var(--app-glass-rgb),0.72)",
         display: "flex", alignItems: "flex-end", justifyContent: "center",
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%", maxWidth: 480, background: "#141414",
+          width: "100%", maxWidth: 480, background: "var(--app-surface)",
           border: `1px solid ${D.border}`, borderRadius: "20px 20px 0 0",
           padding: "10px 18px 28px",
         }}
@@ -296,7 +296,7 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
             style={{
               flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
               borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
-              color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
+              color: "var(--app-ink)", cursor: "pointer", fontFamily: FONTS.body,
             }}
           >
             {hasAnyMaterial ? "Practice Materials →" : "Practice with AI Tutor →"}
@@ -308,7 +308,7 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
             style={{
               flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
               borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
-              color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
+              color: "var(--app-ink)", cursor: "pointer", fontFamily: FONTS.body,
             }}
           >
             Practice with AI Tutor →
@@ -461,7 +461,7 @@ export function OnboardingStep({ number, title, description, icon, done, actionL
             border: highlight ? "none" : `0.5px solid ${D.border}`,
             borderRadius: 8, padding: "8px 14px",
             fontSize: 11, fontWeight: 600,
-            color: highlight ? "#0a0a0a" : done ? D.green : D.textMid,
+            color: highlight ? "var(--app-ink)" : done ? D.green : D.textMid,
             cursor: disabled ? "not-allowed" : "pointer",
             fontFamily: FONTS.body, whiteSpace: "nowrap", flexShrink: 0,
             opacity: disabled ? 0.5 : 1,
@@ -488,7 +488,7 @@ export function OnboardingStep({ number, title, description, icon, done, actionL
 export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic, selectedTopicId, startHereTopic, onSelectTopic, onStartStudying, isMobile, isLast, editMode, onDragStart }) {
   const p = progress?.[topic.id];
   const pct = progressPct(p);
-  const ringColor = p?.label === "Mastered" ? "#3DD68C" : pct > 0 ? "#F5A623" : "rgba(255,255,255,0.12)";
+  const ringColor = p?.label === "Mastered" ? "#3DD68C" : pct > 0 ? "#F5A623" : "var(--app-tint-med)";
   const RC = 2 * Math.PI * 15; // r=15 ring around the node
   const topicMatches = matchesByTopic.get(topic.id) || [];
   const isSelected = selectedTopicId === topic.id;
@@ -505,7 +505,7 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
       style={{
         position: "relative", display: "flex", alignItems: "center", gap: 14,
         padding: "15px 4px", cursor: editMode ? "default" : "pointer",
-        borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
+        borderBottom: isLast ? "none" : "1px solid var(--app-tint-soft)",
         background: isSelected && !editMode ? "rgba(245,166,35,0.06)" : "transparent",
         transition: "background 0.15s",
       }}
@@ -523,7 +523,7 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
 
       <div className={nodeClass} style={{ position: "relative" }}>
         <svg width="36" height="36" viewBox="0 0 36 36" style={{ position: "absolute", left: -4, top: -4, pointerEvents: "none" }}>
-          <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="2.5" />
+          <circle cx="18" cy="18" r="15" fill="none" stroke="var(--app-tint-med)" strokeWidth="2.5" />
           <circle cx="18" cy="18" r="15" fill="none" stroke={ringColor} strokeWidth="2.5" strokeLinecap="round"
             strokeDasharray={RC.toFixed(1)} strokeDashoffset={(RC * (1 - pct / 100)).toFixed(1)}
             transform="rotate(-90 18 18)" />

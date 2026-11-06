@@ -5,7 +5,7 @@ export default function CTASection() {
   return (
     <section style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0D0E18 0%, #0a0a0a 100%)'
+      background: 'linear-gradient(180deg, var(--app-surface) 0%, var(--app-bg) 100%)'
     }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <div style={{
@@ -52,7 +52,7 @@ export default function CTASection() {
             <h2 style={{
               fontSize: 'clamp(1.875rem, 4vw, 3rem)',
               fontWeight: 700,
-              color: '#fff',
+              color: 'var(--app-text)',
               marginBottom: '16px'
             }}>
               Ready to Transform Your Study Experience?
@@ -80,7 +80,7 @@ export default function CTASection() {
                 style={{
                   padding: '16px 32px',
                   background: 'linear-gradient(135deg, #3D7EFF, #6E4AFF)',
-                  color: '#fff',
+                  color: 'var(--app-text)',
                   fontWeight: 600,
                   borderRadius: '12px',
                   textDecoration: 'none',
@@ -96,12 +96,12 @@ export default function CTASection() {
                 to="/features"
                 style={{
                   padding: '16px 32px',
-                  background: 'rgba(20, 20, 20, 0.5)',
-                  color: '#fff',
+                  background: 'rgba(var(--app-glass-rgb),0.5)',
+                  color: 'var(--app-text)',
                   fontWeight: 600,
                   borderRadius: '12px',
                   textDecoration: 'none',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  border: '1px solid var(--app-tint-med)',
                   transition: 'all 0.3s',
                   cursor: 'pointer'
                 }}

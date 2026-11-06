@@ -63,7 +63,7 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
         />
       )}
 
-      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading…</div>}
+      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>Loading…</div>}
 
       {!loading && assignments.length === 0 && (
         <div className="cr-empty" style={{ padding: "32px 20px" }}>
@@ -87,7 +87,7 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", fontFamily: "Syne, sans-serif" }}>{a.title}</div>
-                {a.description && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2, maxHeight: 36, overflow: "hidden" }}>{a.description}</div>}
+                {a.description && <div style={{ fontSize: 12, color: "var(--app-dim)", marginTop: 2, maxHeight: 36, overflow: "hidden" }}>{a.description}</div>}
                 <div style={{ fontSize: 11, color: "#FFD700", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
                   {due && <span style={{ color: isOverdue ? "#f87171" : "#FFD700" }}>📅 Due {due.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>}
                   <span>🎯 {a.points} pts</span>
@@ -190,7 +190,7 @@ function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
   }
   useEffect(() => { load(); }, [assignmentId]);
 
-  if (loading || !data) return <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading…</div>;
+  if (loading || !data) return <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>Loading…</div>;
 
   const mySub = !data.isHost ? data.submissions?.[0] : null;
 
@@ -213,7 +213,7 @@ function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
       {data.isHost && (
         <div style={{ marginTop: 12 }}>
           <h4 style={{ fontFamily: "Syne, sans-serif", fontSize: 14, color: "#f1f5f9" }}>Submissions ({data.submissions.length})</h4>
-          {data.submissions.length === 0 && <p style={{ color: "#6b7280", fontSize: 12 }}>No submissions yet.</p>}
+          {data.submissions.length === 0 && <p style={{ color: "var(--app-dim)", fontSize: 12 }}>No submissions yet.</p>}
           {data.submissions.map((s) => (
             <SubmissionRow key={s.id} submission={s} maxPoints={data.points} token={token} onGraded={load} />
           ))}
@@ -308,7 +308,7 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <div>
           <b style={{ color: "#f1f5f9", fontSize: 13 }}>{submission.student?.username || "Unknown"}</b>
-          <span style={{ color: "#6b7280", fontSize: 11, marginLeft: 8 }}>
+          <span style={{ color: "var(--app-dim)", fontSize: 11, marginLeft: 8 }}>
             Submitted {new Date(submission.submittedAt).toLocaleString()}
           </span>
         </div>
@@ -326,10 +326,10 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
         </div>
       </div>
       {expanded && (
-        <div style={{ marginTop: 12, padding: 12, background: "rgba(10,10,10,0.5)", borderRadius: 8 }}>
+        <div style={{ marginTop: 12, padding: 12, background: "rgba(var(--app-glass-rgb),0.5)", borderRadius: 8 }}>
           {submission.content && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>TEXT SUBMISSION</div>
+              <div style={{ fontSize: 11, color: "var(--app-dim)", marginBottom: 4 }}>TEXT SUBMISSION</div>
               <div style={{ whiteSpace: "pre-wrap", color: "#FFD700", fontSize: 12 }}>{submission.content}</div>
             </div>
           )}
@@ -394,7 +394,7 @@ function Gradebook({ classroomId, token, onBack }) {
       .finally(() => setLoading(false));
   }, [classroomId, token]);
 
-  if (loading || !data) return <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading…</div>;
+  if (loading || !data) return <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>Loading…</div>;
 
   function exportCSV() {
     const headers = ["Student", "Email", ...data.assignments.map((a) => `${a.title} (${a.points})`), "Average %"];
@@ -422,7 +422,7 @@ function Gradebook({ classroomId, token, onBack }) {
       </div>
       <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9", marginBottom: 12 }}>📊 Gradebook</h3>
       {data.assignments.length === 0 ? (
-        <p style={{ color: "#6b7280", fontSize: 12 }}>No assignments yet.</p>
+        <p style={{ color: "var(--app-dim)", fontSize: 12 }}>No assignments yet.</p>
       ) : (
         <div className="cr-glass" style={{ overflowX: "auto" }}>
           <table className="cr-table">
@@ -430,7 +430,7 @@ function Gradebook({ classroomId, token, onBack }) {
               <tr>
                 <th className="cr-th">Student</th>
                 {data.assignments.map((a) => (
-                  <th key={a.id} className="cr-th" title={a.title}>{a.title.length > 16 ? a.title.slice(0, 14) + "…" : a.title}<br /><span style={{ fontSize: 10, color: "#6b7280" }}>({a.points})</span></th>
+                  <th key={a.id} className="cr-th" title={a.title}>{a.title.length > 16 ? a.title.slice(0, 14) + "…" : a.title}<br /><span style={{ fontSize: 10, color: "var(--app-dim)" }}>({a.points})</span></th>
                 ))}
                 <th className="cr-th">Avg %</th>
               </tr>

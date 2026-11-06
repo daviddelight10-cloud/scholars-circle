@@ -100,9 +100,9 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
         {showInboxPane && (
         <div className="card" style={{ padding: 0, overflow: "hidden", maxHeight: paneMaxHeight, minHeight: isMobile ? paneMinHeight : undefined }}>
           <div style={{ padding: 12, borderBottom: "1px solid rgba(255,215,0,0.2)", fontWeight: 600 }}>Conversations</div>
-          {loadingInbox && <div style={{ padding: 16, color: "#9ca3af" }}>Loading...</div>}
+          {loadingInbox && <div style={{ padding: 16, color: "var(--app-dim)" }}>Loading...</div>}
           {!loadingInbox && inbox.length === 0 && (
-            <div style={{ padding: 20, color: "#9ca3af", fontSize: 13, textAlign: "center" }}>
+            <div style={{ padding: 20, color: "var(--app-dim)", fontSize: 13, textAlign: "center" }}>
               No messages yet.<br />Find a lecturer in the directory and click Message.
             </div>
           )}
@@ -121,7 +121,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     background: isActive ? "rgba(255,215,0,0.15)" : "transparent",
                     border: "none",
                     borderBottom: "1px solid rgba(255,215,0,0.1)",
-                    color: "#fff",
+                    color: "var(--app-text)",
                     cursor: "pointer",
                     textAlign: "left",
                     display: "flex",
@@ -129,17 +129,17 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     gap: 10
                   }}
                 >
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #DAA520)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #DAA520)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--app-text)", flexShrink: 0 }}>
                     {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, display: "flex", justifyContent: "space-between" }}>
                       <span>{partner?.lecturerProfile?.title ? `${partner.lecturerProfile.title} ` : ""}{displayName}</span>
                       {entry.unreadCount > 0 && (
-                        <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "#ef4444", color: "#fff" }}>{entry.unreadCount}</span>
+                        <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 10, background: "#ef4444", color: "var(--app-text)" }}>{entry.unreadCount}</span>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: 11, color: "var(--app-dim)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {entry.lastMessage?.content}
                     </div>
                   </div>
@@ -154,7 +154,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
         {showThreadPane && (
         <div className="card" style={{ padding: 0, display: "flex", flexDirection: "column", maxHeight: paneMaxHeight, minHeight: isMobile ? paneMinHeight : 500 }}>
           {!activePartner ? (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", padding: 20, textAlign: "center" }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--app-dim)", padding: 20, textAlign: "center" }}>
               Select a conversation to start messaging
             </div>
           ) : (
@@ -168,7 +168,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                       padding: "6px 10px",
                       borderRadius: 8,
                       border: "1px solid rgba(255,215,0,0.3)",
-                      background: "rgba(20,20,20,0.7)",
+                      background: "rgba(var(--app-glass-rgb),0.7)",
                       color: "#FFD700",
                       cursor: "pointer",
                       fontSize: 16,
@@ -178,7 +178,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     ←
                   </button>
                 )}
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #DAA520)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 14, flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #DAA520)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--app-text)", fontSize: 14, flexShrink: 0 }}>
                   {(activePartner.displayName || activePartner.fullName || "?").charAt(0).toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -186,9 +186,9 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                 </div>
               </div>
               <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" }}>
-                {loadingThread && <div style={{ color: "#9ca3af" }}>Loading...</div>}
+                {loadingThread && <div style={{ color: "var(--app-dim)" }}>Loading...</div>}
                 {!loadingThread && thread.length === 0 && (
-                  <div style={{ color: "#9ca3af", textAlign: "center", padding: 20 }}>No messages yet. Say hi!</div>
+                  <div style={{ color: "var(--app-dim)", textAlign: "center", padding: 20 }}>No messages yet. Say hi!</div>
                 )}
                 {thread.map((m) => {
                   const mine = m.fromId === currentUser?.id;
@@ -200,8 +200,8 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                         maxWidth: isMobile ? "85%" : "75%",
                         padding: "8px 12px",
                         borderRadius: 14,
-                        background: mine ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(20,20,20,0.9)",
-                        color: "#fff",
+                        background: mine ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(var(--app-glass-rgb),0.9)",
+                        color: "var(--app-text)",
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
                         fontSize: 14,
@@ -209,7 +209,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                       }}
                     >
                       {m.content}
-                      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 4, textAlign: "right" }}>
+                      <div style={{ fontSize: 9, color: "var(--app-tint-strong)", marginTop: 4, textAlign: "right" }}>
                         {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </div>
                     </div>
@@ -230,8 +230,8 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     minWidth: 0,
                     padding: "10px 12px",
                     borderRadius: 18,
-                    background: "rgba(10,10,10,0.8)",
-                    color: "#fff",
+                    background: "rgba(var(--app-glass-rgb),0.8)",
+                    color: "var(--app-text)",
                     border: "1px solid rgba(255,215,0,0.3)",
                     fontSize: 16,
                     fontFamily: "inherit",
@@ -248,7 +248,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     borderRadius: 18,
                     border: "none",
                     background: draft.trim() ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(255,215,0,0.3)",
-                    color: "#fff",
+                    color: "var(--app-text)",
                     cursor: sending ? "wait" : "pointer",
                     fontWeight: 600,
                     minWidth: isMobile ? 56 : 72,
@@ -270,7 +270,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
 const ghostBtn = {
   padding: "8px 14px",
   borderRadius: 8,
-  background: "rgba(20,20,20,0.6)",
+  background: "rgba(var(--app-glass-rgb),0.6)",
   color: "#FFD700",
   border: "1px solid rgba(255,215,0,0.3)",
   cursor: "pointer"

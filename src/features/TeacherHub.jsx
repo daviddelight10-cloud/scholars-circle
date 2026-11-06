@@ -33,7 +33,7 @@ function NoteCard({ note, onCopy, copied }) {
         </div>
       </div>
       {open && (
-        <div className="fade" style={{ borderTop:"1px solid rgba(255,255,255,0.06)", marginTop:14, paddingTop:14,
+        <div className="fade" style={{ borderTop:"1px solid var(--app-tint-soft)", marginTop:14, paddingTop:14,
           fontSize:13.5, lineHeight:1.85, color:"#9899A6", whiteSpace:"pre-wrap", fontFamily:"'Manrope',sans-serif" }}>
           {note.content}
         </div>
@@ -56,7 +56,7 @@ function QuizModal({ q, onClose, onShare, shared }) {
             <span className="pill" style={{ background:`${c}15`, color:c, border:`1px solid ${c}30` }}>{q.subject}</span>
             <div style={{ fontSize:10, color:"#444", fontFamily:"'Syne',sans-serif", marginTop:6, letterSpacing:"0.08em" }}>ID: {q.id}</div>
           </div>
-          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", color:"#777", borderRadius:8, width:30, height:30, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+          <button onClick={onClose} style={{ background:"var(--app-tint-soft)", border:"1px solid var(--app-tint-med)", color:"#777", borderRadius:8, width:30, height:30, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
         </div>
 
         {/* Question */}
@@ -69,7 +69,7 @@ function QuizModal({ q, onClose, onShare, shared }) {
           {q.options.map((opt, i) => {
             const isCorrect = i === q.correct;
             const isSelected = i === sel;
-            let bg = "rgba(255,255,255,0.03)", border = "rgba(255,255,255,0.08)", color = "#C0C1CC", dotBorder = "rgba(255,255,255,0.15)", dotColor = "#666";
+            let bg = "var(--app-tint-soft)", border = "var(--app-tint-med)", color = "#C0C1CC", dotBorder = "var(--app-tint-strong)", dotColor = "#666";
             if (revealed) {
               if (isCorrect)        { bg="rgba(34,197,94,0.09)"; border="rgba(34,197,94,0.4)"; color="#22C55E"; dotBorder="#22C55E"; dotColor="#22C55E"; }
               else if (isSelected)  { bg="rgba(239,68,68,0.07)"; border="rgba(239,68,68,0.35)"; color="#EF4444"; dotBorder="#EF4444"; dotColor="#EF4444"; }
@@ -346,42 +346,42 @@ export default function TeacherHub({ token, auth }) {
     .syne { font-family:'Syne',sans-serif; }
     .man { font-family:'Manrope',sans-serif; }
 
-    .mtab { background:transparent; border:none; color:#555; cursor:pointer; padding:9px 20px; font-family:'Syne',sans-serif; font-size:12px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; border-bottom:2px solid transparent; transition:all 0.18s; }
+    .mtab { background:transparent; border:none; color:var(--app-faint); cursor:pointer; padding:9px 20px; font-family:'Syne',sans-serif; font-size:12px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; border-bottom:2px solid transparent; transition:all 0.18s; }
     .mtab.on { color:#FFD700; border-bottom-color:#FFD700; }
     .mtab.gold.on { color:#F5A623; border-bottom-color:#F5A623; }
     .mtab:hover:not(.on) { color:#aaa; }
 
-    .btn { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.05em; text-transform:uppercase; border:none; cursor:pointer; padding:9px 20px; border-radius:9px; background:linear-gradient(135deg,#FFD700,#6C63FF); color:#fff; transition:all 0.18s; }
+    .btn { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.05em; text-transform:uppercase; border:none; cursor:pointer; padding:9px 20px; border-radius:9px; background:linear-gradient(135deg,#FFD700,#6C63FF); color:var(--app-text); transition:all 0.18s; }
     .btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 5px 18px rgba(79,142,247,0.3); }
     .btn:disabled { opacity:0.4; cursor:not-allowed; transform:none !important; }
     .btn-sm { padding:7px 16px; }
     .btn-xs { padding:5px 12px; font-size:11px; }
-    .btn-gold { background:linear-gradient(135deg,#F5A623,#F7C948); color:#0a0a0a; }
+    .btn-gold { background:linear-gradient(135deg,#F5A623,#F7C948); color: var(--app-ink); }
     .btn-gold:hover:not(:disabled) { box-shadow:0 5px 18px rgba(245,166,35,0.3); }
     .btn-ghost { background:transparent; border:1px solid rgba(79,142,247,0.3); color:#FFD700; }
     .btn-red { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; }
 
-    .card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:14px; transition:border-color 0.2s; }
-    .card:hover { border-color:rgba(255,255,255,0.13); }
+    .card { background:var(--app-tint-soft); border:1px solid var(--app-tint-med); border-radius:14px; transition:border-color 0.2s; }
+    .card:hover { border-color:var(--app-tint-strong); }
 
     .pill { display:inline-flex; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.08em; text-transform:uppercase; }
 
-    input, textarea, select { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:9px; color:#E8E9F0; font-family:'Manrope',sans-serif; font-size:13px; outline:none; transition:border-color 0.2s; padding:10px 13px; width:100%; }
+    input, textarea, select { background:var(--app-tint-soft); border:1px solid var(--app-tint-med); border-radius:9px; color:#E8E9F0; font-family:'Manrope',sans-serif; font-size:13px; outline:none; transition:border-color 0.2s; padding:10px 13px; width:100%; }
     input:focus, textarea:focus, select:focus { border-color:rgba(79,142,247,0.45); }
     select option { background:#0D0E1A; }
-    ::placeholder { color:#333; }
+    ::placeholder { color: var(--app-faint); }
     textarea { resize:vertical; }
 
-    .overlay { position:fixed; inset:0; background:rgba(7,8,15,0.9); display:flex; align-items:center; justify-content:center; z-index:999; padding:20px; backdrop-filter:blur(10px); }
-    .modal { background:#0D0E1A; border:1px solid rgba(255,255,255,0.1); border-radius:20px; width:100%; max-width:500px; max-height:88vh; overflow-y:auto; padding:26px 22px; }
+    .overlay { position:fixed; inset:0; background:rgba(var(--app-glass-rgb),0.9); display:flex; align-items:center; justify-content:center; z-index:999; padding:20px; backdrop-filter:blur(10px); }
+    .modal { background:#0D0E1A; border:1px solid var(--app-tint-med); border-radius:20px; width:100%; max-width:500px; max-height:88vh; overflow-y:auto; padding:26px 22px; }
 
-    .filter-btn { background:transparent; border:1px solid rgba(255,255,255,0.08); color:#555; border-radius:20px; padding:5px 13px; font-size:11px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.06em; cursor:pointer; transition:all 0.18s; }
+    .filter-btn { background:transparent; border:1px solid var(--app-tint-med); color:var(--app-faint); border-radius:20px; padding:5px 13px; font-size:11px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.06em; cursor:pointer; transition:all 0.18s; }
     .filter-btn.on { background:rgba(79,142,247,0.12); border-color:rgba(79,142,247,0.3); color:#FFD700; }
 
-    .q-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:16px 18px; transition:all 0.22s; cursor:default; }
+    .q-card { background:var(--app-tint-soft); border:1px solid var(--app-tint-med); border-radius:14px; padding:16px 18px; transition:all 0.22s; cursor:default; }
     .q-card:hover { border-color:rgba(79,142,247,0.2); transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.3); }
 
-    .pricing-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:28px 22px; transition:all 0.25s; }
+    .pricing-card { background:var(--app-tint-soft); border:1px solid var(--app-tint-med); border-radius:18px; padding:28px 22px; transition:all 0.25s; }
     .pricing-card:hover { transform:translateY(-3px); }
     .pricing-featured { background:linear-gradient(135deg,rgba(79,142,247,0.08),rgba(108,99,255,0.08)); border-color:rgba(79,142,247,0.3); }
 
@@ -394,15 +394,15 @@ export default function TeacherHub({ token, auth }) {
     @keyframes sp { to{transform:rotate(360deg)} }
 
     ::-webkit-scrollbar { width:3px; }
-    ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:2px; }
+    ::-webkit-scrollbar-thumb { background:var(--app-tint-med); border-radius:2px; }
   `;
 
   return (
-    <div style={{ minHeight:"100dvh", background:"#0a0a0a", color:"#E8E9F0", fontFamily:"'Manrope',sans-serif" }}>
+    <div style={{ minHeight:"100dvh", background:"var(--app-bg)", color:"#E8E9F0", fontFamily:"'Manrope',sans-serif" }}>
       <style>{CSS}</style>
 
       {/* ── TOP HEADER ── */}
-      <div style={{ borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ borderBottom:"1px solid var(--app-tint-soft)" }}>
         <div style={{ maxWidth:940, margin:"0 auto", padding:"0 20px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:12, padding:"18px 0 0" }}>
             <div style={{ width:38,height:38,background:"linear-gradient(135deg,#FFD700,#6C63FF)",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0 }}>📚</div>
@@ -443,7 +443,7 @@ export default function TeacherHub({ token, auth }) {
             <div style={{ background:"linear-gradient(135deg,rgba(79,142,247,0.07),rgba(108,99,255,0.07))", border:"1px solid rgba(79,142,247,0.15)", borderRadius:14, padding:"14px 20px", marginBottom:24, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
               <div>
                 <div className="syne" style={{ fontWeight:700, fontSize:13, color:"#FFD700" }}>Share Scholar's Circle</div>
-                <div style={{ fontSize:12, color:"#555", marginTop:2 }}>Invite classmates to study together — it's free to start.</div>
+                <div style={{ fontSize:12, color:"var(--app-faint)", marginTop:2 }}>Invite classmates to study together — it's free to start.</div>
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button className="btn btn-sm" onClick={() => {
@@ -458,11 +458,11 @@ export default function TeacherHub({ token, auth }) {
 
             {/* Sub tabs + filter */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:12 }}>
-              <div style={{ display:"flex", background:"rgba(255,255,255,0.03)", borderRadius:10, padding:3, gap:2 }}>
+              <div style={{ display:"flex", background:"var(--app-tint-soft)", borderRadius:10, padding:3, gap:2 }}>
                 {[{id:"mcq",label:"⚡ Rapid Recall"},{id:"notes",label:"📄 Study Notes"}].map(t => (
                   <button key={t.id} onClick={() => setResTab(t.id)} style={{
                     background:resTab===t.id?"linear-gradient(135deg,#FFD700,#6C63FF)":"transparent",
-                    color:resTab===t.id?"#fff":"#555",
+                    color:resTab===t.id?"var(--app-text)":"var(--app-faint)",
                     border:"none", borderRadius:8, padding:"8px 18px", fontSize:12,
                     fontFamily:"'Syne',sans-serif", fontWeight:700, letterSpacing:"0.05em", cursor:"pointer", transition:"all 0.18s"
                   }}>{t.label}</button>
@@ -535,18 +535,18 @@ export default function TeacherHub({ token, auth }) {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
               <div>
                 <div className="syne" style={{ fontWeight:800, fontSize:22 }}>Admin Panel</div>
-                <div style={{ color:"#555", fontSize:13, marginTop:2 }}>
+                <div style={{ color:"var(--app-faint)", fontSize:13, marginTop:2 }}>
                   {questions.length} questions · {notes.length} notes
                 </div>
               </div>
             </div>
 
             {/* Admin sub-tabs */}
-            <div style={{ display:"flex", background:"rgba(255,255,255,0.03)", borderRadius:10, padding:3, width:"fit-content", gap:2, marginBottom:26 }}>
+            <div style={{ display:"flex", background:"var(--app-tint-soft)", borderRadius:10, padding:3, width:"fit-content", gap:2, marginBottom:26 }}>
               {[{id:"questions",label:"⚡ Add Question"},{id:"ai",label:"🤖 AI Generate"},{id:"notes",label:"📄 Add Note"},{id:"manage",label:"🗂 Manage All"}].map(t => (
                 <button key={t.id} onClick={() => setAdminSub(t.id)} style={{
                   background:adminSub===t.id?"linear-gradient(135deg,#FFD700,#6C63FF)":"transparent",
-                  color:adminSub===t.id?"#fff":"#555", border:"none", borderRadius:8,
+                  color:adminSub===t.id?"var(--app-text)":"var(--app-faint)", border:"none", borderRadius:8,
                   padding:"8px 16px", fontSize:11, fontFamily:"'Syne',sans-serif", fontWeight:700,
                   letterSpacing:"0.05em", cursor:"pointer", transition:"all 0.18s"
                 }}>{t.label}</button>
@@ -558,24 +558,24 @@ export default function TeacherHub({ token, auth }) {
               <div className="card fade" style={{ padding:"22px 24px", maxWidth:600 }}>
                 <div className="syne" style={{ fontWeight:700, fontSize:16, marginBottom:20 }}>Add MCQ Question</div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Subject</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Subject</div>
                   <select value={qForm.subject} onChange={e => setQForm(p=>({...p,subject:e.target.value}))}>
                     {SUBJECTS.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Correct Answer</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Correct Answer</div>
                   <select value={qForm.correct} onChange={e => setQForm(p=>({...p,correct:parseInt(e.target.value)}))}>
                     {OPTS.map((l,i) => <option key={l} value={i}>Option {l}</option>)}
                   </select>
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Question</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Question</div>
                   <textarea rows={3} placeholder="Type the question..." value={qForm.question} onChange={e => setQForm(p=>({...p,question:e.target.value}))} />
                 </div>
                 {OPTS.map((l,i) => (
                   <div key={l} style={{ marginBottom:10 }}>
-                    <div className="tag" style={{ color:i===qForm.correct?"#22C55E":"#555", marginBottom:5 }}>
+                    <div className="tag" style={{ color:i===qForm.correct?"#22C55E":"var(--app-faint)", marginBottom:5 }}>
                       Option {l} {i===qForm.correct?"✓ CORRECT":""}
                     </div>
                     <input placeholder={`Option ${l}...`} value={qForm.options[i]}
@@ -583,7 +583,7 @@ export default function TeacherHub({ token, auth }) {
                   </div>
                 ))}
                 <div style={{ marginBottom:18 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Explanation (optional)</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Explanation (optional)</div>
                   <textarea rows={2} placeholder="Why is this the correct answer?" value={qForm.explanation} onChange={e => setQForm(p=>({...p,explanation:e.target.value}))} />
                 </div>
                 <button className="btn" onClick={addQ} disabled={saving||!qForm.question.trim()||qForm.options.some(o=>!o.trim())}>
@@ -597,24 +597,24 @@ export default function TeacherHub({ token, auth }) {
               <div className="card fade" style={{ padding:"22px 24px", maxWidth:600 }}>
                 <div className="syne" style={{ fontWeight:700, fontSize:16, marginBottom:20 }}>Generate Questions with AI</div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Subject</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Subject</div>
                   <select value={qForm.subject} onChange={e => setQForm(p=>({...p,subject:e.target.value}))}>
                     {SUBJECTS.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Paste Content</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Paste Content</div>
                   <textarea rows={6} placeholder="Paste lecture notes, textbook content, or any study material..." value={aiText} onChange={e => setAiText(e.target.value)} />
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Or Upload File (PDF, DOCX, TXT)</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Or Upload File (PDF, DOCX, TXT)</div>
                   <input type="file" accept=".pdf,.docx,.txt" onChange={e => setAiFile(e.target.files[0])} />
                   {aiFile && <div style={{ fontSize:12, color:"#FFD700", marginTop:6 }}>Selected: {aiFile.name}</div>}
                 </div>
                 <div style={{ marginBottom:18, display:"flex", alignItems:"center", gap:10 }}>
-                  <div className="tag" style={{ color:"#555", whiteSpace:"nowrap" }}>Number of Questions:</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", whiteSpace:"nowrap" }}>Number of Questions:</div>
                   <input type="number" min={0} max={150} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(150, parseInt(e.target.value) || 0)))} style={{ width:70, textAlign:"center" }} />
-                  <span style={{ fontSize:11, color:"#555" }}>0 = Auto (AI decides)</span>
+                  <span style={{ fontSize:11, color:"var(--app-faint)" }}>0 = Auto (AI decides)</span>
                 </div>
                 <button className="btn" onClick={generateFromAI} disabled={aiGenerating}>
                   {aiGenerating ? "⏳ Generating..." : `🤖 Generate ${aiCount > 0 ? aiCount : "Auto"} Questions`}
@@ -627,17 +627,17 @@ export default function TeacherHub({ token, auth }) {
               <div className="card fade" style={{ padding:"22px 24px", maxWidth:600 }}>
                 <div className="syne" style={{ fontWeight:700, fontSize:16, marginBottom:20 }}>Add Study Note</div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Subject</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Subject</div>
                   <select value={nForm.subject} onChange={e => setNForm(p=>({...p,subject:e.target.value}))}>
                     {SUBJECTS.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Title</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Title</div>
                   <input placeholder="e.g. Krebs Cycle Summary" value={nForm.title} onChange={e => setNForm(p=>({...p,title:e.target.value}))} />
                 </div>
                 <div style={{ marginBottom:18 }}>
-                  <div className="tag" style={{ color:"#555", marginBottom:6 }}>Content</div>
+                  <div className="tag" style={{ color:"var(--app-faint)", marginBottom:6 }}>Content</div>
                   <textarea rows={8} placeholder="Type your note content here..." value={nForm.content} onChange={e => setNForm(p=>({...p,content:e.target.value}))} />
                 </div>
                 <button className="btn" onClick={addN} disabled={saving||!nForm.title.trim()||!nForm.content.trim()}>
@@ -649,7 +649,7 @@ export default function TeacherHub({ token, auth }) {
             {/* ── MANAGE ── */}
             {adminSub === "manage" && (
               <div className="fade">
-                <div className="tag" style={{ color:"#555", marginBottom:12 }}>Questions ({questions.length})</div>
+                <div className="tag" style={{ color:"var(--app-faint)", marginBottom:12 }}>Questions ({questions.length})</div>
                 {questions.length === 0 && <div style={{ color:"#444", fontSize:13, marginBottom:20 }}>No questions yet.</div>}
                 {questions.map(q => {
                   const c = SUB_COLOR[q.subject]||"#888";
@@ -662,7 +662,7 @@ export default function TeacherHub({ token, auth }) {
                     </div>
                   );
                 })}
-                <div className="tag" style={{ color:"#555", marginBottom:12, marginTop:24 }}>Notes ({notes.length})</div>
+                <div className="tag" style={{ color:"var(--app-faint)", marginBottom:12, marginTop:24 }}>Notes ({notes.length})</div>
                 {notes.length === 0 && <div style={{ color:"#444", fontSize:13 }}>No notes yet.</div>}
                 {notes.map(n => {
                   const c = SUB_COLOR[n.subject]||"#888";
@@ -709,7 +709,7 @@ export default function TeacherHub({ token, auth }) {
               {[["500+","Questions"],["AI Tutor","24/7"],["Free","Forever Plan"],["5 min","To Set Up"]].map(([v,l]) => (
                 <div key={l} style={{ textAlign:"center" }}>
                   <div className="syne" style={{ fontWeight:800, fontSize:24, color:"#FFD700" }}>{v}</div>
-                  <div style={{ fontSize:12, color:"#555", marginTop:3 }}>{l}</div>
+                  <div style={{ fontSize:12, color:"var(--app-faint)", marginTop:3 }}>{l}</div>
                 </div>
               ))}
             </div>
@@ -720,7 +720,7 @@ export default function TeacherHub({ token, auth }) {
               <div className="pricing-card">
                 <div className="syne" style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>Free</div>
                 <div className="syne" style={{ fontWeight:800, fontSize:30, marginBottom:4 }}>₦0</div>
-                <div style={{ color:"#555", fontSize:12, marginBottom:22 }}>No credit card · Forever free</div>
+                <div style={{ color:"var(--app-faint)", fontSize:12, marginBottom:22 }}>No credit card · Forever free</div>
                 {["Browse community MCQs","Read study notes","10 AI tutor messages/day","Basic flashcard quiz"].map(f => (
                   <div key={f} style={{ display:"flex", gap:9, alignItems:"center", marginBottom:10, fontSize:13, color:"#777" }}>
                     <span style={{ color:"#22C55E" }}>✓</span>{f}
@@ -731,15 +731,15 @@ export default function TeacherHub({ token, auth }) {
 
               {/* Pro — Featured */}
               <div className="pricing-card pricing-featured" style={{ position:"relative" }}>
-                <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:"linear-gradient(135deg,#FFD700,#6C63FF)", borderRadius:20, padding:"4px 16px", fontSize:11, fontFamily:"'Syne',sans-serif", fontWeight:700, whiteSpace:"nowrap", color:"#fff" }}>
+                <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:"linear-gradient(135deg,#FFD700,#6C63FF)", borderRadius:20, padding:"4px 16px", fontSize:11, fontFamily:"'Syne',sans-serif", fontWeight:700, whiteSpace:"nowrap", color:"var(--app-text)" }}>
                   MOST POPULAR
                 </div>
                 <div className="syne" style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>Student Pro</div>
                 <div style={{ display:"flex", alignItems:"baseline", gap:5, marginBottom:4 }}>
                   <div className="syne" style={{ fontWeight:800, fontSize:30, color:"#FFD700" }}>₦1,500</div>
-                  <div style={{ color:"#555", fontSize:12 }}>/month</div>
+                  <div style={{ color:"var(--app-faint)", fontSize:12 }}>/month</div>
                 </div>
-                <div style={{ color:"#555", fontSize:12, marginBottom:22 }}>≈ ₦50/day · Cancel anytime</div>
+                <div style={{ color:"var(--app-faint)", fontSize:12, marginBottom:22 }}>≈ ₦50/day · Cancel anytime</div>
                 {["Unlimited AI tutor","Generate flashcards from notes","Full MCQ question bank","Spaced repetition quiz","Progress analytics dashboard","Priority support"].map(f => (
                   <div key={f} style={{ display:"flex", gap:9, alignItems:"center", marginBottom:10, fontSize:13, color:"#C0C1CC" }}>
                     <span style={{ color:"#FFD700" }}>✓</span>{f}
@@ -753,11 +753,11 @@ export default function TeacherHub({ token, auth }) {
                 <div className="syne" style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>School Plan</div>
                 <div style={{ display:"flex", alignItems:"baseline", gap:5, marginBottom:4 }}>
                   <div className="syne" style={{ fontWeight:800, fontSize:30, color:"#F5A623" }}>₦45,000</div>
-                  <div style={{ color:"#555", fontSize:12 }}>/month</div>
+                  <div style={{ color:"var(--app-faint)", fontSize:12 }}>/month</div>
                 </div>
-                <div style={{ color:"#555", fontSize:12, marginBottom:22 }}>Up to 50 students · One invoice</div>
+                <div style={{ color:"var(--app-faint)", fontSize:12, marginBottom:22 }}>Up to 50 students · One invoice</div>
                 {["Everything in Pro","Teacher admin panel","Add custom questions & notes","Student progress dashboard","Bulk student onboarding","Dedicated account manager"].map(f => (
-                  <div key={f} style={{ display:"flex", gap:9, alignItems:"center", marginBottom:10, fontSize:13, color:"#888" }}>
+                  <div key={f} style={{ display:"flex", gap:9, alignItems:"center", marginBottom:10, fontSize:13, color:"var(--app-dim)" }}>
                     <span style={{ color:"#F5A623" }}>✓</span>{f}
                   </div>
                 ))}
@@ -818,7 +818,7 @@ function EmptyState({ icon, title, sub }) {
     <div style={{ textAlign:"center", padding:"60px 20px" }}>
       <div style={{ fontSize:48, marginBottom:14 }}>{icon}</div>
       <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:18, marginBottom:6 }}>{title}</div>
-      <div style={{ color:"#555", fontSize:13 }}>{sub}</div>
+      <div style={{ color:"var(--app-faint)", fontSize:13 }}>{sub}</div>
     </div>
   );
 }

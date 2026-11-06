@@ -151,7 +151,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
         </div>
         <button onClick={() => window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { tab: "space" } }))} style={{
           width: "100%", background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
-          borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600, color: "#0a0a0a",
+          borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600, color: "var(--app-ink)",
           cursor: "pointer", fontFamily: FONTS.body,
         }}>
           Go to My Circle →
@@ -278,7 +278,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
           <button onClick={openFolderInHub} style={{
             width: "100%", marginTop: 12, background: "linear-gradient(135deg, #b8860b, #F5A623)",
             border: "none", borderRadius: 8, padding: "10px 16px",
-            fontSize: 12, fontWeight: 600, color: "#0a0a0a",
+            fontSize: 12, fontWeight: 600, color: "var(--app-ink)",
             cursor: "pointer", fontFamily: FONTS.body,
           }}>
             Open Roadmap in {selectedFolder?.name || "Folder"} →
@@ -293,7 +293,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
           <button onClick={openFolderInHub} style={{
             background: "linear-gradient(135deg, #b8860b, #F5A623)",
             border: "none", borderRadius: 8, padding: "8px 18px",
-            fontSize: 12, fontWeight: 600, color: "#0a0a0a",
+            fontSize: 12, fontWeight: 600, color: "var(--app-ink)",
             cursor: "pointer", fontFamily: FONTS.body,
           }}>
             Open Folder →

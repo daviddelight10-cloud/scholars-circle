@@ -87,7 +87,7 @@ export function KeyManagement({ token }) {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: "2px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
+              <tr style={{ borderBottom: "2px solid var(--app-tint-med)", textAlign: "left" }}>
                 <th style={{ padding: "8px 6px" }}>Student</th>
                 <th style={{ padding: "8px 6px" }}>Key</th>
                 <th style={{ padding: "8px 6px" }}>Status</th>
@@ -99,7 +99,7 @@ export function KeyManagement({ token }) {
             </thead>
             <tbody>
               {filtered.map((s) => (
-                <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <tr key={s.id} style={{ borderBottom: "1px solid var(--app-tint-soft)" }}>
                   <td style={{ padding: "8px 6px" }}>
                     <strong>{s.username}</strong>
                     <br />
@@ -149,7 +149,7 @@ export function KeyManagement({ token }) {
                         {s.daysRemaining}d
                       </span>
                     ) : (
-                      <span style={{ color: "#6b7280", fontSize: 11 }}>—</span>
+                      <span style={{ color: "var(--app-dim)", fontSize: 11 }}>—</span>
                     )}
                   </td>
                   <td style={{ padding: "8px 6px", fontSize: 11 }}>
@@ -184,14 +184,14 @@ export function KeyManagement({ token }) {
                     {s.isActivated ? (
                       <button
                         onClick={() => deactivate(s.id)}
-                        style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
+                        style={{ background: "#dc2626", color: "var(--app-text)", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
                       >
                         Deactivate
                       </button>
                     ) : (
                       <button
                         onClick={() => { setSelectedStudent(s); setShowActivateModal(true); }}
-                        style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
+                        style={{ background: "#16a34a", color: "var(--app-text)", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
                       >
                         Activate
                       </button>
@@ -212,11 +212,11 @@ export function KeyManagement({ token }) {
               <div
                 onClick={() => setSelectedDuration("week1")}
                 style={{
-                  border: selectedDuration === "week1" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "week1" ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
                   borderRadius: 12,
                   padding: 16,
                   cursor: "pointer",
-                  background: selectedDuration === "week1" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "week1" ? "rgba(255,215,0,0.1)" : "var(--app-tint-soft)",
                   transition: "all 0.2s"
                 }}
               >
@@ -231,11 +231,11 @@ export function KeyManagement({ token }) {
               <div
                 onClick={() => setSelectedDuration("week2")}
                 style={{
-                  border: selectedDuration === "week2" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "week2" ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
                   borderRadius: 12,
                   padding: 16,
                   cursor: "pointer",
-                  background: selectedDuration === "week2" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "week2" ? "rgba(255,215,0,0.1)" : "var(--app-tint-soft)",
                   transition: "all 0.2s"
                 }}
               >
@@ -250,11 +250,11 @@ export function KeyManagement({ token }) {
               <div
                 onClick={() => setSelectedDuration("month1")}
                 style={{
-                  border: selectedDuration === "month1" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "month1" ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
                   borderRadius: 12,
                   padding: 16,
                   cursor: "pointer",
-                  background: selectedDuration === "month1" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "month1" ? "rgba(255,215,0,0.1)" : "var(--app-tint-soft)",
                   transition: "all 0.2s",
                   position: "relative"
                 }}
@@ -272,7 +272,7 @@ export function KeyManagement({ token }) {
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button
                 onClick={() => { setShowActivateModal(false); setSelectedStudent(null); setSelectedDuration("month1"); }}
-                style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
+                style={{ background: "transparent", color: "white", border: "1px solid var(--app-tint-strong)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
               >
                 Cancel
               </button>
@@ -302,7 +302,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
           <p className="muted" style={{ marginBottom: 24 }}>
             Welcome, <strong>{username}</strong>! Your {userRole?.toLowerCase()} account is ready to use.
           </p>
-          <button onClick={onRefresh} style={{ padding: "12px 32px", background: "#FFD700", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
+          <button onClick={onRefresh} style={{ padding: "12px 32px", background: "#FFD700", color: "var(--app-text)", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
             Continue to Dashboard
           </button>
         </div>

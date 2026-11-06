@@ -33,7 +33,7 @@ export function NoteEditorModal({ noteEdit, marks, onSave, onClose, T, s, isMobi
         <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
           <button style={s.selPopBtn} onClick={onClose}>Cancel</button>
           <button
-            style={{ ...s.selPopBtn, background: T.accent, color: "#fff", border: "none" }}
+            style={{ ...s.selPopBtn, background: T.accent, color: "var(--app-text)", border: "none" }}
             onClick={() => {
               const v = document.getElementById("sc-note-edit")?.value?.trim() || "";
               onSave(noteEdit.page, noteEdit.id, v);

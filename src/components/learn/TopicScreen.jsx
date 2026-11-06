@@ -5,7 +5,7 @@ function masteryLevel(pct) {
   if (pct >= 81) return { label: "Mastered", color: "#10b981", bg: "#0f2a1a" };
   if (pct >= 51) return { label: "Practiced", color: "#FFD700", bg: "#0f1535" };
   if (pct >= 21) return { label: "Learning", color: "#f59e0b", bg: "#1a1000" };
-  return { label: "Beginner", color: "#6b7280", bg: "#0a0b18" };
+  return { label: "Beginner", color: "var(--app-dim)", bg: "#0a0b18" };
 }
 
 export default function TopicScreen({ subject, mastery, onClose, onStartPractice, onOpenHub }) {
@@ -60,7 +60,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
   }
 
   const overlay = {
-    position: "fixed", inset: 0, background: "rgba(7,8,15,0.9)", zIndex: 8000,
+    position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.9)", zIndex: 8000,
     display: "flex", alignItems: "flex-end", justifyContent: "center",
   };
   const sheet = {
@@ -114,7 +114,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
                 width: "56px", height: "56px", borderRadius: "50%",
                 border: `3px solid ${lvlColor}`, display: "flex", alignItems: "center",
                 justifyContent: "center", fontSize: "20px", fontWeight: 800,
-                color: lvlColor, background: "#0a0a0a",
+                color: lvlColor, background: "var(--app-ink)",
               }}>
                 {pct}%
               </div>
@@ -128,7 +128,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
             <button
               onClick={() => openPicker(null, "All Topics", subject.questions?.length || 0)}
               style={{
-                marginLeft: "auto", padding: "10px 18px", background: "#1a1a1a",
+                marginLeft: "auto", padding: "10px 18px", background: "var(--app-card)",
                 border: "none", borderRadius: "10px", color: "#e8eaf6",
                 fontWeight: 600, fontSize: "14px", cursor: "pointer",
               }}
@@ -200,7 +200,7 @@ export function QuestionCountPicker({ subjectLabel, topicName, maxCount, onClose
   const finalCount = useCustom ? Math.min(Math.max(1, parseInt(custom) || 1), maxCount) : selected;
 
   const overlay = {
-    position: "fixed", inset: 0, background: "rgba(7,8,15,0.92)", zIndex: 1000,
+    position: "fixed", inset: 0, background: "rgba(var(--app-glass-rgb),0.92)", zIndex: 1000,
     display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
   };
   const card = {
@@ -270,7 +270,7 @@ export function QuestionCountPicker({ subjectLabel, topicName, maxCount, onClose
             onClick={() => finalCount > 0 && onStart(finalCount)}
             disabled={finalCount <= 0 || finalCount > maxCount}
             style={{
-              flex: 2, padding: "13px", background: "#1a1a1a", color: "#e8eaf6",
+              flex: 2, padding: "13px", background: "var(--app-card)", color: "#e8eaf6",
               border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "15px",
               cursor: finalCount > 0 ? "pointer" : "default",
             }}

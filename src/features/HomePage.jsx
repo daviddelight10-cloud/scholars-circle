@@ -124,11 +124,11 @@ export default function HomePage() {
   const [featuresRef, featuresInView] = useInView(0.1);
   const [testiRef, testiInView] = useInView(0.1);
 
-  const ink = '#0a0a0a';
+  const ink = 'var(--app-bg)';
   const inkSoft = '#121214';
   const inkCard = '#17171b';
-  const line = 'rgba(255,255,255,0.08)';
-  const lineStrong = 'rgba(255,255,255,0.14)';
+  const line = 'var(--app-tint-med)';
+  const lineStrong = 'var(--app-tint-strong)';
   const text = '#F2F4F8';
   const textDim = '#A8B0C4';
   const textFaint = '#707A90';
@@ -227,7 +227,7 @@ export default function HomePage() {
       </div>
 
       {/* Nav */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: isScrolled ? 'rgba(10,10,10,0.78)' : 'transparent', backdropFilter: isScrolled ? 'blur(14px) saturate(140%)' : 'none', borderBottom: `1px solid ${isScrolled ? line : 'transparent'}`, transition: 'all 0.3s ease', paddingTop: 'env(safe-area-inset-top)' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: isScrolled ? 'rgba(var(--app-glass-rgb),0.78)' : 'transparent', backdropFilter: isScrolled ? 'blur(14px) saturate(140%)' : 'none', borderBottom: `1px solid ${isScrolled ? line : 'transparent'}`, transition: 'all 0.3s ease', paddingTop: 'env(safe-area-inset-top)' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
             <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 28, height: 28, borderRadius: 6 }} />
@@ -383,7 +383,7 @@ export default function HomePage() {
           </p>
           <div className="compare" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, border: `1px solid ${lineStrong}`, borderRadius: 18, overflow: 'hidden', background: lineStrong }}>
             <div style={{ background: inkSoft, padding: '32px 28px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 20, display: 'inline-block', padding: '5px 12px', borderRadius: 8, color: textFaint, background: 'rgba(255,255,255,0.05)' }}>The old way</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 20, display: 'inline-block', padding: '5px 12px', borderRadius: 8, color: textFaint, background: 'var(--app-tint-soft)' }}>The old way</span>
               {['Read the anatomy chapter once. Forget half of it by Friday.', 'Hunt for past questions in a crowded medical WhatsApp group.', "Find out you got it wrong — after the professional exam, not before.", 'Study alone, with no idea where you actually stand in your cohort.'].map((t, i) => (
                 <li key={i} style={{ display: 'flex', gap: 10, marginBottom: 16, fontSize: '0.98rem', color: textFaint }}>
                   <span style={{ flexShrink: 0, fontWeight: 800 }}>×</span>{t}
@@ -526,7 +526,7 @@ export default function HomePage() {
               ) : isIOS ? (
                 <p style={{ fontSize: 11, color: textFaint }}>Use the Safari steps on the right →</p>
               ) : (
-                <button onClick={handleInstall} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: `linear-gradient(135deg, ${green}, ${gold})`, border: 'none', borderRadius: 999, padding: isMobile ? '8px 14px' : '9px 18px', fontSize: isMobile ? 12 : 13, fontWeight: 800, color: '#fff', cursor: 'pointer' }}>
+                <button onClick={handleInstall} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: `linear-gradient(135deg, ${green}, ${gold})`, border: 'none', borderRadius: 999, padding: isMobile ? '8px 14px' : '9px 18px', fontSize: isMobile ? 12 : 13, fontWeight: 800, color: 'var(--app-text)', cursor: 'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Install Now
                 </button>

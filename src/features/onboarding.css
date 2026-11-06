@@ -1,5 +1,5 @@
 /* ═══ Onboarding — full-screen setup flow ═══
-   Palette matched to the app: #0a0a0a bg, #141414/#1a1a1c surfaces,
+   Palette matched to the app: var(--app-bg) bg, var(--app-surface)/var(--app-card) surfaces,
    #FFD700 gold, #2dd4a0 success, Syne headings / Inter body. */
 
 .ob-shell {
@@ -8,7 +8,7 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(1100px 600px at 50% -10%, #141410 0%, #0a0a0a 60%);
+  background: radial-gradient(1100px 600px at 50% -10%, #141410 0%, var(--app-bg) 60%);
   color: #d3d1c7;
   font-family: Manrope, Inter, Segoe UI, Roboto, Arial, sans-serif;
   overflow: hidden;
@@ -30,17 +30,17 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--app-border) transparent;
   padding: calc(16px + env(safe-area-inset-top)) 20px 16px;
 }
 .ob-content::-webkit-scrollbar { width: 8px; }
-.ob-content::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+.ob-content::-webkit-scrollbar-thumb { background: var(--app-border); border-radius: 4px; }
 
 .ob-wrap { width: 100%; max-width: 520px; margin: 0 auto; }
 
 .ob-foot {
   padding: 10px 20px calc(14px + env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--app-tint-soft);
   flex-shrink: 0;
 }
 .ob-foot-inner { display: flex; gap: 10px; width: 100%; max-width: 520px; margin: 0 auto; }
@@ -58,7 +58,7 @@
 
 /* tablet: framed column */
 @media (min-width: 640px) {
-  .ob-pane { border-left: 1px solid #2a2a2a; border-right: 1px solid #2a2a2a; }
+  .ob-pane { border-left: 1px solid var(--app-border); border-right: 1px solid var(--app-border); }
   .ob-content { padding: calc(24px + env(safe-area-inset-top)) 32px 24px; }
   .ob-foot { padding: 12px 32px calc(16px + env(safe-area-inset-bottom)); }
 }
@@ -70,8 +70,8 @@
     flex-direction: row;
     max-width: 1600px;
     margin: 0 auto;
-    border-left: 1px solid #2a2a2a;
-    border-right: 1px solid #2a2a2a;
+    border-left: 1px solid var(--app-border);
+    border-right: 1px solid var(--app-border);
   }
   .ob-aside {
     display: flex;
@@ -79,9 +79,9 @@
     justify-content: space-between;
     width: 44%;
     max-width: 620px;
-    border-right: 1px solid #2a2a2a;
+    border-right: 1px solid var(--app-border);
     padding: calc(40px + env(safe-area-inset-top)) 56px 40px;
-    background: linear-gradient(160deg, #0d0d0d 0%, #0a0a0a 70%);
+    background: linear-gradient(160deg, var(--app-bg) 0%, var(--app-bg) 70%);
   }
   .ob-pane { max-width: none; border: none; }
   .ob-wrap { max-width: 560px; }
@@ -93,21 +93,21 @@
 .ob-awrap { max-width: 440px; }
 .ob-alogo {
   display: flex; align-items: center; gap: 11px;
-  font-family: Syne, sans-serif; font-weight: 700; color: #eaf0f8;
+  font-family: Syne, sans-serif; font-weight: 700; color: var(--app-text);
   font-size: 15px; margin-bottom: 30px;
 }
 .ob-alogo-mark {
   width: 38px; height: 38px; border-radius: 12px;
-  background: #141414; border: 1px solid #2a2a2a;
+  background: var(--app-surface); border: 1px solid var(--app-border);
   display: flex; align-items: center; justify-content: center;
 }
 .ob-ahead {
-  font-family: Syne, sans-serif; color: #eaf0f8; font-weight: 700;
+  font-family: Syne, sans-serif; color: var(--app-text); font-weight: 700;
   font-size: clamp(28px, 2.8vw, 38px); line-height: 1.15; margin: 0 0 12px;
 }
-.ob-asub { color: #888; font-size: 14.5px; line-height: 1.6; margin: 0 0 26px; max-width: 400px; }
+.ob-asub { color: var(--app-dim); font-size: 14.5px; line-height: 1.6; margin: 0 0 26px; max-width: 400px; }
 .ob-acard {
-  background: #141414; border: 1px solid #2a2a2a; border-radius: 16px; padding: 4px 16px;
+  background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 16px; padding: 4px 16px;
 }
 .ob-acard > * + * { border-top: 1px solid #1c2029; }
 .ob-afeat { display: flex; align-items: center; gap: 11px; padding: 13px 0; font-size: 13.5px; color: #d3d1c7; }
@@ -118,19 +118,19 @@
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .ob-adot.done { background: #064e3b; border: 1.5px solid #10b981; }
-.ob-alab { color: #888; font-size: 12px; flex-shrink: 0; }
+.ob-alab { color: var(--app-dim); font-size: 12px; flex-shrink: 0; }
 .ob-aval {
   margin-left: auto; font-size: 13px; font-weight: 600; text-align: right;
   max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ob-adone {
   margin-top: 12px; display: inline-flex; align-items: center; gap: 8px;
-  background: #141414; border: 1px solid #2a2a2a; border-radius: 999px;
+  background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 999px;
   padding: 8px 14px; font-size: 12.5px; color: #FFD700; font-weight: 700;
 }
 .ob-afoot { max-width: 440px; }
 .ob-astars { color: #FFD700; letter-spacing: 2px; font-size: 12px; }
-.ob-afoot p { color: #888; font-size: 13px; margin: 8px 0 0; line-height: 1.5; }
+.ob-afoot p { color: var(--app-dim); font-size: 13px; margin: 8px 0 0; line-height: 1.5; }
 
 /* screen transitions + keyframes */
 .ob-scr { animation: obInFwd 0.3s ease; }
@@ -161,7 +161,7 @@
 }
 
 .ob-tile {
-  cursor: pointer; border: 1px solid #2a2a2a; border-radius: 14px;
+  cursor: pointer; border: 1px solid var(--app-border); border-radius: 14px;
   background: transparent; color: #d3d1c7; font-family: inherit;
   transition: border-color 0.15s, background 0.15s, transform 0.06s;
   position: relative;
@@ -179,37 +179,37 @@
 .ob-rows { display: flex; flex-direction: column; gap: 9px; }
 .ob-row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; text-align: left; }
 .ob-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ob-row-label { display: block; font-size: 14px; font-weight: 600; color: #eaf0f8; }
-.ob-row-sub { display: block; font-size: 11.5px; color: #888; margin-top: 2px; }
+.ob-row-label { display: block; font-size: 14px; font-weight: 600; color: var(--app-text); }
+.ob-row-sub { display: block; font-size: 11.5px; color: var(--app-dim); margin-top: 2px; }
 
 .ob-ic {
   width: 36px; height: 36px; border-radius: 11px;
-  background: #141414; border: 1px solid #2a2a2a;
+  background: var(--app-surface); border: 1px solid var(--app-border);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 
 .ob-h1 {
-  color: #eaf0f8; font-family: Syne, sans-serif; font-weight: 600;
+  color: var(--app-text); font-family: Syne, sans-serif; font-weight: 600;
   font-size: clamp(19px, 4.5vw, 22px); margin: 0 0 6px;
 }
 .ob-hsub { font-size: 13.5px; margin: 0 0 16px; }
-.ob-muted { color: #888; }
+.ob-muted { color: var(--app-dim); }
 .ob-affirm {
   display: flex; align-items: center; gap: 6px;
   color: #FFD700; font-size: 12.5px; font-weight: 700;
   margin: 0 0 8px; animation: obFadeUp 0.35s ease;
 }
 .ob-skip {
-  color: #888; font-size: 12.5px; cursor: pointer;
+  color: var(--app-dim); font-size: 12.5px; cursor: pointer;
   text-decoration: underline; background: none; border: none;
   font-family: inherit; padding: 4px;
 }
 .ob-skipwrap { text-align: center; margin: 16px 0 0; }
-.ob-count { color: #888; font-size: 11.5px; margin: 12px 0 0; text-align: center; }
+.ob-count { color: var(--app-dim); font-size: 11.5px; margin: 12px 0 0; text-align: center; }
 
 /* progress bar */
 .ob-bar { display: flex; gap: 5px; margin-bottom: 20px; }
-.ob-bar-seg { flex: 1; height: 4px; border-radius: 2px; background: #2a2a2a; overflow: hidden; }
+.ob-bar-seg { flex: 1; height: 4px; border-radius: 2px; background: var(--app-border); overflow: hidden; }
 .ob-bar-fill { height: 100%; background: #FFD700; border-radius: 2px; transition: width 0.5s ease; }
 
 /* welcome */
@@ -221,11 +221,11 @@
 }
 .ob-logo-orb {
   width: 66px; height: 66px; margin-bottom: 18px; border-radius: 20px;
-  background: #141414; border: 1px solid #2a2a2a;
+  background: var(--app-surface); border: 1px solid var(--app-border);
   display: flex; align-items: center; justify-content: center;
   animation: obPulse 2.6s ease-in-out infinite;
 }
-.ob-eyebrow { color: #888; font-size: 11px; letter-spacing: 3px; font-weight: 700; margin: 0 0 14px; }
+.ob-eyebrow { color: var(--app-dim); font-size: 11px; letter-spacing: 3px; font-weight: 700; margin: 0 0 14px; }
 .ob-hero {
   color: #FFD700; font-family: Syne, sans-serif;
   font-size: clamp(26px, 7vw, 34px); line-height: 1.2;
@@ -245,10 +245,10 @@
 .ob-reveal { text-align: center; padding-top: clamp(4px, 3vh, 20px); }
 .ob-spinner {
   width: 54px; height: 54px; margin: 12px auto 14px; border-radius: 50%;
-  border: 3px solid #2a2a2a; border-top-color: #FFD700;
+  border: 3px solid var(--app-border); border-top-color: #FFD700;
   animation: obSpin 0.9s linear infinite;
 }
-.ob-reveal-title { color: #eaf0f8; font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+.ob-reveal-title { color: var(--app-text); font-size: 17px; font-weight: 700; margin: 0 0 4px; }
 .ob-reveal-sub { font-size: 12.5px; margin: 0 0 22px; }
 .ob-reveal-items {
   text-align: left; display: flex; flex-direction: column; gap: 10px;
@@ -265,7 +265,7 @@
 }
 .ob-xp-card {
   opacity: 0; animation: obFadeUp 0.5s ease forwards; animation-delay: 1.9s;
-  background: #141414; border: 1px solid #FFD700; border-radius: 16px;
+  background: var(--app-surface); border: 1px solid #FFD700; border-radius: 16px;
   padding: 16px; margin-bottom: 18px;
 }
 .ob-xp-big { color: #FFD700; font-size: 26px; font-weight: 700; margin: 0 0 3px; }
@@ -281,17 +281,17 @@
 .ob-chips { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
 .ob-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  background: #141414; border: 1px solid #2a2a2a; border-radius: 999px;
-  padding: 7px 11px; font-size: 12px; color: #eaf0f8;
+  background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 999px;
+  padding: 7px 11px; font-size: 12px; color: var(--app-text);
 }
 .ob-flame { display: inline-flex; animation: obPulse 2s ease-in-out infinite; }
 .ob-chip-xp { color: #FFD700; font-weight: 700; }
 .ob-plan-card {
-  background: #141414; border: 1px solid #2a2a2a; border-radius: 16px;
+  background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 16px;
   padding: 15px; margin-bottom: 12px;
 }
 .ob-plan-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
-.ob-plan-eyebrow { font-size: 10px; letter-spacing: 2px; color: #888; font-weight: 700; }
+.ob-plan-eyebrow { font-size: 10px; letter-spacing: 2px; color: var(--app-dim); font-weight: 700; }
 .ob-plan-hint { font-size: 11px; }
 .ob-task {
   display: flex; align-items: center; gap: 11px;
@@ -303,19 +303,19 @@
 .ob-task:first-of-type { border-top: none; }
 .ob-task-ic { font-size: 17px; flex-shrink: 0; }
 .ob-task-body { flex: 1; font-size: 13.5px; color: #d3d1c7; min-width: 0; }
-.ob-task-type { color: #888; font-size: 11px; }
-.ob-task-mins { color: #888; font-size: 11px; flex-shrink: 0; }
+.ob-task-type { color: var(--app-dim); font-size: 11px; }
+.ob-task-mins { color: var(--app-dim); font-size: 11px; flex-shrink: 0; }
 .ob-note { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
 .ob-note span { font-size: 12.5px; line-height: 1.55; }
 .ob-circle {
   display: flex; gap: 11px; align-items: center; width: 100%;
-  background: #141414; border: 1px solid #2a2a2a; border-radius: 16px;
+  background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 16px;
   padding: 13px 15px; margin-bottom: 18px; cursor: pointer;
   font-family: inherit; text-align: left; transition: border-color 0.15s;
 }
 .ob-circle-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ob-circle-title { font-size: 13.5px; color: #eaf0f8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ob-circle-sub { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ob-circle-title { font-size: 13.5px; color: var(--app-text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ob-circle-sub { font-size: 11px; color: var(--app-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ob-circle-arrow { color: #FFD700; font-size: 15px; flex-shrink: 0; }
 
 /* short landscape phones */
@@ -329,8 +329,8 @@
   .ob-btnS:hover { border-color: #4a4f5c; }
   .ob-tile:hover { border-color: #3e4350; }
   .ob-tile.sel:hover { border-color: #FFD700; }
-  .ob-skip:hover { color: #eaf0f8; }
-  .ob-task:hover { background: #1a1a1c; }
+  .ob-skip:hover { color: var(--app-text); }
+  .ob-task:hover { background: var(--app-card); }
   .ob-circle:hover { border-color: #3e4350; }
 }
 

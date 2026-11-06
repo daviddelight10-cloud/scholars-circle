@@ -112,7 +112,7 @@ export function GlobalSearchDropdown({ query, filter, subjects }) {
           key={item.id}
           style={{
             padding: 10,
-            background: "#26262a",
+            background: "var(--app-border)",
             borderRadius: 6,
             marginBottom: 6,
             borderLeft: `4px solid ${typeColors[item.type]}`
@@ -122,7 +122,7 @@ export function GlobalSearchDropdown({ query, filter, subjects }) {
             <span style={{ fontSize: 13, fontWeight: 500 }}>
               {typeIcons[item.type]} {item.title}
             </span>
-            <span style={{ fontSize: 11, color: "#9ca3af" }}>
+            <span style={{ fontSize: 11, color: "var(--app-dim)" }}>
               {item.subject}
             </span>
           </div>
@@ -142,7 +142,7 @@ export function GlobalSearchDropdown({ query, filter, subjects }) {
               )
             }}
           />
-          <span style={{ fontSize: 10, color: "#6b7280" }}>
+          <span style={{ fontSize: 10, color: "var(--app-dim)" }}>
             {new Date(item.timestamp).toLocaleDateString()}
           </span>
         </div>

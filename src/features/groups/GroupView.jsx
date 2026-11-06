@@ -199,6 +199,9 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
               classroomId={group.id}
               token={token}
               currentUser={currentUser}
+              group={group}
+              members={members}
+              isCaptain={isCaptain}
               onJoinQuiz={onJoinQuiz}
             />
           </div>

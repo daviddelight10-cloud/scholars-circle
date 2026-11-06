@@ -562,11 +562,11 @@ ${isCorrect
 
     <div className="card" style={{ 
 
-      background: "linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.9))",
+      background: "linear-gradient(145deg, rgba(var(--app-glass-rgb),0.95), rgba(var(--app-glass-rgb),0.9))",
 
       border: "1px solid rgba(255, 215, 0, 0.2)",
 
-      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--app-tint-soft)",
 
       borderRadius: 20,
 
@@ -620,7 +620,7 @@ ${isCorrect
 
               <h3 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{session.source.label}</h3>
 
-              <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{session.mode === "exam" ? "Exam Mode" : session.mode === "weak" ? "Weak Drill" : session.mode === "adaptive" ? "Adaptive" : "Practice"}</p>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--app-dim)" }}>{session.mode === "exam" ? "Exam Mode" : session.mode === "weak" ? "Weak Drill" : session.mode === "adaptive" ? "Adaptive" : "Practice"}</p>
 
             </div>
 
@@ -636,7 +636,7 @@ ${isCorrect
 
               <div style={{
 
-                background: timeLeft < 60 ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(20, 20, 20, 0.8)",
+                background: timeLeft < 60 ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(var(--app-glass-rgb),0.8)",
 
                 border: "1px solid " + (timeLeft < 60 ? "rgba(239, 68, 68, 0.5)" : "rgba(255, 215, 0, 0.3)"),
 
@@ -648,7 +648,7 @@ ${isCorrect
 
                 fontWeight: 700,
 
-                color: "#fff",
+                color: "var(--app-text)",
 
                 animation: timeLeft < 60 ? "pulse 1s infinite" : "none"
 
@@ -666,7 +666,7 @@ ${isCorrect
 
             <div style={{
 
-              background: "rgba(20, 20, 20, 0.8)",
+              background: "rgba(var(--app-glass-rgb),0.8)",
 
               border: "1px solid rgba(255, 215, 0, 0.3)",
 
@@ -682,7 +682,7 @@ ${isCorrect
 
             }}>
 
-              Q{idx + 1}<span style={{ color: "#6b7280" }}>/{session.questions.length}</span>
+              Q{idx + 1}<span style={{ color: "var(--app-dim)" }}>/{session.questions.length}</span>
 
             </div>
 
@@ -708,7 +708,7 @@ ${isCorrect
 
               fontSize: 14,
 
-              color: "#fff",
+              color: "var(--app-text)",
 
               boxShadow: "0 4px 15px rgba(251, 191, 36, 0.4)",
 
@@ -752,7 +752,7 @@ ${isCorrect
 
                 fontSize: 14,
 
-                color: "#fff",
+                color: "var(--app-text)",
 
                 boxShadow: `0 4px 15px ${currentStreak >= 7 ? "rgba(249, 115, 22, 0.4)" : currentStreak >= 5 ? "rgba(239, 68, 68, 0.4)" : "rgba(34, 197, 94, 0.4)"}`,
 
@@ -764,7 +764,7 @@ ${isCorrect
 
                 <span>{currentStreak}</span>
 
-                {streakBonus > 0 && <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", padding: "2px 6px", borderRadius: 10 }}>+{streakBonus}</span>}
+                {streakBonus > 0 && <span style={{ fontSize: 11, background: "var(--app-tint-strong)", padding: "2px 6px", borderRadius: 10 }}>+{streakBonus}</span>}
 
               </div>
 
@@ -826,7 +826,7 @@ ${isCorrect
 
           height: 6, 
 
-          background: "rgba(20, 20, 20, 0.8)", 
+          background: "rgba(var(--app-glass-rgb),0.8)", 
 
           borderRadius: 10, 
 
@@ -864,7 +864,7 @@ ${isCorrect
 
         <div style={{ padding: "12px 24px 0" }}>
 
-          <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>
+          <p style={{ color: "var(--app-dim)", fontSize: 13, margin: 0 }}>
 
             Running score: <span style={{ color: "#FFD700" }}>{score}/{Math.max(1, idx + (showResult ? 1 : 0))}</span>
 
@@ -884,7 +884,7 @@ ${isCorrect
 
         <div style={{
 
-          background: "linear-gradient(135deg, rgba(20, 20, 20, 0.6), rgba(10, 10, 10, 0.8))",
+          background: "linear-gradient(135deg, rgba(var(--app-glass-rgb),0.6), rgba(var(--app-glass-rgb),0.8))",
 
           borderRadius: 16,
 
@@ -968,7 +968,7 @@ ${isCorrect
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 
-            <label style={{ color: "#9ca3af", fontSize: 13 }}>Confidence:</label>
+            <label style={{ color: "var(--app-dim)", fontSize: 13 }}>Confidence:</label>
 
             <select 
 
@@ -978,7 +978,7 @@ ${isCorrect
 
               style={{
 
-                background: "rgba(20, 20, 20, 0.8)",
+                background: "rgba(var(--app-glass-rgb),0.8)",
 
                 border: "1px solid rgba(255, 215, 0, 0.3)",
 
@@ -1050,7 +1050,7 @@ ${isCorrect
 
             
 
-            let bgGradient = "linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(10, 10, 10, 0.9))";
+            let bgGradient = "linear-gradient(135deg, rgba(var(--app-glass-rgb),0.8), rgba(var(--app-glass-rgb),0.9))";
 
             let borderColor = "rgba(255, 215, 0, 0.2)";
 
@@ -1120,7 +1120,7 @@ ${isCorrect
 
                   transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
 
-                  boxShadow: `0 4px 15px ${glowColor}, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                  boxShadow: `0 4px 15px ${glowColor}, inset 0 1px 0 var(--app-tint-soft)`,
 
                   transform: isSelected && !showResult ? "scale(1.02)" : "scale(1)"
 
@@ -1158,7 +1158,7 @@ ${isCorrect
 
                       fontSize: 14,
 
-                      color: isSelected || isCorrectOption ? "#fff" : "#FFD700"
+                      color: isSelected || isCorrectOption ? "var(--app-text)" : "#FFD700"
 
                     }}>
 
@@ -1184,7 +1184,7 @@ ${isCorrect
 
                       fontWeight: 600,
 
-                      color: "#fff"
+                      color: "var(--app-text)"
 
                     }}>Correct</span>
 
@@ -1242,7 +1242,7 @@ ${isCorrect
 
                 style={{ 
 
-                  background: "linear-gradient(135deg, #FFD700, #0a0a0a)",
+                  background: "linear-gradient(135deg, #FFD700, var(--app-bg))",
 
                   border: "none",
 
@@ -1276,7 +1276,7 @@ ${isCorrect
 
                   padding: 16, 
 
-                  background: "rgba(20, 20, 20, 0.6)", 
+                  background: "rgba(var(--app-glass-rgb),0.6)", 
 
                   border: "1px solid rgba(255, 215, 0, 0.3)", 
 

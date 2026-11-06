@@ -328,7 +328,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             })}
           />
         ) : (
-          <div style={{ background: "#1a1a1c", border: "1px solid rgba(255,255,255,0.09)", borderRadius: "12px", padding: "40px", textAlign: "center", color: "#646E84" }}>
+          <div style={{ background: "var(--app-card)", border: "1px solid var(--app-tint-med)", borderRadius: "12px", padding: "40px", textAlign: "center", color: "var(--app-faint)" }}>
             PDF not available
           </div>
         );
@@ -350,7 +350,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             })}
           />
         ) : (
-          <div style={{ background: "#1a1a1c", border: "1px solid rgba(255,255,255,0.09)", borderRadius: "12px", padding: "40px", textAlign: "center", color: "#646E84" }}>
+          <div style={{ background: "var(--app-card)", border: "1px solid var(--app-tint-med)", borderRadius: "12px", padding: "40px", textAlign: "center", color: "var(--app-faint)" }}>
             Document not available
           </div>
         );
@@ -359,8 +359,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         return (
           <div
             style={{
-              background: "var(--card-bg, #121212)",
-              border: "1px solid var(--border-color, rgba(255,255,255,0.09))",
+              background: "var(--card-bg, var(--app-surface))",
+              border: "1px solid var(--border-color, var(--app-tint-med))",
               borderRadius: "12px",
               padding: "18px 20px",
               fontSize: "14px",
@@ -378,7 +378,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                 <iframe
                   src={`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}&token=${encodeURIComponent(authJwt)}`}
                   title={resource.title}
-                  style={{ width: "100%", height: "400px", border: "none", borderRadius: "8px", marginTop: 12, background: "var(--item-bg, #0a0a0a)" }}
+                  style={{ width: "100%", height: "400px", border: "none", borderRadius: "8px", marginTop: 12, background: "var(--item-bg, var(--app-bg))" }}
                 />
               </>
             ) : resource.description ? (
@@ -407,7 +407,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               </p>
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}
-                style={{ background: "#FFD700", color: "#111", border: "none", padding: "12px 28px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 14 }}
+                style={{ background: "#FFD700", color: "var(--app-ink)", border: "none", padding: "12px 28px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 14 }}
               >
                 Upgrade to Premium
               </button>
@@ -435,16 +435,16 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         return (
           <div
             style={{
-              background: "#121212",
-              border: "1px solid rgba(255,255,255,0.09)",
+              background: "var(--app-surface)",
+              border: "1px solid var(--app-tint-med)",
               borderRadius: "12px",
               padding: "16px",
               fontSize: "14px",
-              color: "#9AA3B5",
+              color: "var(--app-dim)",
               lineHeight: 1.9,
             }}
           >
-            <strong style={{ color: "#EDEFF5", fontSize: "16px" }}>{resource.title}</strong>
+            <strong style={{ color: "var(--app-text)", fontSize: "16px" }}>{resource.title}</strong>
             <br />
             <br />
             {resource.description || "Tutorial questions will be displayed here."}
@@ -452,19 +452,19 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         );
 
       default:
-        return <div style={{ color: "#9AA3B5" }}>Content type not supported</div>;
+        return <div style={{ color: "var(--app-dim)" }}>Content type not supported</div>;
     }
   };
 
   const renderAuthOverlay = () => {
     const inputStyle = {
       width: "100%",
-      background: "#1a1a1c",
-      border: "1px solid rgba(255,255,255,0.16)",
+      background: "var(--app-card)",
+      border: "1px solid var(--app-tint-strong)",
       borderRadius: "8px",
       padding: "10px 14px",
       fontSize: "13px",
-      color: "#EDEFF5",
+      color: "var(--app-text)",
       outline: "none",
     };
     const googleBtn = (
@@ -473,8 +473,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         onClick={handleGoogleAuth}
         style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-          width: "100%", padding: "10px", background: "#1a1a1c", border: "1px solid rgba(255,255,255,0.16)",
-          borderRadius: "8px", fontSize: "13px", fontWeight: 600, color: "#EDEFF5", cursor: "pointer", marginBottom: "12px",
+          width: "100%", padding: "10px", background: "var(--app-card)", border: "1px solid var(--app-tint-strong)",
+          borderRadius: "8px", fontSize: "13px", fontWeight: 600, color: "var(--app-text)", cursor: "pointer", marginBottom: "12px",
         }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
@@ -482,8 +482,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       </button>
     );
     const divider = (label) => (
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "4px 0 12px", color: "#646E84", fontSize: "10px", fontFamily: "JetBrains Mono, monospace", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-        <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.09)" }} />{label}<span style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.09)" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "4px 0 12px", color: "var(--app-faint)", fontSize: "10px", fontFamily: "JetBrains Mono, monospace", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        <span style={{ flex: 1, height: 1, background: "var(--app-tint-med)" }} />{label}<span style={{ flex: 1, height: 1, background: "var(--app-tint-med)" }} />
       </div>
     );
     const errorBanner = authError && (
@@ -516,8 +516,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         {/* Blurred content */}
         <div
           style={{
-            background: "#1a1a1c",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: "var(--app-card)",
+            border: "1px solid var(--app-tint-med)",
             borderRadius: "14px",
             height: "200px",
             filter: "blur(4px)",
@@ -529,8 +529,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         {/* Auth card */}
         <div
           style={{
-            background: "#121212",
-            border: "1px solid rgba(255,255,255,0.12)",
+            background: "var(--app-surface)",
+            border: "1px solid var(--app-tint-med)",
             borderRadius: "14px",
             padding: "20px",
             position: "relative",
@@ -540,8 +540,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         >
           {authCase === "guest" ? (
             <>
-              <div style={{ fontSize: "16px", fontWeight: 800, color: "#EDEFF5", marginBottom: "4px" }}>Log in to continue</div>
-              <div style={{ fontSize: "12px", color: "#9AA3B5", marginBottom: "16px", lineHeight: 1.4 }}>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--app-text)", marginBottom: "4px" }}>Log in to continue</div>
+              <div style={{ fontSize: "12px", color: "var(--app-dim)", marginBottom: "16px", lineHeight: 1.4 }}>
                 You need an account to view this material.
               </div>
               {errorBanner}
@@ -570,15 +570,15 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               </form>
               <div
                 onClick={() => setAuthCase("new")}
-                style={{ textAlign: "center", fontSize: "11px", color: "#646E84", marginTop: "12px", cursor: "pointer" }}
+                style={{ textAlign: "center", fontSize: "11px", color: "var(--app-faint)", marginTop: "12px", cursor: "pointer" }}
               >
                 No account? <span style={{ color: "#F5A623", fontWeight: 700 }}>Sign up free →</span>
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: "16px", fontWeight: 800, color: "#EDEFF5", marginBottom: "4px" }}>Quick access — free</div>
-              <div style={{ fontSize: "12px", color: "#9AA3B5", marginBottom: "16px", lineHeight: 1.4 }}>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--app-text)", marginBottom: "4px" }}>Quick access — free</div>
+              <div style={{ fontSize: "12px", color: "var(--app-dim)", marginBottom: "16px", lineHeight: 1.4 }}>
                 Create a free account. Get 3 free material opens.
               </div>
               {errorBanner}
@@ -616,7 +616,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               </form>
               <div
                 onClick={() => setAuthCase("guest")}
-                style={{ textAlign: "center", fontSize: "11px", color: "#646E84", marginTop: "12px", cursor: "pointer" }}
+                style={{ textAlign: "center", fontSize: "11px", color: "var(--app-faint)", marginTop: "12px", cursor: "pointer" }}
               >
                 Have an account? <span style={{ color: "#F5A623", fontWeight: 700 }}>Log in</span>
               </div>
@@ -630,7 +630,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   if (loading) {
     return (
       <div style={{ padding: "40px", textAlign: "center" }}>
-        <div style={{ fontSize: "14px", color: "#9AA3B5" }}>Loading material...</div>
+        <div style={{ fontSize: "14px", color: "var(--app-dim)" }}>Loading material...</div>
       </div>
     );
   }
@@ -674,7 +674,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       position: "fixed",
       inset: 0,
       zIndex: 9999,
-      background: "#0a0a0a",
+      background: "var(--app-bg)",
       display: "flex",
       flexDirection: "column",
       overflowY: "auto",
@@ -689,11 +689,11 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             alignItems: "center",
             gap: "8px",
             padding: "8px 12px",
-            background: "#1a1a1c",
-            border: "1px solid rgba(255,255,255,0.12)",
+            background: "var(--app-card)",
+            border: "1px solid var(--app-tint-med)",
             borderRadius: "8px",
             fontSize: "13px",
-            color: "#9AA3B5",
+            color: "var(--app-dim)",
             cursor: "pointer",
             marginBottom: "20px",
           }}
@@ -706,8 +706,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && !isAiSummary && (
         <div
           style={{
-            background: "#121212",
-            border: "1px solid rgba(255,255,255,0.09)",
+            background: "var(--app-surface)",
+            border: "1px solid var(--app-tint-med)",
             borderRadius: "12px",
             padding: "14px",
             marginBottom: "16px",
@@ -736,8 +736,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           {icon}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "15px", fontWeight: 700, color: "#EDEFF5", marginBottom: "2px" }}>{resource.title}</div>
-          <div style={{ fontSize: "11px", color: "#9AA3B5" }}>
+          <div style={{ fontSize: "15px", fontWeight: 700, color: "var(--app-text)", marginBottom: "2px" }}>{resource.title}</div>
+          <div style={{ fontSize: "11px", color: "var(--app-dim)" }}>
             <span
               style={{
                 padding: "2px 8px",
@@ -761,18 +761,18 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       {authCase === "loggedin" && isPremiumResource && !allowed && (
         <div style={{ background: "linear-gradient(135deg,#0d0820,#1a0828)", border: "0.5px solid #5c35a0", borderRadius: "14px", padding: "28px 24px", marginBottom: "16px", textAlign: "center" }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔒</div>
-          <div style={{ fontSize: "18px", fontWeight: 700, color: "#EDEFF5", marginBottom: "8px" }}>Premium Material</div>
+          <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--app-text)", marginBottom: "8px" }}>Premium Material</div>
           <div style={{ fontSize: "13px", color: "#FFB300", marginBottom: "8px", lineHeight: 1.6 }}>
             This is a <strong>premium resource</strong> — upgrade to access all premium notes, PDFs & MCQs.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", marginTop: "20px" }}>
             <button
               onClick={() => { window.dispatchEvent(new CustomEvent("sc-open-premium")); if (onBack) onBack(); navigate("/app#upgrade"); }}
-              style={{ padding: "12px 32px", background: "linear-gradient(135deg,#5c35a0,#1a1a1a)", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", maxWidth: "280px" }}
+              style={{ padding: "12px 32px", background: "linear-gradient(135deg,#5c35a0,var(--app-card))", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "var(--app-text)", cursor: "pointer", width: "100%", maxWidth: "280px" }}
             >
               💎 Upgrade to Premium
             </button>
-            <div style={{ fontSize: "11px", color: "#9AA3B5" }}>Starting from ₦700/week · Cancel anytime</div>
+            <div style={{ fontSize: "11px", color: "var(--app-dim)" }}>Starting from ₦700/week · Cancel anytime</div>
           </div>
         </div>
       )}
@@ -795,13 +795,13 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             justifyContent: "center",
             gap: "8px",
             padding: "12px",
-            background: "#1a1a1c",
-            border: "1px solid rgba(255,255,255,0.12)",
+            background: "var(--app-card)",
+            border: "1px solid var(--app-tint-med)",
             borderRadius: "10px",
             cursor: "pointer",
             fontSize: "13px",
             fontWeight: 600,
-            color: "#9AA3B5",
+            color: "var(--app-dim)",
           }}
         >
           🔗 Share this material
@@ -822,7 +822,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             gap: "8px",
             padding: "12px",
             marginTop: "10px",
-            background: "linear-gradient(135deg, rgba(79,124,255,0.15), #141414)",
+            background: "linear-gradient(135deg, rgba(79,124,255,0.15), var(--app-surface))",
             border: "0.5px solid rgba(79,124,255,0.4)",
             borderRadius: "10px",
             cursor: "pointer",
@@ -905,7 +905,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           from { opacity: 0; transform: translateX(-50%) translateY(8px); }
           to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
-        .rv-auth-input::placeholder { color: #646E84; }
+        .rv-auth-input::placeholder { color: var(--app-faint); }
         .rv-auth-input:focus { border-color: #FFD700; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); }
         .rv-auth-primary:hover:not(:disabled) { background: #FFB838; }
       `}</style>

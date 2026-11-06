@@ -39,7 +39,9 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
   const [discoverSubject, setDiscoverSubject] = useState("");
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [board, setBoard] = useState(null);
+  const [boardError, setBoardError] = useState(null);
   const [boardScope, setBoardScope] = useState("all");
+  const [boardSort, setBoardSort] = useState("xp"); // "xp" weekly score | "rating" hall of fame
   const handledJoin = useRef(false);
 
   const loadMine = useCallback(async () => {
@@ -62,10 +64,10 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
 
   const loadBoard = useCallback(() => {
     groupsApi
-      .groupsBoard({ token, period: "week", scope: boardScope })
-      .then(setBoard)
-      .catch(() => {});
-  }, [token, boardScope]);
+      .groupsBoard({ token, period: boardSort === "rating" ? "all" : "week", scope: boardScope, sort: boardSort })
+      .then((b) => { setBoard(b); setBoardError(null); })
+      .catch((e) => setBoardError(e.message || "Couldn't load the board"));
+  }, [token, boardScope, boardSort]);
 
   useEffect(() => { loadMine(); }, [loadMine]);
   useEffect(() => { if (discoverOpen) loadDiscover(); }, [discoverOpen, loadDiscover]);

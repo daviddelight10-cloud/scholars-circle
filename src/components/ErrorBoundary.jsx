@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component {
           minHeight: "400px",
           padding: "40px",
           textAlign: "center",
-          background: "var(--card-bg, #232328)",
+          background: "var(--card-bg, var(--app-card2))",
           borderRadius: "12px",
           border: "1px solid var(--border-color, #3a3a40)",
         }}>

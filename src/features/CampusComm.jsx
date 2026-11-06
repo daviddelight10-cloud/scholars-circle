@@ -4,10 +4,10 @@ import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens (matches Scholar's Circle app) ──────────────────────────
 const T = {
-  bg:        "#0a0a0a",
-  card:      "#0D0E18",
-  cardHover: "#111220",
-  border:    "rgba(255,255,255,0.07)",
+  bg:        "var(--app-bg)",
+  card:      "var(--app-surface)",
+  cardHover: "var(--app-card)",
+  border:    "var(--app-tint-med)",
   borderHi:  "rgba(61,126,255,0.28)",
   blue:      "#3D7EFF",
   blueGrad:  "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
@@ -74,7 +74,7 @@ function AnnouncementRow({ announcement, onDelete, showDelete }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ background: hovered ? T.cardHover : "rgba(255,255,255,0.02)", border: `1px solid ${hovered ? T.border : "rgba(255,255,255,0.04)"}`, borderRadius: 14, padding: "12px 14px", transition: "all 0.2s" }}
+      style={{ background: hovered ? T.cardHover : "var(--app-tint-soft)", border: `1px solid ${hovered ? T.border : "var(--app-tint-soft)"}`, borderRadius: 14, padding: "12px 14px", transition: "all 0.2s" }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -109,7 +109,7 @@ function AnnouncementRow({ announcement, onDelete, showDelete }) {
 
 // ─── Styled inputs ─────────────────────────────────────────────────────────────
 const inputStyle = {
-  width: "100%", background: "rgba(255,255,255,0.03)", border: `1px solid ${T.border}`,
+  width: "100%", background: "var(--app-tint-soft)", border: `1px solid ${T.border}`,
   borderRadius: 12, padding: "10px 14px", fontSize: 14, fontFamily: T.body,
   color: T.text, outline: "none", boxSizing: "border-box", transition: "border-color 0.2s",
 };
@@ -214,7 +214,7 @@ export default function CampusComm({ token, currentUser }) {
 
         .sc-input::placeholder { color: #3a3a40; }
         .sc-input::-webkit-calendar-picker-indicator { filter: invert(0.4); }
-        .sc-select option { background: #0D0E18; color: #F1F5F9; }
+        .sc-select option { background: var(--app-surface); color: #F1F5F9; }
 
         /* Scrollbar */
         .sc-scroll::-webkit-scrollbar { width: 4px; }
@@ -250,7 +250,7 @@ export default function CampusComm({ token, currentUser }) {
           {/* Tab switcher */}
           <div style={{ display: "flex", background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 3, gap: 3 }}>
             {["send", "analytics"].map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: "7px 16px", borderRadius: 9, fontSize: 12, fontFamily: T.mono, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", border: "none", transition: "all 0.2s", background: activeTab === tab ? T.blueGrad : "transparent", color: activeTab === tab ? "#fff" : T.muted, boxShadow: activeTab === tab ? "0 0 12px rgba(61,126,255,0.25)" : "none" }}>
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: "7px 16px", borderRadius: 9, fontSize: 12, fontFamily: T.mono, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", border: "none", transition: "all 0.2s", background: activeTab === tab ? T.blueGrad : "transparent", color: activeTab === tab ? "var(--app-text)" : T.muted, boxShadow: activeTab === tab ? "0 0 12px rgba(61,126,255,0.25)" : "none" }}>
                 {tab === "send" ? "⚡ Send" : "📊 Analytics"}
               </button>
             ))}
@@ -320,7 +320,7 @@ export default function CampusComm({ token, currentUser }) {
                       const active = targetRoles.includes(role);
                       return (
                         <button key={role} type="button" onClick={() => toggleRole(role)}
-                          style={{ padding: "7px 14px", borderRadius: 10, fontSize: 12, fontFamily: T.mono, fontWeight: 600, letterSpacing: "0.06em", cursor: "pointer", border: `1px solid ${active ? T.blue : T.border}`, background: active ? "rgba(61,126,255,0.15)" : "rgba(255,255,255,0.03)", color: active ? T.blue : T.muted, transition: "all 0.18s", boxShadow: active ? `0 0 10px rgba(61,126,255,0.2)` : "none" }}>
+                          style={{ padding: "7px 14px", borderRadius: 10, fontSize: 12, fontFamily: T.mono, fontWeight: 600, letterSpacing: "0.06em", cursor: "pointer", border: `1px solid ${active ? T.blue : T.border}`, background: active ? "rgba(61,126,255,0.15)" : "var(--app-tint-soft)", color: active ? T.blue : T.muted, transition: "all 0.18s", boxShadow: active ? `0 0 10px rgba(61,126,255,0.2)` : "none" }}>
                           {active && "✓ "}{role}
                         </button>
                       );
@@ -374,12 +374,12 @@ export default function CampusComm({ token, currentUser }) {
                 {/* Submit */}
                 <button
                   type="submit" disabled={isSending}
-                  style={{ width: "100%", padding: "13px", borderRadius: 13, background: isSending ? "rgba(61,126,255,0.4)" : T.blueGrad, border: "none", color: "#fff", fontFamily: T.syne, fontWeight: 700, fontSize: 14, cursor: isSending ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: isSending ? "none" : "0 0 20px rgba(61,126,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  style={{ width: "100%", padding: "13px", borderRadius: 13, background: isSending ? "rgba(61,126,255,0.4)" : T.blueGrad, border: "none", color: "var(--app-text)", fontFamily: T.syne, fontWeight: 700, fontSize: 14, cursor: isSending ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: isSending ? "none" : "0 0 20px rgba(61,126,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                   onMouseEnter={e => { if (!isSending) e.currentTarget.style.transform = "translateY(-2px)"; }}
                   onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
                 >
                   {isSending ? (
-                    <><div style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> Sending...</>
+                    <><div style={{ width: 14, height: 14, border: "2px solid var(--app-tint-strong)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> Sending...</>
                   ) : (
                     <><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Send Announcement</>
                   )}
@@ -448,7 +448,7 @@ export default function CampusComm({ token, currentUser }) {
                         const cat = getCategoryInfo(a.category);
                         const prio = getPriorityInfo(a.priority);
                         return (
-                          <div key={a.id} style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${T.border}`, borderRadius: 14, padding: "14px 16px", animation: `fadeUp 0.4s ease ${i * 60}ms both` }}>
+                          <div key={a.id} style={{ background: "var(--app-tint-soft)", border: `1px solid ${T.border}`, borderRadius: 14, padding: "14px 16px", animation: `fadeUp 0.4s ease ${i * 60}ms both` }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
@@ -464,7 +464,7 @@ export default function CampusComm({ token, currentUser }) {
 
                             {/* Read rate bar */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 999, overflow: "hidden" }}>
+                              <div style={{ flex: 1, height: 4, background: "var(--app-tint-soft)", borderRadius: 999, overflow: "hidden" }}>
                                 <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${T.blue}, #6E4AFF)`, borderRadius: 999, transition: "width 0.8s cubic-bezier(0.16,1,0.3,1)" }} />
                               </div>
                               <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>

@@ -349,7 +349,7 @@ export default function PracticeSheet({
                 {onExamRegenerate && (
                   <button
                     className="pm-hero-btn"
-                    style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.15)" }}
+                    style={{ background: "transparent", border: "1px solid var(--app-tint-strong)" }}
                     onClick={act(() => onExamRegenerate?.(file))}
                   >
                     New version
@@ -581,7 +581,7 @@ export default function PracticeSheet({
                 {shownPeople.map((p, i) =>
                   <AvatarMark key={i} avatar={p.avatar} name={p.name} size={20}
                     className={`pm-avatar${p.avatar ? "" : ` pm-av-${i}`}`}
-                    style={{ marginLeft: i === 0 ? 0 : -7, border: "2px solid #1a1a1c", background: "unset" }} />
+                    style={{ marginLeft: i === 0 ? 0 : -7, border: "2px solid var(--app-card)", background: "unset" }} />
                 )}
                 {extraPeople > 0 && <span className="pm-avatar pm-av-2">+{extraPeople}</span>}
               </span>

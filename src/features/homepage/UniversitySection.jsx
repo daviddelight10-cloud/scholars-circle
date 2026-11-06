@@ -4,14 +4,14 @@ export default function UniversitySection() {
   return (
     <section id="universities" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0D0E18 0%, #0a0a0a 100%)'
+      background: 'linear-gradient(180deg, var(--app-surface) 0%, var(--app-bg) 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
           <h2 style={{
             fontSize: 'clamp(1.875rem, 4vw, 3rem)',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--app-text)',
             marginBottom: '16px'
           }}>
             Why Medical Schools Choose Scholar's Circle
@@ -34,13 +34,13 @@ export default function UniversitySection() {
           marginBottom: '64px'
         }}>
           <div style={{
-            background: 'linear-gradient(145deg, rgba(255, 215, 0, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(255, 215, 0, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(255, 215, 0, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>🎓</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               Comprehensive Medical Question Bank
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -50,13 +50,13 @@ export default function UniversitySection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(218, 165, 32, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(218, 165, 32, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(218, 165, 32, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>📊</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               Student Analytics
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -66,13 +66,13 @@ export default function UniversitySection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(236, 72, 153, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(236, 72, 153, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(236, 72, 153, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>📢</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               Campus Communication
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -82,13 +82,13 @@ export default function UniversitySection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(34, 197, 94, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(34, 197, 94, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(34, 197, 94, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>📝</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               Assignment Management
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -98,13 +98,13 @@ export default function UniversitySection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(250, 204, 21, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(250, 204, 21, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(250, 204, 21, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>🤖</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               AI-Powered Clinical Assistance
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -114,13 +114,13 @@ export default function UniversitySection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(249, 115, 22, 0.1), rgba(13, 14, 24, 0.5))',
+            background: 'linear-gradient(145deg, rgba(249, 115, 22, 0.1), rgba(var(--app-glass-rgb),0.5))',
             border: '1px solid rgba(249, 115, 22, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>🔐</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--app-text)', marginBottom: '8px' }}>
               Secure & Scalable
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
@@ -137,7 +137,7 @@ export default function UniversitySection() {
           padding: '32px 48px',
           textAlign: 'center'
         }}>
-          <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--app-text)', marginBottom: '16px' }}>
             Partner With Us
           </h3>
           <p style={{
@@ -157,7 +157,7 @@ export default function UniversitySection() {
               style={{
                 padding: '12px 32px',
                 background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                color: '#fff',
+                color: 'var(--app-text)',
                 fontWeight: 600,
                 borderRadius: '12px',
                 border: 'none',
@@ -177,7 +177,7 @@ export default function UniversitySection() {
               style={{
                 padding: '12px 32px',
                 background: 'linear-gradient(135deg, #3D7EFF, #6E4AFF)',
-                color: '#fff',
+                color: 'var(--app-text)',
                 fontWeight: 600,
                 borderRadius: '12px',
                 border: 'none',

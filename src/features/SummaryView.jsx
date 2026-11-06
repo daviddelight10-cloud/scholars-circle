@@ -4,12 +4,12 @@ import { callAIMultimodal } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText";
 
 const D = {
-  bg: "#0a0a0a",
-  bar: "#121212",
-  accent: "#1e1e22",
-  line: "rgba(255,255,255,0.09)",
-  text: "#EDEFF5",
-  muted: "#9AA3B5",
+  bg: "var(--app-bg)",
+  bar: "var(--app-surface)",
+  accent: "var(--app-card2)",
+  line: "var(--app-tint-med)",
+  text: "var(--app-text)",
+  muted: "var(--app-dim)",
   hint: "#646E84",
   faint: "#3A4356",
   gold: "#FFD700",
@@ -151,7 +151,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
   const pill = (active) => ({
     display: "flex", alignItems: "center", gap: 5, flexShrink: 0,
     fontSize: 11, fontWeight: 700, cursor: "pointer",
-    color: active ? "#0a0a0a" : D.gold,
+    color: active ? "var(--app-ink)" : D.gold,
     background: active ? D.gold : "rgba(255,215,0,0.08)",
     border: `0.5px solid ${active ? D.gold : "rgba(255,215,0,0.25)"}`,
     borderRadius: 999, padding: "6px 12px", textDecoration: "none",
@@ -223,7 +223,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
             }}>
               {resource?.title || "Summary"}
             </div>
-            <div style={{ fontSize: 11, color: "#646E84", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 11, color: "var(--app-faint)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {resource?.subject ? `${resource.subject} · ` : ""}AI-generated summary
             </div>
           </div>
@@ -285,7 +285,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
           style={{
             position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
             zIndex: 40, padding: "9px 18px", borderRadius: 999, cursor: "pointer",
-            background: D.gold, color: "#0a0a0a", border: "none",
+            background: D.gold, color: "var(--app-ink)", border: "none",
             fontSize: 12, fontWeight: 700, fontFamily: "Manrope,sans-serif",
             boxShadow: "0 4px 18px rgba(0,0,0,0.5)", animation: "sumFadeUp 0.25s ease",
           }}
@@ -342,7 +342,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
               <div key={i} style={{
                 alignSelf: m.role === "user" ? "flex-end" : "flex-start",
                 maxWidth: "92%",
-                background: m.role === "user" ? "rgba(255,215,0,0.10)" : "rgba(255,255,255,0.04)",
+                background: m.role === "user" ? "rgba(255,215,0,0.10)" : "var(--app-tint-soft)",
                 border: `0.5px solid ${m.role === "user" ? "rgba(255,215,0,0.3)" : D.line}`,
                 borderRadius: m.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
                 padding: "8px 11px", fontSize: 12.5, color: D.text, lineHeight: 1.6,
@@ -382,7 +382,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
               style={{
                 width: 36, height: 36, borderRadius: "50%", flexShrink: 0, alignSelf: "flex-end",
                 background: chatInput.trim() ? D.gold : D.accent, border: "none",
-                color: chatInput.trim() ? "#0a0a0a" : D.faint, fontSize: 15,
+                color: chatInput.trim() ? "var(--app-ink)" : D.faint, fontSize: 15,
                 cursor: chatInput.trim() ? "pointer" : "default",
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}

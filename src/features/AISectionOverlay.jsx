@@ -17,21 +17,21 @@ import { downscaleImage } from "../lib/imageUtils.js";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
-  bg:      "#0a0a0a",
-  card:    "#1a1a1c",
-  bar:     "#121212",
-  accent:  "#1e1e22",
+  bg:      "var(--app-bg)",
+  card:    "var(--app-card)",
+  bar:     "var(--app-surface)",
+  accent:  "var(--app-card2)",
   border:  "#FFD700",
-  line:    "rgba(255,255,255,0.09)",
-  line2:   "rgba(255,255,255,0.05)",
-  text:    "#EDEFF5",
-  muted:   "#9AA3B5",
+  line:    "var(--app-tint-med)",
+  line2:   "var(--app-tint-soft)",
+  text:    "var(--app-text)",
+  muted:   "var(--app-dim)",
   hint:    "#646E84",
   faint:   "#3A4356",
   userBg:  "rgba(255,215,0,0.08)",
   userBdr: "rgba(255,215,0,0.3)",
   userTxt: "#E8D9A0",
-  aiBdr:   "rgba(255,255,255,0.07)",
+  aiBdr:   "var(--app-tint-med)",
   accent2: "#FFD700",
 };
 
@@ -417,7 +417,7 @@ function PracticeCard({ practice, onQuick, onExam }) {
           style={{
             flex: 1, minWidth: 130, padding: "8px 12px", borderRadius: 9,
             background: `linear-gradient(135deg, ${D.border}, #DAA520)`, border: "none",
-            color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+            color: "var(--app-text)", fontSize: 12, fontWeight: 700, cursor: "pointer",
             fontFamily: "Manrope,sans-serif",
           }}
         >⚡ Quick practice</button>
@@ -845,7 +845,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
         <div style={{ fontSize: 10, color: D.hint, fontFamily: "Manrope,sans-serif" }}>
           {data.subjectLabel || "AI-generated"} · {total} questions · {done} answered
         </div>
-        <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, marginTop: 7, overflow: "hidden" }}>
+        <div style={{ height: 3, background: "var(--app-tint-med)", borderRadius: 2, marginTop: 7, overflow: "hidden" }}>
           <div style={{ height: "100%", background: D.border, borderRadius: 2, width: `${pct}%`, transition: "width 0.35s" }} />
         </div>
       </div>
@@ -984,7 +984,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
                   style={{
                     padding: "8px 16px", borderRadius: 20,
                     background: `linear-gradient(135deg, ${D.border}, #DAA520)`, border: "none",
-                    color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    color: "var(--app-text)", fontSize: 12, fontWeight: 700, cursor: "pointer",
                     fontFamily: "Manrope,sans-serif",
                   }}
                 >📝 Take as full exam</button>
@@ -1096,7 +1096,7 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
       <div style={{
         position: "absolute", top: 0, left: 0, bottom: 0,
         width: "82%", maxWidth: 320, zIndex: 10,
-        background: "#0a0a0a", borderRight: `0.5px solid ${D.line}`,
+        background: "var(--app-bg)", borderRight: `0.5px solid ${D.line}`,
         display: "flex", flexDirection: "column",
         transform: open ? "translateX(0)" : "translateX(-100%)",
         transition: "transform 0.28s cubic-bezier(.4,0,.2,1)",
@@ -1269,7 +1269,7 @@ function DocCard({ doc, onOpen, onAsk, onQuiz }) {
           style={{
             padding: "6px 12px", borderRadius: 8, flexShrink: 0, cursor: "pointer",
             background: `linear-gradient(135deg, ${D.border}, #DAA520)`, border: "none",
-            color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "Manrope,sans-serif",
+            color: "var(--app-text)", fontSize: 11, fontWeight: 700, fontFamily: "Manrope,sans-serif",
           }}>Open</button>
       )}
     </div>
@@ -1682,7 +1682,7 @@ function InputBar({ value, onChange, onSend, loading, onStop, placeholder = "Ask
             onClick={onSend} disabled={!canSend}
             style={{
               width: 36, height: 36, borderRadius: 10,
-              background: canSend ? D.accent : "#121212",
+              background: canSend ? D.accent : "var(--app-surface)",
               border: `0.5px solid ${canSend ? D.border : D.line2}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: canSend ? "pointer" : "default",
@@ -2358,27 +2358,27 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         .sc-ol input::placeholder,.sc-ol textarea::placeholder{color:#4A5266}
         .sc-ol .sc-extras{animation:scFadeUp .4s ease .06s both}
         @keyframes scFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-        .sc-ol .sc-fu-chip{display:inline-flex;align-items:center;padding:6px 12px;border-radius:14px;background:transparent;border:0.5px solid rgba(255,255,255,0.09);font-size:11px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;text-align:left;transition:all .15s}
-        .sc-ol .sc-fu-chip:hover{border-color:rgba(255,215,0,.45);background:#1e1e22;color:#EDEFF5}
+        .sc-ol .sc-fu-chip{display:inline-flex;align-items:center;padding:6px 12px;border-radius:14px;background:transparent;border:0.5px solid var(--app-tint-med);font-size:11px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;text-align:left;transition:all .15s}
+        .sc-ol .sc-fu-chip:hover{border-color:rgba(255,215,0,.45);background:var(--app-card2);color:var(--app-text)}
         .sc-ol .sc-fu-chip:active{transform:scale(.96)}
-        .sc-ol .sc-src-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:12px;background:#1a1a1c;border:0.5px solid rgba(255,255,255,0.09);font-size:11px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;max-width:240px;transition:all .15s}
+        .sc-ol .sc-src-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:12px;background:var(--app-card);border:0.5px solid var(--app-tint-med);font-size:11px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;max-width:240px;transition:all .15s}
         .sc-ol .sc-src-chip:disabled{cursor:default}
         .sc-ol .sc-src-chip:not(:disabled):hover{border-color:rgba(255,215,0,.45);color:#FFD700}
         .sc-ol .sc-src-chip:not(:disabled):active{transform:scale(.97)}
         .sc-ol .sc-src-chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .sc-ol .sc-sug{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:16px;background:transparent;border:0.5px dashed rgba(255,215,0,.55);color:#FFD700;font-size:11px;font-weight:600;cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
-        .sc-ol .sc-sug:hover{background:#1e1e22}
+        .sc-ol .sc-sug:hover{background:var(--app-card2)}
         .sc-ol .sc-sug:active{transform:scale(.97)}
-        .sc-ol .sc-chip{padding:7px 13px;border-radius:20px;background:#1e1e22;border:0.5px solid rgba(255,255,255,0.09);font-size:11px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
+        .sc-ol .sc-chip{padding:7px 13px;border-radius:20px;background:var(--app-card2);border:0.5px solid var(--app-tint-med);font-size:11px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
         .sc-ol .sc-chip:hover{border-color:#FFD700;color:#FFD700}
         .sc-ol .sc-chip:active{transform:scale(.96)}
-        .sc-ol .sc-menu{position:absolute;bottom:calc(100% + 5px);left:0;background:#1a1a1c;border:0.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:4px;z-index:20;min-width:180px;box-shadow:0 10px 30px rgba(0,0,0,.55);animation:scFadeUp .18s ease both}
-        .sc-ol .sc-menu-item{display:block;width:100%;padding:8px 11px;border-radius:7px;background:transparent;border:none;font-size:11.5px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;text-align:left;font-weight:600;transition:all .12s}
-        .sc-ol .sc-menu-item:hover{background:#1e1e22;color:#EDEFF5}
+        .sc-ol .sc-menu{position:absolute;bottom:calc(100% + 5px);left:0;background:var(--app-card);border:0.5px solid var(--app-tint-med);border-radius:10px;padding:4px;z-index:20;min-width:180px;box-shadow:0 10px 30px rgba(0,0,0,.55);animation:scFadeUp .18s ease both}
+        .sc-ol .sc-menu-item{display:block;width:100%;padding:8px 11px;border-radius:7px;background:transparent;border:none;font-size:11.5px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;text-align:left;font-weight:600;transition:all .12s}
+        .sc-ol .sc-menu-item:hover{background:var(--app-card2);color:var(--app-text)}
         .sc-ol .sc-menu-item:disabled{opacity:.6;cursor:default}
         .sc-ol .sc-skel{height:10px;border-radius:5px;background:linear-gradient(90deg,#17171b 25%,#232329 50%,#17171b 75%);background-size:200% 100%;animation:scShimmer 1.3s linear infinite}
         @keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
-        .sc-ol .sc-newpill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:6px 15px;border-radius:16px;background:#1e1e22;border:0.5px solid rgba(255,215,0,.45);color:#FFD700;font-size:11px;font-weight:700;cursor:pointer;font-family:Manrope,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:5;animation:scFadeUp .2s ease both}
+        .sc-ol .sc-newpill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:6px 15px;border-radius:16px;background:var(--app-card2);border:0.5px solid rgba(255,215,0,.45);color:#FFD700;font-size:11px;font-weight:700;cursor:pointer;font-family:Manrope,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:5;animation:scFadeUp .2s ease both}
         @media (prefers-reduced-motion:reduce){.sc-ol .sc-extras,.sc-ol .sc-newpill,.sc-ol .sc-menu{animation:none}.sc-ol .sc-skel{animation:none;opacity:.6}}
       `}</style>
 

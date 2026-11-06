@@ -4,11 +4,11 @@ import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#0a0a0a",
-  card:    "#0D0E18",
-  cardHov: "#111220",
-  border:  "rgba(255,255,255,0.07)",
-  borderB: "rgba(255,255,255,0.04)",
+  bg:      "var(--app-bg)",
+  card:    "var(--app-surface)",
+  cardHov: "var(--app-card)",
+  border:  "var(--app-tint-med)",
+  borderB: "var(--app-tint-soft)",
   blue:    "#3D7EFF",
   blueG:   "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
   text:    "#F1F5F9",
@@ -236,11 +236,11 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
         }
         .sc-nb-scroll::-webkit-scrollbar { width:3px; }
         .sc-nb-scroll::-webkit-scrollbar-thumb { background:rgba(61,126,255,0.2); border-radius:99px; }
-        .sc-nb-input::placeholder { color:#232328; }
+        .sc-nb-input::placeholder { color: var(--app-faint); }
         .sc-nb-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px; }
-        .sc-nb-modal  { background:#0D0E18;border:1px solid rgba(255,255,255,0.07);border-radius:22px;width:100%;max-width:520px;animation:scSlideIn 0.3s cubic-bezier(0.34,1.2,0.64,1) both; }
+        .sc-nb-modal  { background:var(--app-surface);border:1px solid var(--app-tint-med);border-radius:22px;width:100%;max-width:520px;animation:scSlideIn 0.3s cubic-bezier(0.34,1.2,0.64,1) both; }
         .sc-nb-row-unread { background:rgba(61,126,255,0.04) !important; border-color:rgba(61,126,255,0.1) !important; }
-        .sc-nb-row:hover { background:#111220 !important; }
+        .sc-nb-row:hover { background:var(--app-card) !important; }
         .sc-nb-tab { 
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
           cursor: pointer; 
@@ -261,7 +261,7 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
           left: 100%;
         }
         .sc-nb-tab:hover { 
-          background: rgba(255,255,255,0.05) !important; 
+          background: var(--app-tint-soft) !important; 
           transform: translateY(-1px);
         }
         .sc-nb-tab-active { 
@@ -328,16 +328,16 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
               <div style={{ display:"flex", gap:10 }}>
                 <button
                   onClick={() => { handleMarkAsRead(a.id); handleDismissPopup(a.id); }}
-                  style={{ flex:1, padding:"12px", borderRadius:13, background:T.blueG, border:"none", color:"#fff", fontFamily:T.syne, fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:"0 0 20px rgba(61,126,255,0.25)", transition:"transform 0.2s" }}
+                  style={{ flex:1, padding:"12px", borderRadius:13, background:T.blueG, border:"none", color:"var(--app-text)", fontFamily:T.syne, fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:"0 0 20px rgba(61,126,255,0.25)", transition:"transform 0.2s" }}
                   onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
                   onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
                   Mark as Read
                 </button>
                 <button
                   onClick={() => { handleOpenComments(a); handleDismissPopup(a.id); }}
-                  style={{ flex:1, padding:"12px", borderRadius:13, background:"rgba(255,255,255,0.04)", border:`1px solid ${T.border}`, color:T.muted, fontFamily:T.syne, fontWeight:700, fontSize:14, cursor:"pointer", transition:"all 0.2s" }}
-                  onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.color=T.text; }}
-                  onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.04)"; e.currentTarget.style.color=T.muted; }}>
+                  style={{ flex:1, padding:"12px", borderRadius:13, background:"var(--app-tint-soft)", border:`1px solid ${T.border}`, color:T.muted, fontFamily:T.syne, fontWeight:700, fontSize:14, cursor:"pointer", transition:"all 0.2s" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.background="var(--app-tint-med)"; e.currentTarget.style.color=T.text; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.background="var(--app-tint-soft)"; e.currentTarget.style.color=T.muted; }}>
                   View & Comment
                 </button>
               </div>
@@ -363,7 +363,7 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
                 </div>
                 <button onClick={()=>setShowComments(false)}
                   style={{ background:"none", border:"none", color:T.dim, cursor:"pointer", padding:6, lineHeight:0, borderRadius:9, transition:"color 0.2s,background 0.2s" }}
-                  onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color=T.text; }}
+                  onMouseEnter={e=>{ e.currentTarget.style.background="var(--app-tint-soft)"; e.currentTarget.style.color=T.text; }}
                   onMouseLeave={e=>{ e.currentTarget.style.background="none"; e.currentTarget.style.color=T.dim; }}>
                   <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -382,9 +382,9 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
               {/* Comments list */}
               <div className="sc-nb-scroll" style={{ padding:"16px 22px", overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:10 }}>
                 {(a.comments && a.comments.length > 0) ? a.comments.map((c) => (
-                  <div key={c.id} style={{ background:"rgba(255,255,255,0.025)", border:`1px solid ${T.borderB}`, borderRadius:13, padding:"12px 14px" }}>
+                  <div key={c.id} style={{ background:"var(--app-tint-soft)", border:`1px solid ${T.borderB}`, borderRadius:13, padding:"12px 14px" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-                      <div style={{ width:28, height:28, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:11, color:"#fff", flexShrink:0 }}>
+                      <div style={{ width:28, height:28, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:11, color:"var(--app-text)", flexShrink:0 }}>
                         {(c.user?.username||"?")[0].toUpperCase()}
                       </div>
                       <span style={{ fontFamily:T.syne, fontWeight:700, fontSize:13, color:T.text }}>{c.user?.username}</span>
@@ -409,14 +409,14 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
                     className="sc-nb-input"
                     type="text" value={newComment} onChange={e=>setNewComment(e.target.value)}
                     placeholder="Add a comment..." disabled={isSubmittingComment}
-                    style={{ flex:1, background:"rgba(255,255,255,0.03)", border:`1px solid ${T.border}`, borderRadius:12, padding:"10px 14px", fontSize:14, fontFamily:T.body, color:T.text, outline:"none", transition:"border-color 0.2s" }}
+                    style={{ flex:1, background:"var(--app-tint-soft)", border:`1px solid ${T.border}`, borderRadius:12, padding:"10px 14px", fontSize:14, fontFamily:T.body, color:T.text, outline:"none", transition:"border-color 0.2s" }}
                     onFocus={e=>e.target.style.borderColor=T.blue}
                     onBlur={e=>e.target.style.borderColor=T.border}
                   />
                   <button type="submit" disabled={isSubmittingComment || !newComment.trim()}
-                    style={{ padding:"10px 18px", borderRadius:12, background: (isSubmittingComment||!newComment.trim()) ? "rgba(61,126,255,0.3)" : T.blueG, border:"none", color:"#fff", fontFamily:T.syne, fontWeight:700, fontSize:13, cursor:(isSubmittingComment||!newComment.trim())?"not-allowed":"pointer", transition:"all 0.2s", boxShadow:(isSubmittingComment||!newComment.trim())?"none":"0 0 14px rgba(61,126,255,0.25)", display:"flex", alignItems:"center", gap:6 }}>
+                    style={{ padding:"10px 18px", borderRadius:12, background: (isSubmittingComment||!newComment.trim()) ? "rgba(61,126,255,0.3)" : T.blueG, border:"none", color:"var(--app-text)", fontFamily:T.syne, fontWeight:700, fontSize:13, cursor:(isSubmittingComment||!newComment.trim())?"not-allowed":"pointer", transition:"all 0.2s", boxShadow:(isSubmittingComment||!newComment.trim())?"none":"0 0 14px rgba(61,126,255,0.25)", display:"flex", alignItems:"center", gap:6 }}>
                     {isSubmittingComment
-                      ? <div style={{ width:13, height:13, border:"2px solid rgba(255,255,255,0.4)", borderTopColor:"#fff", borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
+                      ? <div style={{ width:13, height:13, border:"2px solid var(--app-tint-strong)", borderTopColor:"#fff", borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
                       : <><svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Send</>}
                   </button>
                 </form>
@@ -431,9 +431,9 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
 
         {/* Bell */}
         <button onClick={()=>onOpenTab?.('notifications')} aria-label={`Notifications${unreadCount > 0 ? ` — ${unreadCount} unread` : ""}`} className="sc-nb-bell-btn"
-          style={{ position:"relative", width:40, height:40, borderRadius:13, background:"rgba(255,255,255,0.04)", border:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s", outline:"none" }}
-          onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"; }}
-          onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor=T.border; }}>
+          style={{ position:"relative", width:40, height:40, borderRadius:13, background:"var(--app-tint-soft)", border:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s", outline:"none" }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="var(--app-tint-med)"; e.currentTarget.style.borderColor="var(--app-tint-med)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="var(--app-tint-soft)"; e.currentTarget.style.borderColor=T.border; }}>
 
           {/* Bell icon */}
           <svg width="17" height="17" fill="none" stroke={isOpen?T.blue:T.muted} strokeWidth={1.8} viewBox="0 0 24 24" style={{ transition:"stroke 0.2s" }}>
@@ -442,8 +442,8 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
 
           {/* Unread badge */}
           {unreadCount > 0 && (
-            <div style={{ position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:999, background:"#EF4444", border:"2px solid #0a0a0a", display:"flex", alignItems:"center", justifyContent:"center", animation:"scPulse 2s ease-in-out infinite" }}>
-              <span style={{ fontFamily:T.body, fontSize:11, fontWeight:700, color:"#fff", lineHeight:1 }}>{unreadCount>9?"9+":unreadCount}</span>
+            <div style={{ position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:999, background:"#EF4444", border:"2px solid var(--app-bg)", display:"flex", alignItems:"center", justifyContent:"center", animation:"scPulse 2s ease-in-out infinite" }}>
+              <span style={{ fontFamily:T.body, fontSize:11, fontWeight:700, color:"var(--app-text)", lineHeight:1 }}>{unreadCount>9?"9+":unreadCount}</span>
             </div>
           )}
         </button>

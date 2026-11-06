@@ -108,7 +108,7 @@ export default function LiveQuizPage() {
         ) : !preview ? (
           <div style={{ textAlign: "center", padding: 30 }}>
             <IconSpinner size={28} style={{ color: "#F5C542" }} />
-            <p style={{ color: "#9CA3AF", fontSize: 14, marginTop: 12 }}>Loading session…</p>
+            <p style={{ color: "var(--app-dim)", fontSize: 14, marginTop: 12 }}>Loading session…</p>
           </div>
         ) : (
           <div>
@@ -131,7 +131,7 @@ export default function LiveQuizPage() {
 
             {!isAuthed ? (
               !sessionChecked ? (
-                <p style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <p style={{ color: "var(--app-dim)", fontSize: 14, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <IconSpinner size={16} style={{ color: "#F5C542" }} /> Checking your session…
                 </p>
               ) : (
@@ -142,7 +142,7 @@ export default function LiveQuizPage() {
                 <button className="lq-btn-secondary" onClick={() => navigate(loginRedirect)}>
                   I have an account — log in
                 </button>
-                <p style={{ fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 10, marginBottom: 0 }}>
+                <p style={{ fontSize: 11, color: "var(--app-dim)", textAlign: "center", marginTop: 10, marginBottom: 0 }}>
                   You'll land right back in this lobby after signing up.
                 </p>
               </>
@@ -156,7 +156,7 @@ export default function LiveQuizPage() {
                 <button className="lq-btn-primary" disabled>
                   {preview.phase === "complete" ? "Session has finished" : "Session already in progress"}
                 </button>
-                <p style={{ fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 8 }}>
+                <p style={{ fontSize: 11, color: "var(--app-dim)", textAlign: "center", marginTop: 8 }}>
                   {preview.phase === "complete"
                     ? "This live quiz wrapped up — ask the host for a rematch."
                     : "This live quiz already started — ask the host to start a new one."}

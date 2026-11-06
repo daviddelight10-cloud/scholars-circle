@@ -16,15 +16,15 @@ export async function copyShareToken(token) {
 // Get color class for subject badge
 export function getSubjectBadgeColor(subject) {
   const colors = {
-    PHY: { bg: "#1a1a1a", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
+    PHY: { bg: "var(--app-card)", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
     BIO: { bg: "#0f2a1a", text: "#66bb6a", border: "#2a6a3a" },
     ANA: { bg: "#2a0a0a", text: "#ef9a9a", border: "#4a1010" },
     CHM: { bg: "#1a1000", text: "#ffb74d", border: "#3a2800" },
     Cardiology: { bg: "#2a0a0a", text: "#ef9a9a", border: "#4a1010" },
-    GST: { bg: "#1a1a1a", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
+    GST: { bg: "var(--app-card)", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
     HEE: { bg: "#0f2a1a", text: "#66bb6a", border: "#2a6a3a" },
   };
-  return colors[subject] || { bg: "#1a1a1a", text: "#888", border: "#2a2a2a" };
+  return colors[subject] || { bg: "var(--app-card)", text: "var(--app-dim)", border: "var(--app-border)" };
 }
 
 // Get icon for content type

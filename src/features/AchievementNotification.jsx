@@ -88,7 +88,7 @@ export function AchievementNotification({ stats, history, subjects, mastery }) {
         position: "fixed",
         top: 20,
         right: 20,
-        background: "linear-gradient(135deg, #26262a 0%, #374151 100%)",
+        background: "linear-gradient(135deg, var(--app-border) 0%, #374151 100%)",
         border: "2px solid #fbbf24",
         borderRadius: 12,
         padding: 20,
@@ -118,7 +118,7 @@ export function AchievementNotification({ stats, history, subjects, mastery }) {
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
               {visibleBadge.label}
             </div>
-            <div style={{ fontSize: 13, color: "#9ca3af" }}>
+            <div style={{ fontSize: 13, color: "var(--app-dim)" }}>
               {visibleBadge.desc}
             </div>
           </div>
@@ -134,7 +134,7 @@ export function AchievementNotification({ stats, history, subjects, mastery }) {
             right: 8,
             background: "transparent",
             border: "none",
-            color: "#9ca3af",
+            color: "var(--app-dim)",
             fontSize: 18,
             cursor: "pointer",
             padding: 4

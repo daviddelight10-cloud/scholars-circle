@@ -3,9 +3,9 @@ import { downscaleImage, readFileAsDataUrl } from "../../lib/imageUtils.js";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
-  bg:     "#0a0a0a",
+  bg:     "var(--app-bg)",
   card:   "#0d0f1f",
-  accent: "#1a1a1a",
+  accent: "var(--app-card)",
   border: "#B8860B",
   line:   "#1e2140",
   text:   "#e8eaf6",
@@ -75,7 +75,7 @@ function AIAvatar() {
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-          <circle cx="13" cy="14" r="9" fill="#1a1a1a" stroke="#B8860B" strokeWidth="1.2" />
+          <circle cx="13" cy="14" r="9" fill="var(--app-card)" stroke="#B8860B" strokeWidth="1.2" />
           <circle cx="10" cy="13.5" r="1.4" fill="#90caf9" />
           <circle cx="16" cy="13.5" r="1.4" fill="#90caf9" />
           <path d="M10 17.5 Q13 19.5 16 17.5" stroke="#90caf9" strokeWidth="1.3" strokeLinecap="round" fill="none" />
@@ -165,7 +165,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
         <div style={{
           position: "absolute", top: -50, right: -50,
           width: 200, height: 200, borderRadius: "50%",
-          background: "#1a1a1a", opacity: 0.1, pointerEvents: "none",
+          background: "var(--app-card)", opacity: 0.1, pointerEvents: "none",
         }} />
 
         {/* Header row */}

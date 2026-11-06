@@ -23,7 +23,7 @@ const NECK = (s) => `<path d="M26 45 h12 v9 c0 2.5 -2.7 4 -6 4 s-6 -1.5 -6 -4 z"
 const SHOULDERS = (fill) => `<path d="M10 64 C10 52 20 47.5 32 47.5 C44 47.5 54 52 54 64 Z" fill="${fill}"/>`;
 const STETHO = `<path d="M24 52 C24 58 27 62 32 62 C37 62 40 58 40 52" stroke="#2E2E38" stroke-width="2.2" fill="none" stroke-linecap="round"/>
   <circle cx="32" cy="60.5" r="2.6" fill="#B9BDC7" stroke="#2E2E38" stroke-width="1.4"/>`;
-const GLASSES = `<g stroke="#2B2118" stroke-width="1.6" fill="rgba(255,255,255,0.10)">
+const GLASSES = `<g stroke="#2B2118" stroke-width="1.6" fill="var(--app-tint-med)">
     <rect x="19" y="26.5" width="11" height="8" rx="3"/><rect x="34" y="26.5" width="11" height="8" rx="3"/>
     <path d="M30 30.5 h4 M19 30 h-4.5 M45 30 h4.5"/></g>`;
 

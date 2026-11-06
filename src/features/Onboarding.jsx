@@ -625,7 +625,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
                 <div key={i} className="ob-afact">
                   <span className={`ob-adot${done ? " done" : ""}`}>{done ? <Check size={10} strokeWidth={3} color="#9FE1CB" /> : null}</span>
                   <span className="ob-alab">{lab}</span>
-                  <span className="ob-aval" style={{ color: done ? "#eaf0f8" : "#565A66" }}>{done ? String(val).length > 34 ? String(val).slice(0, 34) + "…" : val : "—"}</span>
+                  <span className="ob-aval" style={{ color: done ? "var(--app-text)" : "#565A66" }}>{done ? String(val).length > 34 ? String(val).slice(0, 34) + "…" : val : "—"}</span>
                 </div>
               ))}
             </div>

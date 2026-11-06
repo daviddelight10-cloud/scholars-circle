@@ -63,7 +63,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
 
   return (
     <div style={{
-      background: "linear-gradient(145deg, rgba(10, 10, 10, 0.97), rgba(20, 20, 20, 0.95))",
+      background: "linear-gradient(145deg, rgba(var(--app-glass-rgb),0.97), rgba(var(--app-glass-rgb),0.95))",
       border: "1px solid rgba(255, 215, 0, 0.2)",
       borderRadius: 20,
       overflow: "hidden",
@@ -84,7 +84,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
           background: pct >= 70 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #FFD700)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
         }}>{pct}%</div>
-        <div style={{ fontSize: 14, color: "#9ca3af", marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: "var(--app-dim)", marginTop: 4 }}>
           {analytics.score}/{analytics.total} correct · Grade: <strong style={{ color: "#FFD700" }}>{grade}</strong> · {Math.floor(analytics.duration / 60)}m {analytics.duration % 60}s
         </div>
 
@@ -112,7 +112,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
           { icon: "🎯", value: analytics.weakTopics.length, label: "Weak Areas" },
           { icon: "💪", value: analytics.strongTopics.length, label: "Strong" },
         ].map((s, i) => (
-          <div key={i} style={{ padding: "14px 8px", textAlign: "center", background: "rgba(10, 10, 10, 0.9)" }}>
+          <div key={i} style={{ padding: "14px 8px", textAlign: "center", background: "rgba(var(--app-glass-rgb),0.9)" }}>
             <div style={{ fontSize: 16 }}>{s.icon}</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#FFD700" }}>{s.value}</div>
             <div style={{ fontSize: 10, color: "#64748b" }}>{s.label}</div>
@@ -144,11 +144,11 @@ export default function PostSessionInsights({ analytics, session, results, quest
           <div>
             {/* Performance Bar */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#9ca3af", marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--app-dim)", marginBottom: 6 }}>
                 <span>Score Progress</span>
                 <span>{analytics.score}/{analytics.total}</span>
               </div>
-              <div style={{ height: 10, background: "rgba(20, 20, 20, 0.8)", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ height: 10, background: "rgba(var(--app-glass-rgb),0.8)", borderRadius: 10, overflow: "hidden" }}>
                 <div style={{
                   height: "100%", borderRadius: 10, transition: "width 1s ease-out",
                   width: `${pct}%`,
@@ -159,14 +159,14 @@ export default function PostSessionInsights({ analytics, session, results, quest
 
             {/* Answer Breakdown Visual */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>Answer Pattern</div>
+              <div style={{ fontSize: 12, color: "var(--app-dim)", marginBottom: 8 }}>Answer Pattern</div>
               <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                 {results.map((r, i) => (
                   <div key={i} style={{
                     width: 20, height: 20, borderRadius: 4,
                     background: r.correct ? "rgba(34, 197, 94, 0.6)" : "rgba(239, 68, 68, 0.6)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 8, color: "#fff", fontWeight: 700,
+                    fontSize: 8, color: "var(--app-text)", fontWeight: 700,
                   }}>{i + 1}</div>
                 ))}
               </div>
@@ -175,7 +175,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
             {/* Historical Graph */}
             {subjectHistory.length > 1 && (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>Recent Sessions ({session.source?.label})</div>
+                <div style={{ fontSize: 12, color: "var(--app-dim)", marginBottom: 8 }}>Recent Sessions ({session.source?.label})</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
                   {[...subjectHistory, pct].map((score, i) => {
                     const isLatest = i === subjectHistory.length;
@@ -197,8 +197,8 @@ export default function PostSessionInsights({ analytics, session, results, quest
             )}
 
             {/* Confidence Calibration */}
-            <div style={{ background: "rgba(20, 20, 20, 0.5)", borderRadius: 12, padding: 14, border: "1px solid rgba(255, 215, 0, 0.15)" }}>
-              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 4 }}>🎯 Confidence Calibration</div>
+            <div style={{ background: "rgba(var(--app-glass-rgb),0.5)", borderRadius: 12, padding: 14, border: "1px solid rgba(255, 215, 0, 0.15)" }}>
+              <div style={{ fontSize: 12, color: "var(--app-dim)", marginBottom: 4 }}>🎯 Confidence Calibration</div>
               {(() => {
                 const confMap = { unsure: 40, okay: 60, sure: 80 };
                 const avgConf = results.length > 0
@@ -238,7 +238,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#FFD700" }}>{topic.label}</div>
-                  <div style={{ height: 4, background: "rgba(20, 20, 20, 0.8)", borderRadius: 4, marginTop: 4, overflow: "hidden" }}>
+                  <div style={{ height: 4, background: "rgba(var(--app-glass-rgb),0.8)", borderRadius: 4, marginTop: 4, overflow: "hidden" }}>
                     <div style={{
                       height: "100%", borderRadius: 4,
                       width: `${topic.pct}%`,
@@ -289,7 +289,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
         {activeTab === "tips" && (
           <div>
             {tipsLoading && (
-              <div style={{ textAlign: "center", padding: 20, color: "#9ca3af" }}>
+              <div style={{ textAlign: "center", padding: 20, color: "var(--app-dim)" }}>
                 <div className="spinner" style={{ margin: "0 auto 12px" }} />
                 🤖 AI is analyzing your performance...
               </div>
@@ -307,7 +307,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
                       width: 28, height: 28, borderRadius: 8,
                       background: "linear-gradient(135deg, #FFD700, #2563eb)",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, color: "#fff", fontWeight: 700, flexShrink: 0,
+                      fontSize: 12, color: "var(--app-text)", fontWeight: 700, flexShrink: 0,
                     }}>{i + 1}</div>
                     <div style={{ fontSize: 13, color: "#FFD700", lineHeight: 1.5 }}>{tip}</div>
                   </div>
@@ -333,7 +333,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
           style={{
             background: "linear-gradient(135deg, #22c55e, #16a34a)",
             border: "none", padding: "12px 24px", borderRadius: 10,
-            color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
+            color: "var(--app-text)", fontWeight: 700, fontSize: 14, cursor: "pointer",
             boxShadow: "0 4px 15px rgba(34, 197, 94, 0.4)",
           }}
         >✓ Save & Exit</button>

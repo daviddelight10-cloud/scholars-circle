@@ -391,7 +391,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
   const tabStyle = (id) => ({
     padding: "7px 13px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 600,
     fontFamily: "Manrope,sans-serif", border: `0.5px solid ${tab === id ? "#B8860B" : "#1e2140"}`,
-    background: tab === id ? "#1a1a1a" : "#0d0f1f", color: tab === id ? "#FFD700" : "#4a5080",
+    background: tab === id ? "var(--app-card)" : "#0d0f1f", color: tab === id ? "#FFD700" : "#4a5080",
   });
 
   const TABS = [
@@ -451,7 +451,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             {[["manual", "✍️ Manual Entry"], ["ai", "🤖 AI from Content"]].map(([id, label]) => (
-              <button key={id} onClick={() => setMode(id)} style={{ ...tabStyle(id), borderRadius: 8, border: `0.5px solid ${mode === id ? "#B8860B" : "#1e2140"}`, background: mode === id ? "#1a1a1a" : "#0d0f1f", color: mode === id ? "#FFD700" : "#4a5080" }}>{label}</button>
+              <button key={id} onClick={() => setMode(id)} style={{ ...tabStyle(id), borderRadius: 8, border: `0.5px solid ${mode === id ? "#B8860B" : "#1e2140"}`, background: mode === id ? "var(--app-card)" : "#0d0f1f", color: mode === id ? "#FFD700" : "#4a5080" }}>{label}</button>
             ))}
           </div>
 
@@ -495,7 +495,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Explanation</label>
                 <textarea value={manualForm.explanation} onChange={e => setManualForm(f => ({ ...f, explanation: e.target.value }))} rows={2} placeholder="Why is the answer correct?" style={{ ...inp, resize: "vertical" }} />
               </div>
-              <button onClick={addManualDraft} style={{ background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#FFD700", cursor: "pointer", fontWeight: 700 }}>
+              <button onClick={addManualDraft} style={{ background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#FFD700", cursor: "pointer", fontWeight: 700 }}>
                 Add to Queue →
               </button>
             </div>
@@ -518,7 +518,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 <input type="number" min={0} max={150} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(150, parseInt(e.target.value) || 0)))} style={{ ...inp, width: 70, textAlign: "center" }} />
                 <span style={{ fontSize: 10, color: "#4a5080" }}>0 = Auto (AI decides)</span>
               </div>
-              <button onClick={generateFromAI} disabled={aiGenerating} style={{ background: aiGenerating ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: aiGenerating ? "#4a5080" : "#FFD700", cursor: aiGenerating ? "not-allowed" : "pointer", fontWeight: 700 }}>
+              <button onClick={generateFromAI} disabled={aiGenerating} style={{ background: aiGenerating ? "#12142a" : "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: aiGenerating ? "#4a5080" : "#FFD700", cursor: aiGenerating ? "not-allowed" : "pointer", fontWeight: 700 }}>
                 {aiGenerating ? "⏳ Generating…" : `🤖 Generate ${aiCount > 0 ? aiCount : "Auto"} Questions`}
               </button>
             </div>
@@ -554,7 +554,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 <button
                   onClick={publishDrafts}
                   disabled={loading}
-                  style={{ background: loading ? "#12142a" : "linear-gradient(135deg,#22c55e,#16a34a)", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 13, color: loading ? "#4a5080" : "#fff", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}
+                  style={{ background: loading ? "#12142a" : "linear-gradient(135deg,#22c55e,#16a34a)", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 13, color: loading ? "#4a5080" : "var(--app-text)", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}
                 >
                   {loading ? "Publishing…" : `🚀 Publish ${drafts.length} Questions`}
                 </button>
@@ -657,7 +657,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 70px auto", gap: 8, marginBottom: 8 }}>
                   <input value={newTopic.title} onChange={e => setNewTopic(t => ({ ...t, title: e.target.value }))} placeholder="Topic title…" style={inp} />
                   <input value={newTopic.week} onChange={e => setNewTopic(t => ({ ...t, week: e.target.value }))} placeholder="Wk #" style={{ ...inp, padding: "8px 8px" }} />
-                  <button onClick={addTopic} style={{ background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                  <button onClick={addTopic} style={{ background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 700 }}>Add</button>
                 </div>
                 <input value={newTopic.description} onChange={e => setNewTopic(t => ({ ...t, description: e.target.value }))} placeholder="Description (optional)…" style={inp} />
               </div>
@@ -705,7 +705,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                     <input type="checkbox" checked={newNote.isShared} onChange={e => setNewNote(n => ({ ...n, isShared: e.target.checked }))} />
                     👥 Share with students
                   </label>
-                  <button onClick={createNote} style={{ marginLeft: "auto", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 600 }}>Save Note</button>
+                  <button onClick={createNote} style={{ marginLeft: "auto", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 600 }}>Save Note</button>
                 </div>
               </div>
               {notesLoading ? (
@@ -805,7 +805,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 </div>
                 <textarea value={editingQ.explanation || ""} onChange={e => setEditingQ(q => ({ ...q, explanation: e.target.value }))} rows={3} placeholder="Why is the answer correct?" style={{ ...inp, resize: "vertical" }} />
               </div>
-              <button onClick={saveEditedQuestion} disabled={loading} style={{ background: loading ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: loading ? "#4a5080" : "#FFD700", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}>
+              <button onClick={saveEditedQuestion} disabled={loading} style={{ background: loading ? "#12142a" : "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: loading ? "#4a5080" : "#FFD700", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}>
                 {loading ? "Saving…" : "Save Changes"}
               </button>
             </div>
@@ -828,7 +828,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 <input type="checkbox" checked={editingNote.isShared} onChange={e => setEditingNote(n => ({ ...n, isShared: e.target.checked }))} />
                 👥 Share with students
               </label>
-              <button onClick={saveNote} style={{ marginLeft: "auto", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 600 }}>Save</button>
+              <button onClick={saveNote} style={{ marginLeft: "auto", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 600 }}>Save</button>
             </div>
           </div>
         </div>
@@ -843,7 +843,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
             <textarea value={newSubjectForm.description} onChange={e => setNewSubjectForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Description (optional)…" style={{ ...inp, resize: "vertical", marginBottom: 14 }} />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button onClick={() => setShowNewSubject(false)} style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 9, padding: "8px 14px", fontSize: 12, color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
-              <button onClick={handleCreateSubject} disabled={loading} style={{ background: loading ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: loading ? "#4a5080" : "#FFD700", cursor: loading ? "not-allowed" : "pointer", fontWeight: 600 }}>
+              <button onClick={handleCreateSubject} disabled={loading} style={{ background: loading ? "#12142a" : "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: loading ? "#4a5080" : "#FFD700", cursor: loading ? "not-allowed" : "pointer", fontWeight: 600 }}>
                 {loading ? "Creating…" : "Create Subject"}
               </button>
             </div>

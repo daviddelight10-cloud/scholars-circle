@@ -153,12 +153,12 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
   if (paused) {
     return (
       <div style={{
-        background: "rgba(10, 10, 10, 0.98)", borderRadius: 20, padding: 40,
+        background: "rgba(var(--app-glass-rgb),0.98)", borderRadius: 20, padding: 40,
         textAlign: "center", border: "1px solid rgba(255, 215, 0, 0.2)",
       }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>⏸️</div>
         <h2 style={{ color: "#FFD700", margin: "0 0 8px" }}>Exam Paused</h2>
-        <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24 }}>
+        <p style={{ color: "var(--app-dim)", fontSize: 13, marginBottom: 24 }}>
           A 30-second penalty was applied. ({pauseCount} pause{pauseCount > 1 ? "s" : ""} used)
         </p>
         <div style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b", marginBottom: 24 }}>
@@ -169,7 +169,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
           style={{
             background: "linear-gradient(135deg, #FFD700, #DAA520)",
             border: "none", padding: "14px 32px", borderRadius: 12,
-            color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer",
+            color: "var(--app-text)", fontWeight: 700, fontSize: 15, cursor: "pointer",
             boxShadow: "0 4px 20px rgba(255, 215, 0, 0.4)",
           }}
         >▶️ Resume Exam</button>
@@ -185,7 +185,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
 
   return (
     <div style={{
-      background: "linear-gradient(145deg, rgba(10, 10, 10, 0.97), rgba(20, 20, 20, 0.95))",
+      background: "linear-gradient(145deg, rgba(var(--app-glass-rgb),0.97), rgba(var(--app-glass-rgb),0.95))",
       border: "1px solid rgba(255, 215, 0, 0.2)",
       borderRadius: 20, overflow: "hidden",
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
@@ -211,9 +211,9 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
           {/* Timer */}
           <div style={{
             padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 14,
-            background: isLowTime ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(20, 20, 20, 0.8)",
+            background: isLowTime ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(var(--app-glass-rgb),0.8)",
             border: `1px solid ${isLowTime ? "rgba(239, 68, 68, 0.5)" : "rgba(255, 215, 0, 0.3)"}`,
-            color: "#fff", animation: isLowTime ? "pulse 1s infinite" : "none",
+            color: "var(--app-text)", animation: isLowTime ? "pulse 1s infinite" : "none",
           }}>
             ⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")}
           </div>
@@ -239,7 +239,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
       </div>
 
       {/* Progress Bar */}
-      <div style={{ height: 4, background: "rgba(20, 20, 20, 0.8)" }}>
+      <div style={{ height: 4, background: "rgba(var(--app-glass-rgb),0.8)" }}>
         <div style={{
           height: "100%", transition: "width 0.3s", borderRadius: 2,
           width: `${progress}%`,
@@ -251,15 +251,15 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
       {showNav && (
         <div style={{
           padding: 16, borderBottom: "1px solid rgba(255, 215, 0, 0.15)",
-          background: "rgba(10, 10, 10, 0.95)",
+          background: "rgba(var(--app-glass-rgb),0.95)",
         }}>
-          <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>Jump to question:</div>
+          <div style={{ fontSize: 12, color: "var(--app-dim)", marginBottom: 8 }}>Jump to question:</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {questions.map((_, i) => {
               const isAnswered = answers[i] !== null;
               const isFlagged = flagged.has(i);
               const isCurrent = i === idx;
-              let bg = "rgba(20, 20, 20, 0.8)";
+              let bg = "rgba(var(--app-glass-rgb),0.8)";
               let border = "rgba(255, 215, 0, 0.2)";
               if (isCurrent) { bg = "rgba(255, 215, 0, 0.3)"; border = "#FFD700"; }
               else if (isAnswered) { bg = "rgba(34, 197, 94, 0.2)"; border = "rgba(34, 197, 94, 0.4)"; }
@@ -290,7 +290,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
       <div style={{ padding: 24 }}>
         {/* Flag + Question */}
         <div style={{
-          background: "rgba(20, 20, 20, 0.5)", borderRadius: 14, padding: 20, marginBottom: 20,
+          background: "rgba(var(--app-glass-rgb),0.5)", borderRadius: 14, padding: 20, marginBottom: 20,
           border: "1px solid rgba(255, 215, 0, 0.12)", position: "relative",
         }}>
           <button onClick={toggleFlag} style={{
@@ -313,7 +313,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
             return (
               <button key={i} onClick={() => selectAnswer(i)} style={{
                 padding: "14px 18px", borderRadius: 12, textAlign: "left",
-                background: isSelected ? "rgba(255, 215, 0, 0.15)" : "rgba(20, 20, 20, 0.6)",
+                background: isSelected ? "rgba(255, 215, 0, 0.15)" : "rgba(var(--app-glass-rgb),0.6)",
                 border: `2px solid ${isSelected ? "rgba(255, 215, 0, 0.5)" : "rgba(255, 215, 0, 0.12)"}`,
                 color: "#f1f5f9", fontSize: 14, cursor: "pointer", transition: "all 0.2s",
                 transform: isSelected ? "scale(1.01)" : "scale(1)",
@@ -323,7 +323,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   width: 28, height: 28, borderRadius: 8, marginRight: 12,
                   background: isSelected ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(255, 215, 0, 0.15)",
-                  fontSize: 12, fontWeight: 700, color: isSelected ? "#fff" : "#FFD700",
+                  fontSize: 12, fontWeight: 700, color: isSelected ? "var(--app-text)" : "#FFD700",
                 }}>{String.fromCharCode(65 + i)}</span>
                 {opt}
               </button>
@@ -351,7 +351,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
         {idx === questions.length - 1 ? (
           <button onClick={handleConfirmSubmit} style={{
             padding: "12px 24px", borderRadius: 10, border: "none",
-            background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff",
+            background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "var(--app-text)",
             fontSize: 14, fontWeight: 700, cursor: "pointer",
             boxShadow: "0 4px 15px rgba(34, 197, 94, 0.4)",
           }}>
@@ -362,7 +362,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
             onClick={() => { recordTimeForCurrentQ(); setIdx(Math.min(questions.length - 1, idx + 1)); }}
             style={{
               padding: "10px 18px", borderRadius: 8, border: "none",
-              background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "#fff",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "var(--app-text)",
               fontSize: 13, fontWeight: 600, cursor: "pointer",
             }}
           >Next →</button>
@@ -376,12 +376,12 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }} onClick={() => setConfirmSubmit(false)}>
           <div style={{
-            background: "rgba(10, 10, 10, 0.98)", borderRadius: 16, padding: 24,
+            background: "rgba(var(--app-glass-rgb),0.98)", borderRadius: 16, padding: 24,
             maxWidth: 360, textAlign: "center", border: "1px solid rgba(255, 215, 0, 0.2)",
           }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
             <h3 style={{ color: "#FFD700", margin: "0 0 8px" }}>Submit Exam?</h3>
-            <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16 }}>
+            <p style={{ color: "var(--app-dim)", fontSize: 13, marginBottom: 16 }}>
               You have <strong style={{ color: "#f59e0b" }}>{answers.filter(a => a === null).length}</strong> unanswered question{answers.filter(a => a === null).length > 1 ? "s" : ""}. 
               {flagged.size > 0 && <><br/><strong style={{ color: "#f59e0b" }}>{flagged.size}</strong> flagged for review.</>}
             </p>
@@ -392,7 +392,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
               }}>Go Back</button>
               <button onClick={handleSubmit} style={{
                 padding: "10px 20px", borderRadius: 8, border: "none",
-                background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff",
+                background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "var(--app-text)",
                 fontSize: 13, fontWeight: 700, cursor: "pointer",
               }}>Submit Now</button>
             </div>

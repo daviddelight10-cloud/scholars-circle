@@ -131,7 +131,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
   useEffect(() => {
     if (!url) return;
     let live = true;
-    QRCode.toDataURL(url, { width: 360, margin: 1, color: { dark: "#111111", light: "#ffffff" } })
+    QRCode.toDataURL(url, { width: 360, margin: 1, color: { dark: "var(--app-ink)", light: "#ffffff" } })
       .then((d) => { if (live) setQrDataUrl(d); })
       .catch(() => { if (live) setQrDataUrl(null); });
     return () => { live = false; };

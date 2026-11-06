@@ -693,7 +693,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
         <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ background: "none", border: "none", color: t.muted, fontSize: "16px", cursor: "pointer", padding: "4px 8px" }}>{theme === "dark" ? "☀️" : "🌙"}</button>
         <button onClick={() => setShowStudyTools(!showStudyTools)} style={{
           padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-          background: showStudyTools ? t.accent : "transparent", color: showStudyTools ? "#fff" : t.muted,
+          background: showStudyTools ? t.accent : "transparent", color: showStudyTools ? "var(--app-text)" : t.muted,
           border: `0.5px solid ${showStudyTools ? t.accent : t.border}`,
         }}>✨ Study Tools</button>
       </div>
@@ -780,7 +780,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                 <button key={key} onClick={() => { setStudyMode(key); setStudyResult(""); setParsedMcqs([]); setStudyError(""); setPracticeMode(false); setHistoryView(null); setStudyStep("setup"); }}
                   style={{
                     flex: 1, padding: "8px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                    background: studyMode === key ? t.accent : "transparent", color: studyMode === key ? "#fff" : t.muted,
+                    background: studyMode === key ? t.accent : "transparent", color: studyMode === key ? "var(--app-text)" : t.muted,
                     border: `0.5px solid ${studyMode === key ? t.accent : t.border}`,
                   }}>{label}</button>
               ))}
@@ -902,7 +902,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                                   <span style={{ fontWeight: 700, color: t.text }}>Explanation: </span>{q.explanation}
                                 </div>
                               )}
-                              <button style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none" }} onClick={historyQuizNext}>
+                              <button style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "var(--app-text)", border: "none" }} onClick={historyQuizNext}>
                                 {historyQuizIdx < historyView.mcqs.length - 1 ? "Next →" : "See Results"}
                               </button>
                             </>
@@ -995,7 +995,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                     </p>
                     <button onClick={handleStudyGenerate} style={{
                       width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: "pointer",
-                      background: t.accent, color: "#fff", border: "none",
+                      background: t.accent, color: "var(--app-text)", border: "none",
                     }}>✨ Generate {studyMode === "mcq" ? "Questions" : "Summary"}</button>
                   </div>
                 )}
@@ -1068,7 +1068,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                                   <span style={{ fontWeight: 700, color: t.text }}>Explanation: </span>{q.explanation}
                                 </div>
                               )}
-                              <button style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none" }} onClick={practiceNext}>
+                              <button style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "var(--app-text)", border: "none" }} onClick={practiceNext}>
                                 {practiceIdx < parsedMcqs.length - 1 ? "Next →" : "See Results"}
                               </button>
                             </>
@@ -1117,7 +1117,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                 {studyMode === "mcq" && studyResult && !studyLoading && (parsedMcqs.length === 0 || !practiceMode) && (
                   <div style={{ fontSize: "13px", lineHeight: 1.7 }}>
                     {parsedMcqs.length > 0 && !practiceMode && (
-                      <button onClick={() => startPractice()} style={{ width: "100%", marginBottom: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none" }}>📝 Practice these questions</button>
+                      <button onClick={() => startPractice()} style={{ width: "100%", marginBottom: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "var(--app-text)", border: "none" }}>📝 Practice these questions</button>
                     )}
                     {parsedMcqs.length === 0 && (
                       <div style={{ fontSize: 12, color: t.muted, marginBottom: 10, padding: "8px 12px", background: t.hover, borderRadius: 8 }}>Couldn't structure these questions for practice — you can still copy the text below.</div>
@@ -1146,7 +1146,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                     <div key={i} style={{
                       marginBottom: "12px", padding: "10px 14px", borderRadius: "12px", maxWidth: "90%",
                       background: msg.role === "user" ? t.accent : t.chatBot,
-                      color: msg.role === "user" ? "#fff" : t.text,
+                      color: msg.role === "user" ? "var(--app-text)" : t.text,
                       alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
                       marginLeft: msg.role === "user" ? "auto" : 0,
                       fontSize: "13px", lineHeight: 1.6,
@@ -1180,7 +1180,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                     style={{ flex: 1, padding: "10px 14px", borderRadius: "10px", border: `0.5px solid ${t.border}`, background: t.inputBg, color: t.text, fontSize: "13px", outline: "none" }}
                   />
                   <button onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}
-                    style={{ padding: "10px 16px", borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none", opacity: chatLoading || !chatInput.trim() ? 0.5 : 1 }}>
+                    style={{ padding: "10px 16px", borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: "pointer", background: t.accent, color: "var(--app-text)", border: "none", opacity: chatLoading || !chatInput.trim() ? 0.5 : 1 }}>
                     ➤
                   </button>
                 </div>

@@ -194,7 +194,7 @@ export default function MaterialCard({
 
       {/* Confirmation popup for removing from My Space */}
       {confirmRemove && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-hub-surface/95 backdrop-blur-sm">
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-hub-surface-95 backdrop-blur-sm">
           <div className="mx-3 rounded-xl border border-hub-border bg-hub-bg p-4 text-center">
             <p className="mb-1 text-[13px] font-bold text-hub-text">Remove from your space?</p>
             <p className="mb-3 text-[11px] text-hub-text-dim">This will remove the material and its MCQs, flashcards, and summary.</p>

@@ -34,11 +34,11 @@ export const AUDIO_CONFIG = {
 export const SESSION_TIMEOUT_SEC = 10 * 60;
 
 export const COLORS = {
-  ink: "#050505",
-  inkLight: "#0d0d0d",
-  inkLighter: "#121212",
-  border: "rgba(255,255,255,0.08)",
-  borderLight: "rgba(255,255,255,0.12)",
+  ink: "var(--app-bg)",
+  inkLight: "var(--app-bg)",
+  inkLighter: "var(--app-surface)",
+  border: "var(--app-tint-med)",
+  borderLight: "var(--app-tint-med)",
   electric: "#4F8EF7",
   electricDim: "#2d4a99",
   electricGlow: "rgba(79,142,247,0.35)",
@@ -48,11 +48,11 @@ export const COLORS = {
   coral: "#FF5470",
   green: "#3DD68C",
   greenDim: "#2a8a85",
-  text: "#F5F7FB",
-  textDim: "#9AA2B2",
-  textFaint: "#565E6E",
-  surface: "#0d0d0d",
-  surfaceLight: "rgba(255,255,255,0.055)",
+  text: "var(--app-text)",
+  textDim: "var(--app-dim)",
+  textFaint: "var(--app-faint)",
+  surface: "var(--app-bg)",
+  surfaceLight: "var(--app-tint-soft)",
 };
 
 export const FONTS = {

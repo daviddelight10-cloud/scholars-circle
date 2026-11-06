@@ -5,7 +5,22 @@
     <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1, user-scalable=no, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="color-scheme" content="dark" />
-    
+    <script>
+      // Apply the saved appearance before first paint — no theme flash.
+      (function () {
+        var pref = "system";
+        try { pref = localStorage.getItem("sc-appearance") || "system"; } catch (e) {}
+        if (pref !== "light" && pref !== "dark") {
+          pref = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        }
+        var root = document.documentElement;
+        root.dataset.theme = pref;
+        root.style.colorScheme = pref;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta && pref === "light") meta.setAttribute("content", "#f6f5f1");
+      })();
+    </script>
+
     <!-- Security headers are real HTTP headers in vercel.json —
          http-equiv metas for these are ignored by browsers -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -107,10 +122,11 @@
         height: 100dvh;
         overscroll-behavior-x: none;
         overscroll-behavior-y: none;
-        /* Hard-coded ink: app controls its own theme (.dark/.light on
-           <main>); the OS prefers-color-scheme must not repaint chrome */
+        /* Pre-paint chrome color — the boot script above sets data-theme;
+           styles.css's vars refine this once loaded. */
         background: #0a0a0a;
       }
+      html[data-theme="light"] body { background: #f6f5f1; }
 
       #root {
         overflow-y: auto;
@@ -120,6 +136,7 @@
         overscroll-behavior: contain;
         background: #0a0a0a;
       }
+      html[data-theme="light"] #root { background: #f6f5f1; }
     </style>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

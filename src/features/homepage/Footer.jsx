@@ -5,7 +5,7 @@ export default function Footer() {
   return (
     <footer style={{
       background: '#020617',
-      borderTop: '1px solid #232328',
+      borderTop: '1px solid var(--app-card2)',
       padding: '48px 16px'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
@@ -17,7 +17,7 @@ export default function Footer() {
         }}>
           {/* Brand */}
           <div>
-            <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--app-text)', marginBottom: '16px' }}>
               Scholar's Circle
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
@@ -41,7 +41,7 @@ export default function Footer() {
 
           {/* Product */}
           <div>
-            <h4 style={{ color: '#fff', fontWeight: 600, marginBottom: '16px' }}>Product</h4>
+            <h4 style={{ color: 'var(--app-text)', fontWeight: 600, marginBottom: '16px' }}>Product</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: 2 }}>
               <li><Link to="/features" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Features</Link></li>
               <li><Link to="/pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Pricing</Link></li>
@@ -52,7 +52,7 @@ export default function Footer() {
 
           {/* Resources */}
           <div>
-            <h4 style={{ color: '#fff', fontWeight: 600, marginBottom: '16px' }}>Resources</h4>
+            <h4 style={{ color: 'var(--app-text)', fontWeight: 600, marginBottom: '16px' }}>Resources</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: 2 }}>
               <li><Link to="/blog" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Blog</Link></li>
               <li><Link to="/resources" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Resources</Link></li>
@@ -63,7 +63,7 @@ export default function Footer() {
 
           {/* Company */}
           <div>
-            <h4 style={{ color: '#fff', fontWeight: 600, marginBottom: '16px' }}>Company</h4>
+            <h4 style={{ color: 'var(--app-text)', fontWeight: 600, marginBottom: '16px' }}>Company</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: 2 }}>
               <li><a href="mailto:dsilearn1@gmail.com" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>About Us</a></li>
               <li><a href="https://wa.me/2349028617178" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>WhatsApp</a></li>
@@ -76,7 +76,7 @@ export default function Footer() {
         </div>
 
         <div style={{
-          borderTop: '1px solid #232328',
+          borderTop: '1px solid var(--app-card2)',
           paddingTop: '32px',
           display: 'flex',
           flexDirection: 'column',

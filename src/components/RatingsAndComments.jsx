@@ -118,7 +118,7 @@ export default function RatingsAndComments({ resourceId }) {
         <button
           onClick={submitComment}
           disabled={submitting || !commentText.trim()}
-          style={{ padding: "10px 16px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "13px", fontWeight: 600, color: "#FFD700", cursor: "pointer", opacity: submitting || !commentText.trim() ? 0.5 : 1 }}
+          style={{ padding: "10px 16px", background: "var(--app-card)", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "13px", fontWeight: 600, color: "#FFD700", cursor: "pointer", opacity: submitting || !commentText.trim() ? 0.5 : 1 }}
         >Post</button>
       </div>
 

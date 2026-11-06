@@ -49,7 +49,7 @@ export function LiveBanner({ token, currentUser }) {
       right: 0,
       zIndex: 1500,
       background: "linear-gradient(135deg, #dc2626, #ef4444)",
-      color: "#fff",
+      color: "var(--app-text)",
       padding: "10px 16px",
       display: "flex",
       alignItems: "center",
@@ -81,8 +81,8 @@ export function LiveBanner({ token, currentUser }) {
         onClick={() => setDismissed((prev) => new Set(prev).add(session.id))}
         title="Dismiss"
         style={{
-          padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.4)",
-          background: "transparent", color: "#fff", cursor: "pointer"
+          padding: "4px 8px", borderRadius: 6, border: "1px solid var(--app-tint-strong)",
+          background: "transparent", color: "var(--app-text)", cursor: "pointer"
         }}
       >
         ✕

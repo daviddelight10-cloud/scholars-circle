@@ -86,7 +86,7 @@ export default function DisciplineSelect({ value, onChange, autoFocus }) {
           display: "flex",
           alignItems: "center",
           gap: 10,
-          background: "rgba(20,20,20,0.6)",
+          background: "rgba(var(--app-glass-rgb),0.6)",
           border: `1px solid ${open ? "rgba(255,215,0,0.5)" : "rgba(255,215,0,0.2)"}`,
           borderRadius: 12,
           padding: "4px 10px",
@@ -122,7 +122,7 @@ export default function DisciplineSelect({ value, onChange, autoFocus }) {
             boxSizing: "border-box",
             background: "transparent",
             border: "none",
-            color: "#fff",
+            color: "var(--app-text)",
             outline: "none",
           }}
         />
@@ -150,7 +150,7 @@ export default function DisciplineSelect({ value, onChange, autoFocus }) {
           }}
         >
           {grouped.length === 0 ? (
-            <div style={{ padding: "16px", fontSize: 13, color: "#6b7280", textAlign: "center" }}>
+            <div style={{ padding: "16px", fontSize: 13, color: "var(--app-dim)", textAlign: "center" }}>
               No matching disciplines
             </div>
           ) : (
