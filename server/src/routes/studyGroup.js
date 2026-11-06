@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
 import { getWeekStart } from "../lib/tiers.js";
 import { getRoomByCode } from "../lib/liveQuizRooms.js";
-import { sendPushToUsers } from "../lib/pushSender.js";
+import { sendPushToUsers, notifyGroupMembers } from "../lib/pushSender.js";
 
 const RESOURCE_CARD_SELECT = { id: true, title: true, subject: true, contentType: true, shareToken: true };
 
@@ -43,6 +43,12 @@ async function verifyMembership(classroomId, userId) {
     where: { classroomId_userId: { classroomId, userId } },
   }).catch(() => null);
   return !!membership;
+}
+
+// Helper: fetch a group's name for push titles (cached on the classroom row).
+async function groupName(classroomId) {
+  const g = await prisma.classroom.findUnique({ where: { id: classroomId }, select: { name: true } }).catch(() => null);
+  return g?.name || "your group";
 }
 
 // ============ CHAT ============
@@ -319,6 +325,15 @@ router.post("/:classroomId/messages", requireAuth, async (req, res) => {
 
     const { user, ...rest } = message;
     res.status(201).json({ ...rest, sender: publicUser(user), resource, replyTo, ...liveState(message.liveCode) });
+
+    // Notify group members about the new message (fire-and-forget, respects `groups` pref).
+    const senderName = user?.fullName || user?.username || "Someone";
+    const preview = (text?.trim() || (resourceId ? "Shared a material" : "New message")).slice(0, 80);
+    notifyGroupMembers(classroomId, userId, {
+      title: `${senderName} · ${await groupName(classroomId)}`,
+      body: preview,
+      tag: `grp-msg-${classroomId}`,
+    }).catch(() => {});
   } catch (error) {
     console.error("Error sending message:", error);
     res.status(500).json({ error: "Failed to send message" });
@@ -747,6 +762,16 @@ router.post("/goals/:goalId/contribute", requireAuth, async (req, res) => {
         where: { id: goalId },
         data: { completedAt: new Date() },
       });
+      // Notify the group that the goal was completed.
+      const who = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { fullName: true, username: true },
+      }).catch(() => null);
+      notifyGroupMembers(goal.classroomId, userId, {
+        title: `🎯 Goal completed — ${goal.title}`,
+        body: `${who?.fullName || who?.username || "A member"} pushed it over the line`,
+        tag: `grp-goal-${goalId}`,
+      }).catch(() => {});
     }
 
     res.json(progress);

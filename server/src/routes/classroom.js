@@ -335,6 +335,13 @@ router.post("/groups/join", requireAuth, async (req, res) => {
           text: `👋 ${me?.fullName || me?.username || "Someone"} joined the group`,
         },
       });
+      // Notify existing members about the new joiner (respects `groups` pref).
+      const { notifyGroupMembers } = await import("../lib/pushSender.js");
+      notifyGroupMembers(group.id, userId, {
+        title: `👋 New member in ${group.name}`,
+        body: `${me?.fullName || me?.username || "Someone"} joined the group`,
+        tag: `grp-join-${group.id}`,
+      }).catch(() => {});
     } catch (e) {
       console.warn("Join message failed:", e.message);
     }

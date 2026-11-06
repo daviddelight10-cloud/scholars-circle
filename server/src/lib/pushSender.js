@@ -107,6 +107,32 @@ export async function sendPushToUsers(userIds, payload, options = {}) {
   };
 }
 
+/**
+ * Notify the members of a study group about an activity (message, goal, join, …).
+ * Loads members via classroomId, excludes the actor, respects the `groups` pref,
+ * and routes the tap to the Feed's Groups tab.
+ *
+ * @param {string} classroomId  the group id
+ * @param {string} actorId      the user who triggered the activity (skipped)
+ * @param {{title:string, body:string, tag?:string, data?:object}} payload
+ * @returns {Promise<{sent:number, members:number}>}
+ */
+export async function notifyGroupMembers(classroomId, actorId, payload) {
+  if (!classroomId || !payload?.title) return { sent: 0 };
+  const members = await prisma.classroomMember.findMany({
+    where: { classroomId, userId: { not: actorId } },
+    select: { userId: true },
+  });
+  if (!members.length) return { sent: 0, members: 0 };
+  const data = { tab: "discuss", feedTab: "groups", ...(payload.data || {}) };
+  const result = await sendPushToUsers(
+    members.map((m) => m.userId),
+    { ...payload, data },
+    { category: "groups" }
+  );
+  return { ...result, members: members.length };
+}
+
 function buildLink(data) {
   if (!data?.tab && !data?.liveCode) return "/";
   const p = new URLSearchParams();

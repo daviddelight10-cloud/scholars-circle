@@ -18,7 +18,8 @@ import "../../feed.css";
 
 const TABS = [
   { key: "feed", label: "Feed" },
-  { key: "chats", label: "Chats" },
+  { key: "groups", label: "Groups" },
+  { key: "chats", label: "Chat" },
 ];
 
 export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource, deepLink, onDeepLinkHandled }) {
@@ -42,7 +43,6 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [quizzes, setQuizzes] = useState([]);
   const [sessions, setSessions] = useState({ live: [], upcoming: [] });
   const [liveOpen, setLiveOpen] = useState(false); // full-screen live rooms/quizzes overlay
-  const [chatSection, setChatSection] = useState("direct"); // "direct" | "groups" inside Chats
   const [fsrsStats, setFsrsStats] = useState(null);
   const [dailyReviews, setDailyReviews] = useState({});
   const [followBusy, setFollowBusy] = useState({});
@@ -201,12 +201,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     if (!deepLink) return;
     if (deepLink.feedTab) {
       if (deepLink.feedTab === "live") setLiveOpen(true);
-      else {
-        setTab(deepLink.feedTab === "groups" ? "chats" : deepLink.feedTab);
-        if (deepLink.feedTab === "groups") setChatSection("groups");
-      }
+      else setTab(deepLink.feedTab === "groups" ? "groups" : deepLink.feedTab);
     }
-    if (deepLink.joinCode) setTab("chats");
+    if (deepLink.joinCode) setTab("groups");
     if (deepLink.chatWith) {
       const cw = deepLink.chatWith;
       if (typeof cw === "string") {
@@ -445,7 +442,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       <header className={`fd-segbar${scrolled ? " scrolled" : ""}`}>
         {/* iOS-style large title — collapses into the compact segbar on scroll */}
         <div className={`fd-title${scrolled ? " gone" : ""}`}>
-          <span className="fd-title-txt">{tab === "feed" ? "Feed" : "Chats"}</span>
+          <span className="fd-title-txt">{TABS.find((t) => t.key === tab)?.label || "Feed"}</span>
           {tab === "chats" && unread > 0 && (
             <span className="fd-title-chip">{unread > 9 ? "9+" : unread} unread</span>
           )}
@@ -548,47 +545,30 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             </div>
           )}
 
+          {tab === "groups" && (
+            <GroupsTab
+              token={token}
+              me={me}
+              subjects={subjects}
+              isFaculty={isFaculty}
+              joinCode={joinCode}
+              onJoinHandled={() => setJoinCode(null)}
+              onOpenProfile={setProfileUserId}
+              onOpenResource={onOpenResource}
+              onJoinQuiz={handleJoinQuiz}
+            />
+          )}
+
           {tab === "chats" && (
-            <>
-              <div className="fd-chats-switch">
-                <button
-                  className={`fd-tab ${chatSection === "direct" ? "active" : ""}`}
-                  onClick={() => setChatSection("direct")}
-                >
-                  Direct
-                  {unread > 0 && <span className="fd-tab-badge">{unread > 9 ? "9+" : unread}</span>}
-                </button>
-                <button
-                  className={`fd-tab ${chatSection === "groups" ? "active" : ""}`}
-                  onClick={() => setChatSection("groups")}
-                >
-                  Groups
-                </button>
-              </div>
-              {chatSection === "direct" ? (
-                <MessagesTab
-                  token={token}
-                  me={me}
-                  openChatWith={chatWith}
-                  onChatOpened={() => setChatWith(null)}
-                  onOpenProfile={setProfileUserId}
-                  onOpenResource={onOpenResource}
-                  onUnreadChange={setUnread}
-                />
-              ) : (
-                <GroupsTab
-                  token={token}
-                  me={me}
-                  subjects={subjects}
-                  isFaculty={isFaculty}
-                  joinCode={joinCode}
-                  onJoinHandled={() => setJoinCode(null)}
-                  onOpenProfile={setProfileUserId}
-                  onOpenResource={onOpenResource}
-                  onJoinQuiz={handleJoinQuiz}
-                />
-              )}
-            </>
+            <MessagesTab
+              token={token}
+              me={me}
+              openChatWith={chatWith}
+              onChatOpened={() => setChatWith(null)}
+              onOpenProfile={setProfileUserId}
+              onOpenResource={onOpenResource}
+              onUnreadChange={setUnread}
+            />
           )}
 
           {newPosts && tab === "feed" && (

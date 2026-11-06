@@ -66,7 +66,7 @@ router.get("/preferences", requireAuth, async (req, res) => {
 
 router.put("/preferences", requireAuth, async (req, res) => {
   try {
-    const { announcements, assignments, liveSessions, directMessages, studyReminders, social } = req.body || {};
+    const { announcements, assignments, liveSessions, directMessages, studyReminders, social, groups } = req.body || {};
     const data = {};
     if (typeof announcements === "boolean") data.announcements = announcements;
     if (typeof assignments === "boolean") data.assignments = assignments;
@@ -74,6 +74,7 @@ router.put("/preferences", requireAuth, async (req, res) => {
     if (typeof directMessages === "boolean") data.directMessages = directMessages;
     if (typeof studyReminders === "boolean") data.studyReminders = studyReminders;
     if (typeof social === "boolean") data.social = social;
+    if (typeof groups === "boolean") data.groups = groups;
 
     const prefs = await prisma.notificationPreference.upsert({
       where: { userId: req.user.sub },

@@ -253,7 +253,7 @@ router.post("/", requireAuth, challengeLimiter, async (req, res) => {
             tag: `battle-${battle.id}`,
             data: { tab: "discuss", feedTab: "groups", battle: battle.id },
           },
-          { category: "social" }
+          { category: "groups" }
         );
       } catch (e) {
         console.warn("[battle] challenge push failed:", e?.message);
@@ -428,7 +428,7 @@ router.post("/:id/accept", requireAuth, async (req, res) => {
             tag: `battle-${b.id}`,
             data: { tab: "discuss", liveCode: room.code, battle: b.id },
           },
-          { category: "social" }
+          { category: "groups" }
         );
         await prisma.classroomMessage.createMany({
           data: [b.challengerId, b.challengedId].map((cid) => ({

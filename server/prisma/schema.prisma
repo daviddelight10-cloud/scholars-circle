@@ -349,6 +349,7 @@ model NotificationPreference {
   directMessages      Boolean  @default(true)
   studyReminders      Boolean  @default(true)
   social              Boolean  @default(true)
+  groups              Boolean  @default(true)
   updatedAt           DateTime @updatedAt
 }
 

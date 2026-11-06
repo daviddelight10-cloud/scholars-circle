@@ -229,7 +229,7 @@ export async function finalizeBattle(room) {
         tag: `battle-${b.id}`,
         data: { tab: "discuss", feedTab: "groups", battle: b.id, liveCode: room.code },
       },
-      { category: "social" }
+      { category: "groups" }
     );
     const author = await prisma.userProfile.findUnique({
       where: { userId: b.createdById },
@@ -298,7 +298,7 @@ export async function sendScheduledReminders() {
         tag: `war-${b.id}`,
         data: { tab: "discuss", feedTab: "groups", battle: b.id },
       },
-      { category: "social" }
+      { category: "groups" }
     ).catch(() => {});
     await prisma.groupBattle.update({ where: { id: b.id }, data: { reminderSent: true } }).catch(() => {});
   }
