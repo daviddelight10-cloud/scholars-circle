@@ -191,7 +191,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
             onJoinQuiz={onJoinQuiz}
             onStartBattle={() => setSub("arena")}
             onAddGoal={canManage ? () => setSub("board") : undefined}
-            canModerate={isCreator || isFaculty}
+            canModerate={canManage || isCaptain}
           />
         )}
         {sub === "arena" && (
@@ -210,7 +210,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
         {sub === "board" && (
           <div className="fd-group-scroll">
             <GroupBoard classroomId={group.id} token={token} />
-            <GroupGoals classroomId={group.id} token={token} isTeacher={canManage} />
+            <GroupGoals classroomId={group.id} token={token} isTeacher={canManage || isCaptain} />
           </div>
         )}
         {sub === "members" && (

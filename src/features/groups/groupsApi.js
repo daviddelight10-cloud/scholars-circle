@@ -47,6 +47,8 @@ export const groupsApi = {
   members: ({ token, id } = {}) => req(`/study-group/${id}/members`, { token }),
   promote: ({ token, id, userId, role }) =>
     req(`/study-group/${id}/promote`, { token, method: "POST", body: { userId, role } }),
+  removeMember: ({ token, id, userId }) =>
+    req(`/study-group/${id}/members/${userId}/remove`, { token, method: "POST" }),
   // Ring the group into a live session/battle (5-min caller cooldown server-side).
   ring: ({ token, id, code }) => req(`/study-group/${id}/ring`, { token, method: "POST", body: { code } }),
   // Group-vs-group battles

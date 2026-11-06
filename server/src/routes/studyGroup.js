@@ -5,6 +5,7 @@ import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
 import { getWeekStart } from "../lib/tiers.js";
 import { getRoomByCode } from "../lib/liveQuizRooms.js";
 import { sendPushToUsers, notifyGroupMembers } from "../lib/pushSender.js";
+import { isGroupCaptain } from "../lib/battles.js";
 
 const RESOURCE_CARD_SELECT = { id: true, title: true, subject: true, contentType: true, shareToken: true };
 
@@ -366,7 +367,10 @@ router.delete("/messages/:messageId", requireAuth, async (req, res) => {
       include: { classroom: { select: { createdById: true } } },
     });
     if (!msg) return res.status(404).json({ error: "Message not found" });
-    if (msg.userId !== userId && msg.classroom.createdById !== userId) {
+    const canDelete = msg.userId === userId
+      || msg.classroom.createdById === userId
+      || await isGroupCaptain(msg.classroomId, userId);
+    if (!canDelete) {
       return res.status(403).json({ error: "Not your message" });
     }
     await prisma.classroomMessageReaction.deleteMany({ where: { messageId } });
@@ -509,6 +513,63 @@ router.post("/:classroomId/promote", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Promote error:", error);
     res.status(500).json({ error: "Failed to update role" });
+  }
+});
+
+// POST /api/study-group/:classroomId/members/:userId/remove — kick a member.
+// Creator can remove anyone except self; captains can remove regular members
+// only (captains can't kick each other — that's creator power).
+router.post("/:classroomId/members/:userId/remove", requireAuth, async (req, res) => {
+  try {
+    const { classroomId, userId: targetId } = req.params;
+    const uid = req.user.sub;
+    const classroom = await prisma.classroom.findUnique({
+      where: { id: classroomId },
+      select: { createdById: true, kind: true, name: true },
+    });
+    if (!classroom || classroom.kind !== "group") return res.status(404).json({ error: "Group not found" });
+    if (targetId === uid) return res.status(400).json({ error: "Use leave to remove yourself" });
+    if (targetId === classroom.createdById) return res.status(403).json({ error: "Can't remove the group creator" });
+
+    const meIsCreator = classroom.createdById === uid;
+    if (!meIsCreator) {
+      // Captains can kick, but only regular members — not other captains.
+      const callerIsCaptain = await isGroupCaptain(classroomId, uid);
+      if (!callerIsCaptain) return res.status(403).json({ error: "Only the creator or captains can remove members" });
+      const target = await prisma.classroomMember.findUnique({
+        where: { classroomId_userId: { classroomId, userId: String(targetId) } },
+        select: { role: true },
+      });
+      if (!target) return res.status(404).json({ error: "Not a member" });
+      if (target.role === "captain") return res.status(403).json({ error: "Only the creator can remove a captain" });
+    }
+
+    const removed = await prisma.classroomMember.delete({
+      where: { classroomId_userId: { classroomId, userId: String(targetId) } },
+    }).catch(() => null);
+    if (!removed) return res.status(404).json({ error: "Not a member" });
+
+    // Leave a system note in chat so the group sees it.
+    try {
+      const removedUser = await prisma.user.findUnique({
+        where: { id: String(targetId) },
+        select: { fullName: true, username: true },
+      });
+      await prisma.classroomMessage.create({
+        data: {
+          classroomId,
+          userId: uid,
+          text: `🚪 ${removedUser?.fullName || removedUser?.username || "A member"} was removed from the group`,
+        },
+      });
+    } catch (e) {
+      console.warn("Remove message failed:", e.message);
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Remove member error:", error);
+    res.status(500).json({ error: "Failed to remove member" });
   }
 });
 
@@ -710,8 +771,9 @@ router.post("/:classroomId/goals", requireAuth, async (req, res) => {
       select: { createdById: true },
     });
     if (!classroom) return res.status(404).json({ error: "Not found" });
-    if (!isFaculty && classroom.createdById !== req.user.sub) {
-      return res.status(403).json({ error: "Only the group creator or faculty can set goals" });
+    const canManage = isFaculty || classroom.createdById === req.user.sub || await isGroupCaptain(classroomId, req.user.sub);
+    if (!canManage) {
+      return res.status(403).json({ error: "Only group captains or faculty can set goals" });
     }
 
     const goal = await prisma.classroomGoal.create({

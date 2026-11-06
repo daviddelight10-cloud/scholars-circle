@@ -10,7 +10,9 @@ export default function GroupMembers({ classroomId, token, currentUser, members 
   const myId = currentUser?.id || currentUser?.sub;
   const [busyId, setBusyId] = useState(null);
   const [menuId, setMenuId] = useState(null); // which member's action menu is open
-  const iAmCreator = members.some((m) => m.isCreator && m.user?.id === myId);
+  const me = members.find((m) => m.user?.id === myId);
+  const iAmCreator = !!me?.isCreator;
+  const iAmCaptain = iAmCreator || me?.role === "captain";
 
   const toggleCaptain = async (e, m) => {
     e.stopPropagation();
@@ -23,6 +25,23 @@ export default function GroupMembers({ classroomId, token, currentUser, members 
       onRefresh?.();
     } catch (err) {
       alert(err.message || "Couldn't update role");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const removeMember = async (e, m) => {
+    e.stopPropagation();
+    const uid = m.user?.id;
+    if (!uid || busyId) return;
+    if (!window.confirm(`Remove ${m.user?.name || "this member"} from the group?`)) return;
+    setBusyId(uid);
+    setMenuId(null);
+    try {
+      await groupsApi.removeMember({ token, id: classroomId, userId: uid });
+      onRefresh?.();
+    } catch (err) {
+      alert(err.message || "Couldn't remove member");
     } finally {
       setBusyId(null);
     }
@@ -42,7 +61,9 @@ export default function GroupMembers({ classroomId, token, currentUser, members 
         const u = m.user || {};
         const isMe = u.id === myId;
         const lvl = levelProgress(m.xp || 0).level;
-        const showMenu = iAmCreator && !m.isCreator && !isMe;
+        // Creator can act on anyone (make/remove captain, kick). Captains can
+        // only kick regular members — never the creator or other captains.
+        const showMenu = !isMe && !m.isCreator && (iAmCreator || (iAmCaptain && m.role !== "captain"));
         return (
           <div key={m.id || u.id} className="gv-member" style={{ position: "relative" }}>
             <button
@@ -79,15 +100,30 @@ export default function GroupMembers({ classroomId, token, currentUser, members 
                   ⋯
                 </button>
                 {menuId === u.id && (
-                  <div className="gv-member-menu">
+                  <>
                     <button
-                      onClick={(e) => toggleCaptain(e, m)}
-                      style={{ opacity: busyId === u.id ? 0.5 : 1 }}
-                    >
-                      {busyId === u.id ? "…" : m.role === "captain" ? "⚔️ Remove captain" : "⚔️ Make captain"}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setMenuId(null); }}>Close</button>
-                  </div>
+                      className="gv-member-menu-backdrop"
+                      aria-label="Close menu"
+                      onClick={(e) => { e.stopPropagation(); setMenuId(null); }}
+                    />
+                    <div className="gv-member-menu">
+                      {iAmCreator && (
+                        <button
+                          onClick={(e) => toggleCaptain(e, m)}
+                          style={{ opacity: busyId === u.id ? 0.5 : 1 }}
+                        >
+                          {busyId === u.id ? "…" : m.role === "captain" ? "⚔️ Remove captain" : "⚔️ Make captain"}
+                        </button>
+                      )}
+                      <button
+                        className="danger"
+                        onClick={(e) => removeMember(e, m)}
+                        style={{ opacity: busyId === u.id ? 0.5 : 1 }}
+                      >
+                        {busyId === u.id ? "…" : "🚪 Remove from group"}
+                      </button>
+                    </div>
+                  </>
                 )}
               </>
             )}
