@@ -149,7 +149,7 @@ export default function HomePage() {
   const wrapStyle = { maxWidth: 1180, margin: '0 auto', padding: '0 28px' };
 
   return (
-    <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 17, lineHeight: 1.65, minHeight: '100dvh', overflowX: 'clip' }}>
+    <main data-theme="dark" style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 17, lineHeight: 1.65, minHeight: '100dvh', overflowX: 'clip' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

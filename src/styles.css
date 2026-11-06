@@ -9,7 +9,7 @@ html {
   height: 100dvh;
 }
 
-:root {
+:root, [data-theme="dark"] {
 
   color-scheme: dark light;
 
@@ -8463,7 +8463,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
 }
 
 /* ── Auto-generated: leftover literal palette. Dark = original hex; light = derived. ── */
-:root {
+:root, [data-theme="dark"] {
   --c-031623: #031623;
   --c-060818: #060818;
   --c-064e3b: #064e3b;

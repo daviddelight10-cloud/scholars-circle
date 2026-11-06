@@ -2011,7 +2011,18 @@ function App() {
 
           if (data.progress.themePack) setThemePack(data.progress.themePack);
 
-          if (data.progress.appearance) { setAppearancePref(data.progress.appearance); setAppearance(data.progress.appearance); setDarkMode(resolveAppearance() === "dark"); }
+          // Only adopt server appearance on FIRST visit to this device (no local
+          // pref yet). Otherwise the server would override "system" with a stale
+          // "light"/"dark" on every load, breaking OS-follows-system behavior.
+          if (data.progress.appearance) {
+            let hasLocal = false;
+            try { hasLocal = !!localStorage.getItem("sc-appearance"); } catch {}
+            if (!hasLocal) {
+              setAppearancePref(data.progress.appearance);
+              setAppearance(data.progress.appearance);
+              setDarkMode(resolveAppearance() === "dark");
+            }
+          }
 
           if (data.progress.density) setDensity(data.progress.density);
 

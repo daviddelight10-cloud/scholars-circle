@@ -264,7 +264,7 @@ export default function AuthPages() {
 
   if (resetPasswordMode) {
     return (
-      <main style={{ minHeight: '100dvh', background: 'var(--app-bg)', color: 'var(--app-text)', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <main data-theme="dark" style={{ minHeight: '100dvh', background: 'var(--app-bg)', color: 'var(--app-text)', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -334,7 +334,7 @@ export default function AuthPages() {
   }
 
   return (
-    <main style={{ minHeight: '100dvh', background: 'var(--app-bg)', color: 'var(--app-text)', fontFamily: 'Manrope, sans-serif' }}>
+    <main data-theme="dark" style={{ minHeight: '100dvh', background: 'var(--app-bg)', color: 'var(--app-text)', fontFamily: 'Manrope, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

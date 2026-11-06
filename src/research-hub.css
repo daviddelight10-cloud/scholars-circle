@@ -1924,10 +1924,10 @@ button.ts-stat:hover .l, button.ts-stat[aria-expanded="true"] .l { color: var(--
 .mc-root {
   --mc-bg: var(--app-bg);
   --mc-card: var(--app-card);
-  --mc-border: #2A2A2C;
+  --mc-border: var(--c-2a2a2c);
   --mc-accent: #FFB300;
-  --mc-text: #F2F2F2;
-  --mc-muted: #9A9A9A;
+  --mc-text: var(--c-f2f2f2);
+  --mc-muted: var(--c-9a9a9a);
   --mc-red: #E5484D;
   --mc-green: #6EE787;
   --mc-pink: #FF5C8A;
