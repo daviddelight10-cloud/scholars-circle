@@ -40,20 +40,26 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
     return <GoLiveCard token={token} me={me} subjects={subjects} open={liveOpen} setOpen={setLiveOpen} onRoomsChanged={onRoomsChanged} />;
   }
 
+  const canPost = !!(text.trim() || attached);
+
   return (
     <div className="fd-composer">
       <div className="fd-composer-row">
-        <Avatar user={me} size={38} />
+        <Avatar user={me} size={40} />
         <input
           ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder={asQuestion ? "Ask a question…" : "Share a resource or ask a question…"}
+          placeholder={asQuestion ? "What do you want to ask?" : "Share a resource or ask a question…"}
+          aria-label="Write a post"
         />
+        {canPost && (
+          <button className="fd-share" disabled={busy} onClick={submit}>
+            {busy ? "…" : "Share"}
+          </button>
+        )}
       </div>
-
-      {asQuestion && <div className="fd-composer-tag">❓ Posting as a question</div>}
 
       {attached && (
         <div className="fd-attached">
@@ -63,25 +69,26 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
         </div>
       )}
 
-      <div className="fd-composer-pills">
-        <button className="fd-pill" onClick={() => setAttachOpen(true)}>
-          📄 Resource
+      <div className="fd-acts">
+        <button
+          className={`fd-act ${attached ? "active" : ""}`}
+          aria-pressed={!!attached}
+          onClick={() => setAttachOpen(true)}
+        >
+          <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5M10 13h6M10 17h6" /></svg>
+          Resource
         </button>
         <button
-          className={`fd-pill ${asQuestion ? "active" : ""}`}
+          className={`fd-act ${asQuestion ? "active" : ""}`}
+          aria-pressed={asQuestion}
           onClick={() => setAsQuestion((v) => !v)}
         >
-          ❓ Ask
+          <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01" /></svg>
+          Ask
         </button>
-        <button className="fd-pill golive" onClick={() => setLiveOpen(true)}>
-          🟢 Go live
-        </button>
-        <button
-          className={`fd-share ${!text.trim() && !attached ? "disabled" : ""}`}
-          disabled={(!text.trim() && !attached) || busy}
-          onClick={submit}
-        >
-          {busy ? "…" : "Share"}
+        <button className="fd-act live" onClick={() => setLiveOpen(true)}>
+          <span className="fd-dot" />
+          Go live
         </button>
       </div>
 

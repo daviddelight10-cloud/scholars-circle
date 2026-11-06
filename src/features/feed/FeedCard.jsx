@@ -5,11 +5,6 @@ import { CommentsSection } from "./CommentsSection";
 import { Avatar, displayTitle, relTime } from "./feedUi";
 import { linkify } from "../../lib/linkify.jsx";
 
-const TYPE_ICONS = {
-  note: "📝", pdf: "📄", mcq: "❓", tutorial_question: "📘",
-  flashcard_deck: "🃏", tutorial: "🎓", exam: "🎓",
-};
-
 export function DividerBlock({ label }) {
   return (
     <div className="fd-divider">
@@ -124,7 +119,9 @@ function ResourceInner({ resource, uni, token, onOpenResource, onSaveResource })
   ].filter(Boolean);
   return (
     <div className="fd-resource" onClick={() => resource.shareToken && onOpenResource?.(resource.shareToken)}>
-      <div className="fd-resource-icon">{TYPE_ICONS[resource.contentType] || "📄"}</div>
+      <div className="fd-resource-icon" aria-hidden="true">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5M10 13h6M10 17h6" /></svg>
+      </div>
       <div className="fd-resource-info">
         <div className="fd-resource-tag">{resource.subject}{uni ? ` · ${uni}` : ""}</div>
         <div className="fd-resource-title">{displayTitle(resource.title)}</div>
@@ -135,9 +132,11 @@ function ResourceInner({ resource, uni, token, onOpenResource, onSaveResource })
       <button
         className={`fd-save-btn ${saved ? "saved" : ""}`}
         title={saved ? "Saved" : "Save to My Space"}
+        aria-label="Save resource"
+        aria-pressed={saved}
         onClick={toggleSave}
       >
-        {saved ? "✓" : "🔖"}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
       </button>
     </div>
   );
@@ -336,6 +335,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
             </div>
             <div className="fd-card-meta">uploaded a resource · {relTime(block.ts)}</div>
           </div>
+          {block.resource?.subject && <span className="fd-tag">{block.resource.subject}</span>}
         </div>
         <ResourceInner resource={block.resource} uni={block.uni} token={token} onOpenResource={onOpenResource} onSaveResource={onSaveResource} />
         <PostActions
@@ -382,23 +382,26 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
             {block.author?.uni || block.author?.handle || ""} · {relTime(block.ts)}
           </div>
         </div>
-        {block.kind === "question" && (
-          <span className={`fd-card-kind question ${acceptedId ? "answered" : ""}`}>
+        {block.kind === "question" ? (
+          <span className={`fd-tag question ${acceptedId ? "answered" : ""}`}>
             {acceptedId ? "✓ Answered" : "Question"}
           </span>
-        )}
+        ) : (block.subject || block.resource?.subject) ? (
+          <span className="fd-tag">{block.subject || block.resource?.subject}</span>
+        ) : null}
       </div>
 
-      {isActivity ? (
+      {isActivity && block.liveCode ? (
+        <div className="fd-livebar">
+          <span className="fd-dot" />
+          <p><b>{block.author?.name}</b> {block.text}</p>
+          <button className="fd-live-join" onClick={() => onJoinQuiz?.(block.liveCode)}>Join live</button>
+        </div>
+      ) : isActivity ? (
         <div className="fd-activity">
-          <span className="fd-activity-icon">{block.liveCode ? "⚡" : /streak/i.test(block.text || "") ? "🔥" : "✨"}</span>
+          <span className="fd-activity-icon">{/streak/i.test(block.text || "") ? "🔥" : "✨"}</span>
           <div className="fd-activity-body">
             <span className="fd-activity-text"><b>{block.author?.name}</b> {block.text}</span>
-            {block.liveCode && (
-              <button className="fd-joinlive-btn" onClick={() => onJoinQuiz?.(block.liveCode)}>
-                ⚡ Join live
-              </button>
-            )}
           </div>
         </div>
       ) : (

@@ -498,23 +498,6 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                 ))}
               </div>
 
-              {!circleOnly && (
-                <div className="fd-stories">
-                  <button className="fd-story" onClick={() => setLiveOpen(true)} title="Start a live room or quiz battle">
-                    <span className="fd-story-ring-static">＋</span>
-                    <span className="fd-story-name">Go live</span>
-                    <span className="fd-story-sub">START</span>
-                  </button>
-                  {rooms.slice(0, 10).map((r) => (
-                    <button key={r.id} className="fd-story" onClick={() => handleJoinRoom(r)} title={r.name}>
-                      <Avatar user={r.host} name={r.host?.name || r.name} size={42} live />
-                      <span className="fd-story-name">{r.host?.name?.split(" ")[0] || r.name}</span>
-                      <span className="fd-story-sub">{r.seatsUsed || 0}/{r.seats || r.maxSeats || 8} IN</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
               <Composer token={token} me={me} subjects={subjects} onPosted={handlePosted}
                 onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})} />
             </>
