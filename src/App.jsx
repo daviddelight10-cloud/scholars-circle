@@ -165,6 +165,8 @@ const AttendancePanel = lazyWithRetry(() => import("./features/LiveSessions/Atte
 
 const NotificationSettings = lazyWithRetry(() => import("./features/NotificationCenter.jsx").then(m => ({ default: m.NotificationSettings })));
 
+const PushPermissionBanner = lazyWithRetry(() => import("./features/NotificationCenter.jsx").then(m => ({ default: m.PushPermissionBanner })));
+
 
 
 const PremiumPage = lazyWithRetry(() => import("./features/PremiumPage.jsx"));
@@ -9571,6 +9573,12 @@ function App() {
       </div>
 
       <InstallPrompt />
+
+      {auth.user && booted && !showOnboarding && token && (
+        <Suspense fallback={null}>
+          <PushPermissionBanner token={token} />
+        </Suspense>
+      )}
 
     </main>
 

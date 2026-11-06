@@ -24,39 +24,61 @@ const CATEGORIES = [
   { key: "studyReminders", icon: "⏰", label: "Study Reminders", desc: "Smart reminders for your study plan" }
 ];
 
-const SUPPRESS_KEY = "sc_push_banner_suppressed";
+const COLLAPSE_KEY = "sc_push_card_collapsed";
 
 /**
- * Floating banner shown after login if push isn't enabled yet.
- * Auto-dismisses if the user has either subscribed or explicitly dismissed.
+ * Persistent "turn on notifications" card, like the native-app prompt.
+ * Shows on every app open until the user actually enables push.
+ * A chevron collapse hides it only for the current session.
  */
 export function PushPermissionBanner({ token }) {
   const [visible, setVisible] = useState(false);
   const [status, setStatus] = useState("idle"); // idle | loading | ok | error
   const [error, setError] = useState(null);
+  const [perm, setPerm] = useState(() => getPermission());
+
+  const iosNeedsInstall = isIOS() && !isStandalone();
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const timer = setTimeout(async () => {
       if (!(await isPushSupported())) return;
-      if (localStorage.getItem(SUPPRESS_KEY) === "1") return;
-      const perm = getPermission();
-      if (perm === "granted") {
+      // Session-only collapse — card returns on the next app open.
+      if (sessionStorage.getItem(COLLAPSE_KEY) === "1") return;
+      const p = getPermission();
+      if (cancelled) return;
+      setPerm(p);
+      if (p === "granted") {
         const active = await hasActiveSubscription();
         if (!cancelled && !active) setVisible(true);
         return;
       }
-      if (perm === "denied") return;
-      // default permission: show banner
+      // default or denied — keep asking every open
       if (!cancelled) setVisible(true);
-    })();
-    return () => { cancelled = true; };
+    }, 1800);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
-  if (!visible) return null;
+  // Re-check permission when the tab regains focus — a user who re-enabled
+  // notifications in browser settings gets the card cleared automatically.
+  useEffect(() => {
+    if (!visible || perm !== "denied") return;
+    async function recheck() {
+      if (document.visibilityState !== "visible") return;
+      const p = getPermission();
+      setPerm(p);
+      if (p === "granted") await handleEnable();
+      else if (p === "default") setVisible(true);
+    }
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener("focus", recheck);
+    return () => {
+      document.removeEventListener("visibilitychange", recheck);
+      window.removeEventListener("focus", recheck);
+    };
+  }, [visible, perm, token]);
 
-  // iOS-specific advice: must install PWA first
-  const iosNeedsInstall = isIOS() && !isStandalone();
+  if (!visible) return null;
 
   async function handleEnable() {
     setStatus("loading");
@@ -68,85 +90,154 @@ export function PushPermissionBanner({ token }) {
         setTimeout(() => setVisible(false), 1500);
       } else if (res.reason === "ios_needs_install") {
         setStatus("error");
-        setError("On iPhone/iPad, you must first install Scholar's Circle (Share → Add to Home Screen), then open the installed app to enable notifications.");
+        setError("On iPhone/iPad, install Scholar's Circle first (Share → Add to Home Screen), then open the installed app to enable notifications.");
       } else if (res.reason === "denied") {
-        setStatus("error");
-        setError("Notifications are blocked. Open your browser settings to allow them, then try again.");
+        setPerm("denied");
+        setStatus("idle");
       } else {
         setStatus("error");
-        setError(res.reason || "Failed to enable notifications.");
+        setError(res.reason === "unsupported" ? "This browser doesn't support push notifications." : "Couldn't enable notifications — please try again.");
       }
     } catch (e) {
       setStatus("error");
-      setError(e.message);
+      setError("Couldn't enable notifications — please try again.");
     }
   }
 
-  function handleDismiss() {
-    localStorage.setItem(SUPPRESS_KEY, "1");
+  function handleCollapse() {
+    sessionStorage.setItem(COLLAPSE_KEY, "1");
     setVisible(false);
   }
 
+  const blocked = perm === "denied" && !iosNeedsInstall;
+  const enabled = status === "ok";
+
   return (
-    <div style={{
-      position: "fixed",
-      bottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
-      left: 12,
-      right: 12,
-      maxWidth: 480,
-      margin: "0 auto",
-      zIndex: 1100,
-      padding: 14,
-      borderRadius: 20,
-      background: "var(--app-tint-soft)",
-      border: "1px solid var(--app-tint-med)",
-      backdropFilter: "blur(18px)",
-      WebkitBackdropFilter: "blur(18px)",
-      boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
-      fontSize: 14,
-      lineHeight: 1.4,
-      fontFamily: "'Manrope', sans-serif",
-      color: "var(--app-text)"
-    }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+    <div
+      role="alert"
+      style={{
+        position: "fixed",
+        bottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)",
+        left: 12,
+        right: 12,
+        maxWidth: 480,
+        margin: "0 auto",
+        zIndex: 1100,
+        padding: "13px 14px",
+        borderRadius: 18,
+        background: "var(--app-card)",
+        border: "1px solid var(--app-tint-med)",
+        boxShadow: "0 12px 36px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2)",
+        fontFamily: "'Manrope', sans-serif",
+        color: "var(--app-text)",
+        animation: "scPushCardIn 0.35s cubic-bezier(0.21,1.02,0.73,1)",
+      }}
+    >
+      <style>{`@keyframes scPushCardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+      <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 11, background: "rgba(79,142,247,0.12)", border: "1px solid rgba(79,142,247,0.22)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 012 4.5V15l1.5 2.5h-15L8 15v-2.5A6 6 0 0118 8z" stroke="#4F8EF7" strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 19a2 2 0 004 0" stroke="#4F8EF7" strokeWidth="1.6" strokeLinecap="round"/></svg>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Syne', sans-serif", color: "var(--app-text)" }}>Stay in the loop</div>
-          <div style={{ fontSize: 12, color: "var(--app-dim)", marginTop: 4 }}>
-            {iosNeedsInstall
-              ? "On iPhone/iPad: tap Share → \"Add to Home Screen\". Open the installed app to turn on alerts for announcements, live classes & messages."
-              : "Enable push notifications for announcements, live class alerts, assignments, and direct messages."}
+          <div style={{ fontWeight: 800, fontSize: 14, fontFamily: "'Syne', sans-serif", color: "var(--app-text)" }}>
+            {enabled ? "Notifications on" : blocked ? "Notifications are blocked" : "Turn on notifications"}
           </div>
-
-          {error && (
-            <div style={{ marginTop: 8, fontSize: 12, padding: 10, borderRadius: 12, background: "rgba(255,84,112,0.08)", border: "1px solid rgba(255,84,112,0.2)", color: "#FF5470" }}>
-              {error}
-            </div>
-          )}
-          {status === "ok" && (
-            <div style={{ marginTop: 8, fontSize: 12, padding: 10, borderRadius: 12, background: "rgba(61,214,140,0.08)", border: "1px solid rgba(61,214,140,0.2)", color: "#3DD68C" }}>
-              ✓ Notifications enabled!
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-            {!iosNeedsInstall && (
-              <button
-                onClick={handleEnable}
-                disabled={status === "loading"}
-                style={primaryBtn}
-              >
-                {status === "loading" ? "Enabling…" : "Enable"}
-              </button>
-            )}
-            <button onClick={handleDismiss} style={secondaryBtn}>
-              {iosNeedsInstall ? "Got it" : "Not now"}
-            </button>
+          <div style={{ fontSize: 11.5, color: "var(--app-dim)", marginTop: 2 }}>
+            {enabled
+              ? "You're all set — alerts will reach this device."
+              : blocked
+                ? "Tap the lock icon in the address bar → Site settings → Notifications → Allow, then come back."
+                : iosNeedsInstall
+                  ? "Install the app first: Share → Add to Home Screen, then enable notifications here."
+                  : "Class alerts, messages & study reminders — straight to your device."}
           </div>
         </div>
+
+        {!iosNeedsInstall && !blocked && (
+          <button
+            role="switch"
+            aria-checked={enabled}
+            aria-label="Enable notifications"
+            disabled={status === "loading" || enabled}
+            onClick={handleEnable}
+            style={{
+              flexShrink: 0,
+              width: 46,
+              height: 26,
+              borderRadius: 999,
+              border: "none",
+              cursor: status === "loading" ? "wait" : enabled ? "default" : "pointer",
+              background: enabled
+                ? "linear-gradient(135deg, #34d399, #10b981)"
+                : status === "loading"
+                  ? "var(--app-tint-strong)"
+                  : "var(--app-tint-med)",
+              position: "relative",
+              transition: "background 0.2s ease",
+              padding: 0,
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: 3,
+                left: enabled || status === "loading" ? 23 : 3,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: "#fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                transition: "left 0.18s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+              }}
+            >
+              {status === "loading" && (
+                <span style={{ width: 12, height: 12, border: "2px solid #c8c8c8", borderTopColor: "#666", borderRadius: "50%", animation: "scPushSpin 0.7s linear infinite", display: "block" }} />
+              )}
+            </span>
+            <style>{`@keyframes scPushSpin { to { transform: rotate(360deg); } }`}</style>
+          </button>
+        )}
+
+        {blocked && (
+          <button
+            onClick={() => { setPerm(getPermission()); if (getPermission() === "granted") handleEnable(); }}
+            style={{ ...secondaryBtn, padding: "8px 12px", fontSize: 12, flexShrink: 0 }}
+          >
+            Check again
+          </button>
+        )}
+
+        {iosNeedsInstall && (
+          <button onClick={handleCollapse} style={{ ...secondaryBtn, padding: "8px 12px", fontSize: 12, flexShrink: 0 }}>
+            Got it
+          </button>
+        )}
+
+        {!iosNeedsInstall && !blocked && !enabled && (
+          <button
+            onClick={handleCollapse}
+            aria-label="Hide until next session"
+            style={{
+              flexShrink: 0, width: 28, height: 28, borderRadius: 8,
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--app-faint)", fontSize: 14, lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            ⌄
+          </button>
+        )}
       </div>
+
+      {error && (
+        <div style={{ marginTop: 9, fontSize: 12, padding: 9, borderRadius: 11, background: "rgba(255,84,112,0.08)", border: "1px solid rgba(255,84,112,0.22)", color: "var(--app-red)" }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }
