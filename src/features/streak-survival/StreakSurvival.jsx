@@ -648,6 +648,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     // Free-tier pacing: N lost hearts → cooldown on new sessions (this run
     // continues). Preview runs don't count toward the cooldown counter.
     if (!snapshot && recordSurvivalHeartLoss()) {
+      setCooldownMs(survivalCooldownRemaining());
       toast(`💔 Hearts depleted — ${FREE_TIER_LIMITS.survivalCooldownMinutes} min recharge`, '#FF5E7E', 2800);
     }
     if (nl <= 0) setTimeout(() => triggerGameOver(), 650);
