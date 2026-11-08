@@ -38,8 +38,10 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
   const [open, setOpen] = useState(null); // 'ret' | 'm' | 'l' | 'done' | 'src'
 
   const list = useMemo(() => folders || [], [folders]);
-  const hasFolders = list.length > 0;
-  const folder = scope !== "all" ? list.find((f) => f.key === scope) || null : null;
+  const hasList = list.length > 0;
+  const fallback = !!list[0]?._fallback; // subject-based list: no per-folder scoping
+  const hasFolders = hasList && !fallback;
+  const folder = hasFolders && scope !== "all" ? list.find((f) => f.key === scope) || null : null;
   const effScope = folder ? folder.key : "all";
 
   const goal = fsrsStats?.dailyGoal || 20;
@@ -187,7 +189,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         </button>
       </div>
 
-      {hasFolders && (
+      {hasList && (
         <button className="hm-exam" onClick={() => onOpenPlan?.(examFolder ? examKeyOf(examFolder) : null)} aria-label="Study plan. Tap to edit exam dates and daily goal">
           <CalIcon />
           <div className="hm-exam-t">
@@ -217,7 +219,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         <div className="hm-pick hm-pick-skel" aria-hidden="true"><i /><i /><i /></div>
       )}
 
-      {chips.length > 1 && (
+      {hasFolders && chips.length > 0 && (
         <div className="hm-pick" role="radiogroup" aria-label="Choose a course to review">
           {[{ key: "all", folderName: "All courses", due: list.reduce((s, f) => s + f.due, 0) + (bankDueCount || 0) }, ...chips].map((c) => (
             <button key={c.key} className={`hm-cc${c.due === 0 ? " zero" : ""}`} role="radio" aria-checked={c.key === effScope} onClick={() => pick(c.key)}>

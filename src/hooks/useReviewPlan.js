@@ -28,6 +28,15 @@ export function daysUntil(iso) {
   t.setHours(0, 0, 0, 0);
   return Math.round((new Date(y, m - 1, d) - t) / 864e5);
 }
+// Fallback when /fsrs/folders is unavailable: group by subject from fsrs/stats
+// so the exam banner and Study plan still work (chips stay hidden).
+export function subjectFolders(bySubject) {
+  return Object.entries(bySubject || {}).map(([name, s]) => ({
+    key: `subject:${name}`, folderId: null, folderName: name, courseCode: null, _fallback: true,
+    due: s.due || 0, total: s.total || 0, mastered: s.mastered || 0, learning: s.learning || 0,
+    retention: 1, materialCount: 0, materials: [],
+  }));
+}
 export const readiness = (f) => (f?.total ? Math.round(((f.mastered + f.learning * 0.5) / f.total) * 100) : 0);
 export const needPerDay = (f, days) => Math.ceil(((f?.due || 0) + (f?.learning || 0)) / Math.max(days, 1));
 

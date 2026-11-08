@@ -14,7 +14,7 @@ import HomeHero from "./home/HomeHero.jsx";
 import StreakMoment from "./home/StreakMoment.jsx";
 import StreakSheet from "./home/StreakSheet.jsx";
 import { ShopSheet, BoardSheet, StatsSheet, GoalSheet, StudyPlanSheet } from "./home/HomeSheets.jsx";
-import { useReviewPlan } from "../hooks/useReviewPlan.js";
+import { useReviewPlan, subjectFolders } from "../hooks/useReviewPlan.js";
 import HIcon from "./home/HIcon.jsx";
 import AvatarMark from "./AvatarMark.jsx";
 import { useStreakMoment } from "../hooks/useStreakMoment.js";
@@ -62,6 +62,10 @@ export default function Dashboard({
   const [planFocus, setPlanFocus] = useState(null);
   const [circleAll, setCircleAll] = useState(false);
   const plan = useReviewPlan();
+  const planFolders = useMemo(
+    () => (plan.folders?.length ? plan.folders : subjectFolders(fsrsStats?.bySubject)),
+    [plan.folders, fsrsStats?.bySubject],
+  );
   const [save, setSave] = useState(() => ({ ...loadSave() }));
   const [openSheet, setOpenSheet] = useState(null); // 'shop' | 'board' | 'stats' | 'goal' | 'streak' | 'plan'
   const [toast, setToast] = useState(null);
@@ -463,7 +467,7 @@ export default function Dashboard({
               firstRun={firstRun}
               fsrsStats={fsrsStats}
               bankDueCount={bankDueCount}
-              folders={plan.folders}
+              folders={planFolders}
               foldersLoading={plan.folders == null && !plan.failed}
               prefs={plan.prefs}
               onStartDaily={(opts) => { setReviewOpts(opts || null); setShowDailyReview(true); }}
@@ -690,7 +694,7 @@ export default function Dashboard({
       <GoalSheet open={openSheet === "goal"} onClose={() => setOpenSheet(null)} dailyGoal={fsrsStats?.dailyGoal || 20} onSelect={handleSetGoal} />
       <StudyPlanSheet
         open={openSheet === "plan"} onClose={() => setOpenSheet(null)}
-        folders={plan.folders} prefs={plan.prefs} goal={fsrsStats?.dailyGoal || 20} focusKey={planFocus}
+        folders={planFolders} prefs={plan.prefs} goal={fsrsStats?.dailyGoal || 20} focusKey={planFocus}
         onSetExam={plan.setExam} onSetGoal={handleGoalStep}
       />
 

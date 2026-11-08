@@ -299,16 +299,27 @@ html[data-theme="dark"] .hm-hero { border-color: rgba(255,200,87,.22); }
 .hm-cta[disabled]::after { display: none; }
 .hm-cta-solo { width: 100%; flex: none; margin-top: 13px; flex-direction: row; gap: 8px; font-size: 14px; }
 /* Heartbeat nudge until the first review of the day — a few beats, then rest */
-.hm-cta.idle { animation: hmBeat 1.6s ease-in-out 4; }
-@keyframes hmBeat {
-  0%, 52%, 100% { transform: scale(1); }
-  12% { transform: scale(1.035); box-shadow: 0 8px 30px rgba(245,166,35,.7), 0 0 0 6px rgba(245,166,35,.2); }
-  24% { transform: scale(1); }
-  36% { transform: scale(1.02); }
+.hm-cta.idle { animation: hmBeat 3.2s ease-in-out infinite; }
+.hm-hero.idle { animation: hmBeatCard 3.2s ease-in-out infinite; }
+.hm-hero.idle .hm-num { display: inline-block; transform-origin: left center; animation: hmBeatNum 3.2s ease-in-out infinite; }
+.hm-hero.idle .hm-ring::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(245,166,35,.8);
+  animation: hmSonar 3.2s ease-out infinite; pointer-events: none;
 }
+@keyframes hmBeat {
+  0%, 38%, 100% { transform: scale(1); box-shadow: 0 8px 22px rgba(245,166,35,.36); }
+  8% { transform: scale(1.035); box-shadow: 0 8px 30px rgba(245,166,35,.7), 0 0 0 6px rgba(245,166,35,.2); }
+  16% { transform: scale(1); }
+  24% { transform: scale(1.02); box-shadow: 0 8px 26px rgba(245,166,35,.55), 0 0 0 4px rgba(245,166,35,.12); }
+}
+@keyframes hmBeatCard { 0%, 38%, 100% { transform: scale(1); } 8% { transform: scale(1.012); } 16% { transform: scale(1); } 24% { transform: scale(1.007); } }
+@keyframes hmBeatNum { 0%, 38%, 100% { transform: scale(1); } 8% { transform: scale(1.05); } 16% { transform: scale(1); } 24% { transform: scale(1.03); } }
+@keyframes hmSonar { 0% { transform: scale(.95); opacity: .9; } 30%, 100% { transform: scale(1.7); opacity: 0; } }
+/* Reduced motion: no movement, but keep a static cue so the card still reads as "not started" */
 @media (prefers-reduced-motion: reduce) {
-  .hm-hero-glow, .hm-tag .hm-dot, .hm-cta::after, .hm-cta.idle, .hm-dbox { animation: none; }
+  .hm-hero-glow, .hm-tag .hm-dot, .hm-cta::after, .hm-cta.idle, .hm-hero.idle, .hm-hero.idle .hm-num, .hm-hero.idle .hm-ring::before, .hm-dbox { animation: none; }
   .hm-seg { transition: none; }
+  .hm-hero.idle { box-shadow: 0 0 0 3px rgba(245,166,35,.55), 0 14px 32px rgba(27,26,23,.26); }
 }
 .hm-hero .hm-cta-ghost2 { color: var(--hm-text); }
 .hm-hero .hm-hero-spark { color: #FFC857; }
