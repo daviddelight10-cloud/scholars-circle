@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../../lib/constants";
+import QuestionMeta from "../streak-survival/QuestionMeta.jsx";
 
 const cacheKey = (rid) => `sc_pdf_deck_${rid}`;
 const starKey = (rid) => `sc_pdf_deck_star_${rid}`;
@@ -55,14 +56,13 @@ function Card({ item, T, starred, onStar, onJump }) {
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.hover, padding: "11px 12px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
         <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".05em", textTransform: "uppercase", color: T.muted }}>{item.source === "chat" ? "From chat" : "Generated"}</span>
-        {q.topic && <span style={{ fontSize: 10, fontWeight: 700, color: T.accent }}>· {q.topic}</span>}
-        {q.difficulty && <span style={{ fontSize: 10, color: T.muted }}>· {q.difficulty}</span>}
         <span style={{ flex: 1 }} />
         {q._srcPage && (
           <button onClick={() => onJump(q._srcPage)} style={{ border: `1px solid ${T.border}`, background: "transparent", color: T.accent, borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>p. {q._srcPage}</button>
         )}
         <button onClick={onStar} aria-label={starred ? "Remove star" : "Star question"} aria-pressed={starred} style={{ border: 0, background: "transparent", cursor: "pointer", fontSize: 17, lineHeight: 1, color: starred ? "#F5A623" : T.muted, padding: 4 }}>{starred ? "★" : "☆"}</button>
       </div>
+      {(q.topic || q.difficulty || q.qtype) && <div style={{ marginBottom: 6 }}><QuestionMeta q={q} /></div>}
       <div role="button" tabIndex={0} onClick={() => setOpen((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } }} style={{ cursor: "pointer" }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.45, marginBottom: 8 }}>{q.question}</div>
         {letters.map((k) => {
@@ -86,6 +86,7 @@ export default function PdfDeckTab({ resourceId, T, deck, onJump }) {
   const { data, items, loading } = deck;
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [topic, setTopic] = useState("");
   const [stars, setStars] = useState(() => new Set(readJson(starKey(resourceId), [])));
 
   const toggleStar = (key) => setStars((prev) => {
@@ -101,16 +102,23 @@ export default function PdfDeckTab({ resourceId, T, deck, onJump }) {
     starred: items.filter((i) => stars.has(i.key)).length,
   }), [items, stars]);
 
+  const topics = useMemo(() => {
+    const m = new Map();
+    items.forEach((i) => { const t = (i.q.topic || "").trim(); if (t) m.set(t.toLowerCase(), t); });
+    return [...m.values()];
+  }, [items]);
+
   const shown = useMemo(() => {
     const s = search.trim().toLowerCase();
     return items.filter((i) => {
+      if (topic && (i.q.topic || "").trim().toLowerCase() !== topic.toLowerCase()) return false;
       if (filter === "chat" && i.source !== "chat") return false;
       if (filter === "generated" && i.source !== "generated") return false;
       if (filter === "starred" && !stars.has(i.key)) return false;
       if (!s) return true;
       return `${i.q.question} ${i.q.topic || ""} ${Object.values(i.q.options || {}).join(" ")}`.toLowerCase().includes(s);
     });
-  }, [items, filter, search, stars]);
+  }, [items, filter, search, stars, topic]);
 
   const startToken = filter === "generated" ? data?.generated?.shareToken : (filter === "chat" ? data?.shareToken : (data?.shareToken || data?.generated?.shareToken));
   const chip = (id, label, n) => (
@@ -139,6 +147,13 @@ export default function PdfDeckTab({ resourceId, T, deck, onJump }) {
         {counts.generated > 0 && chip("generated", "Generated", counts.generated)}
         {counts.starred > 0 && chip("starred", "★ Starred", counts.starred)}
       </div>
+      {topics.length >= 2 && (
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+          {topics.map((t) => (
+            <button key={t} onClick={() => setTopic(topic === t ? "" : t)} aria-pressed={topic === t} style={{ flex: "none", border: `1px solid ${topic === t ? T.accent : T.border}`, background: topic === t ? T.accent : "transparent", color: topic === t ? "#fff" : T.muted, borderRadius: 999, padding: "5px 11px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>{t}</button>
+          ))}
+        </div>
+      )}
       {items.length > 8 && (
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search questions or topics" aria-label="Search saved questions" style={{ height: 38, padding: "0 12px", borderRadius: 10, border: `1px solid ${T.border}`, background: T.inputBg, color: T.text, fontSize: 13 }} />
       )}

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { callAI } from '../../lib/aiClient.js';
-import { deriveRating, rateQuestion, masteryDots } from './fsrsBridge.js';
+import { deriveRating, rateQuestion, masteryDots, readingBudgetMs, isVignette } from './fsrsBridge.js';
+import QuestionMeta from './QuestionMeta.jsx';
 import { HINT_GEMS, trySpendGems } from './survivalStore.js';
 import './streakSurvival.css';
 
@@ -48,6 +49,7 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
       revealed: rev,
       hintUsed,
       elapsedMs: Date.now() - startRef.current,
+      budgetMs: readingBudgetMs(question),
     });
     // Optimistic: report the grade immediately so callers can count/advance
     // without waiting on the network; refine the note when the server responds.
@@ -111,7 +113,7 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
       <div className="qcard q-enter" style={{ padding: 20 }}>
         {badge && <span className="review-tag">{badge}</span>}
         <div className="qcard-head">
-          <span className="difficulty-tag">Review</span>
+          <span className="qhead-l"><span className="difficulty-tag">Review</span><QuestionMeta q={question} /></span>
           <span className="mastery-ring">
             {ring.due && <span className="due-flag">⏰</span>}
             {ring.mastered ? '🌟' : (
@@ -124,7 +126,7 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
           </span>
         </div>
 
-        <div className="qtext">{question.q}</div>
+        <div className={`qtext${isVignette(question) ? ' vignette' : ''}${question.q.length > 450 ? ' xl' : question.q.length > 220 ? ' lg' : ''}`}>{question.q}</div>
 
         {hintUsed && (
           <div className="hint-box show">💡 {question.hint || 'One wrong option eliminated.'}</div>

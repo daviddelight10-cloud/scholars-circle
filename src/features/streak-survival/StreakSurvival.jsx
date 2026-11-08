@@ -18,7 +18,9 @@ import {
   deriveRating, normalizeBank, normalizeQuestion,
   initFsrs, fetchCardStates, rateQuestion,
   pickPracticeIndex, pickSurvivalIndex, masteryDots, buildForecast,
+  buildSession, readingBudgetMs, isVignette, tallyTopics,
 } from './fsrsBridge.js';
+import QuestionMeta from './QuestionMeta.jsx';
 import { sound, setSoundEnabled } from './survivalAudio.js';
 import { haptics } from '../../lib/haptics';
 import useConfetti from './useConfetti.js';
@@ -52,7 +54,7 @@ function greeting() {
 
 // Survival runs are finite sections of SECTION_SIZE questions (Duolingo-style:
 // a bounded session ends on completion, not on an endless recycle).
-const SECTION_SIZE = 15;
+const SECTION_SIZE = 12; // fallback only — real size comes from buildSession()
 
 function verdictFor(best, mode) {
   if (mode === 'practice') return 'Practice complete';
@@ -235,7 +237,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   const [current, setCurrent] = useState(null); // {q, idx}
   const [history, setHistory] = useState([]); // answered cards this run — powers "view previous"
   const [pastIdx, setPastIdx] = useState(null); // null = live question; n = viewing history[n]
-  const [sectionTarget, setSectionTarget] = useState(Math.min(SECTION_SIZE, bank.length)); // questions this survival section
+  const [sectionTarget, setSectionTarget] = useState(isDaily ? bank.length : Math.min(SECTION_SIZE, bank.length)); // questions in this session
+  const sessionSetRef = useRef(null); // Set of bank indices chosen for this auto session (null = unrestricted)
+  const scopeRef = useRef(null); // { topics: [...] } | null — topic scope carried across "Next session"
+  const visitUsedRef = useRef(new Set()); // indices served across sessions in this visit (for Next session)
+  const runResultsRef = useRef([]); // game-phase answers only: { q, ok } — powers topic results
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const usedRef = useRef(new Set()); // bank indices already served this run
   const lastIdxRef = useRef(-1);
   const answersRef = useRef({}); // rawIndex -> picked letter (for weakspots)
@@ -308,7 +316,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   const scope = isDaily ? 'global' : String(resource?.id || 'default');
   const best = save.bestByScope?.[scope] || 0;
   const tier = streak >= 6 ? 'hard' : streak >= 3 ? 'medium' : 'easy';
-  const tierColor = tier === 'hard' ? '#FF5E7E' : tier === 'medium' ? '#FFB627' : '#00E5FF';
   const lvl = levelFromXP(save.xp);
 
   // ── Init ──
@@ -542,7 +549,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
       return;
     }
     if (mode === 'practice') {
-      serveIdx(pickPracticeIndex(bank, keyedStatesForBank(), lastIdxRef.current), mode);
+      // Auto session: a finite set chosen by buildSession() (due first).
+      if (qNum >= sectionTarget) { endRun(mode); return; }
+      const sess = sessionSetRef.current;
+      const left = sess ? new Set([...sess].filter((i) => !usedRef.current.has(i))) : null;
+      if (left && left.size === 0) { endRun(mode); return; }
+      serveIdx(pickPracticeIndex(bank, keyedStatesForBank(), lastIdxRef.current, left), mode);
       return;
     }
     // Survival: finite section — the run is won by clearing SECTION_SIZE
@@ -555,7 +567,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
       endRun(mode);
       return;
     }
-    const avail = bank.map((_, i) => i).filter((i) => !usedRef.current.has(i));
+    const sess = sessionSetRef.current;
+    const avail = bank.map((_, i) => i).filter((i) => !usedRef.current.has(i) && (!sess || sess.has(i)));
+    if (avail.length === 0) { deckClearedRef.current = true; endRun(mode); return; }
     const states = keyedStatesForBank();
     let allowed = new Set(avail);
     if (qNum === sectionTarget - 1) {
@@ -581,6 +595,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   function applyRating(q, correct, rev, skipRate = false) {
     const grade = deriveRating({
       correct, revealed: rev, hintUsed, via: qMode, elapsedMs: Date.now() - qStartRef.current,
+      budgetMs: readingBudgetMs(q),
     });
     if (skipRate) return grade;
     setFsrsNote({ grade, intervalLabel: null });
@@ -619,12 +634,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   function loseLife() {
     // A held shield absorbs the heart loss (streak still resets).
     if (save.shields > 0) {
+      lossKindRef.current = 'shield';
       editSave((s) => { s.shields -= 1; });
       toast('🛡 Shield absorbed the hit', '#00E5FF');
       sound.milestone();
       haptics.medium();
       return;
     }
+    lossKindRef.current = 'heart';
     const nl = lives - 1;
     setLives(nl);
     sound.heart();
@@ -683,6 +700,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   function resolveAnswer(q, { isCorrect, pickedIdx = null, optEl = null, via = 'mcq' } = {}) {
     const elapsed = Date.now() - qStartRef.current;
     timesRef.current.push(elapsed);
+    runResultsRef.current.push({ q, ok: isCorrect });
     setAnswered((n) => n + 1);
     qe('answered', 1);
     editSave((s) => { s.stats.answered += 1; });
@@ -726,8 +744,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
 
       // Speed bonus — only on timed cards (learning/review) beaten inside the window
       const wasTimed = runMode === 'survival' && [1, 2].includes(cardStates[q._key]?.state);
-      if (wasTimed && elapsed <= SPEED_WINDOW) {
-        grantXp(elapsed <= 3000 ? 5 : 2, elapsed <= 3000 ? '⚡⚡ lightning' : '⚡ fast', optEl);
+      const budget = readingBudgetMs(q);
+      if (wasTimed && elapsed <= budget) {
+        const lightning = elapsed <= budget * (3000 / SPEED_WINDOW);
+        grantXp(lightning ? 5 : 2, lightning ? '⚡⚡ lightning' : '⚡ fast', optEl);
       }
 
       sound.correct();
@@ -819,6 +839,37 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     toast('⏱ Out of time!', '#FF5E7E');
     if (screen === 'review') resolveReviewAnswer(q, { isCorrect: false });
     else { applyRating(q, false, false); resolveAnswer(q, { isCorrect: false }); }
+  }
+
+  // Typed free recall can't know synonyms ("MI" vs "myocardial infarction") —
+  // let the student overrule a typed miss: counts as correct, restores the
+  // lost heart/shield, and re-rates the card Good instead of Again.
+  const lossKindRef = useRef(null);
+  function markTypedCorrect() {
+    if (screen !== 'game' || !locked || !current) return;
+    const last = history[history.length - 1];
+    if (!last || last.via !== 'type' || last.ok || last.marked) return;
+    const q = current.q;
+    setHistory((h) => h.map((e, i) => (i === h.length - 1 ? { ...e, ok: true, marked: true } : e)));
+    const ri = runResultsRef.current.length - 1;
+    if (ri >= 0) runResultsRef.current[ri] = { ...runResultsRef.current[ri], ok: true };
+    reviewMissedRef.current = reviewMissedRef.current.filter((m) => m._key !== q._key);
+    setCorrectN((n) => n + 1);
+    setStreak(1);
+    if (runMode === 'survival') {
+      if (lossKindRef.current === 'shield') editSave((s) => { s.shields += 1; });
+      else if (lossKindRef.current === 'heart') setLives((l) => Math.min(MAX_LIVES, l + 1));
+      lossKindRef.current = null;
+    }
+    sound.correct();
+    haptics.success();
+    toast('Marked correct', '#4ADE80');
+    setFsrsNote({ grade: 3, intervalLabel: null });
+    rateQuestion({
+      resourceId: q._resourceId ?? resource?.id, pageIndex: q._pageIndex, grade: 3,
+      topic: q._topic || resource?.title, subject: q._subject || resource?.subject,
+      itemType: cardStates[q._key]?.itemType || q._itemType || 'mcq',
+    }).then((data) => { if (data) setFsrsNote({ grade: 3, intervalLabel: data.intervalLabel }); });
   }
 
   const speedy3Ref = useRef(false);
@@ -967,8 +1018,24 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   }
 
   // ── Run lifecycle ──
-  function startRun(mode) {
+  // scope: { topics: [...] } restricts the session to those topics.
+  // opts.next: build a fresh session that skips questions already served in this visit.
+  function startRun(mode, scope = scopeRef.current, opts = {}) {
     sound.click();
+    scopeRef.current = scope || null;
+    if (isDaily) {
+      sessionSetRef.current = null;
+    } else {
+      const states = {};
+      bank.forEach((q) => { if (cardStates[q._key]) states[q._key] = cardStates[q._key]; });
+      let sess = buildSession(bank, states, { topics: scope?.topics || null, exclude: opts.next ? visitUsedRef.current : null });
+      if (opts.next && sess.indices.length === 0) {
+        visitUsedRef.current = new Set();
+        sess = buildSession(bank, states, { topics: scope?.topics || null });
+      }
+      sess.indices.forEach((i) => visitUsedRef.current.add(i));
+      sessionSetRef.current = new Set(sess.indices);
+    }
     // Free-tier heart cooldown — blocks new sessions, premium bypasses
     const cd = survivalCooldownRemaining();
     if (cd > 0) {
@@ -992,7 +1059,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     setStreakCelebration(null); streakCelebrateRef.current = null;
     setHistory([]); setPastIdx(null);
     deckClearedRef.current = false;
-    setSectionTarget(Math.min(SECTION_SIZE, bank.length));
+    runResultsRef.current = [];
+    setMenuOpen(false);
+    setDetailsOpen(false);
+    setSectionTarget(isDaily ? bank.length : (sessionSetRef.current?.size || Math.min(SECTION_SIZE, bank.length)));
     timesRef.current = [];
     setQuitTarget(null);
     usedRef.current = new Set();
@@ -1073,7 +1143,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     if (allMastered) { fire(120); sound.chest(); haptics.success(); }
     const times = timesRef.current;
     const avgSec = times.length ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) / 100) / 10 : 0;
+    const topics = tallyTopics(runResultsRef.current);
     setEndInfo({
+      topics, weakTopics: topics.filter((t) => t.total >= 2 && t.pct < 70).slice(0, 3),
       best: runBest, answered, correct: correctN, acc, avgSec,
       xp: sessionXp + clearBonus, gems: sessionGems, cleared: clearedN,
       missed: missedTotal || reviewMissedRef.current.length,
@@ -1339,7 +1411,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     // No clock before the answer surface exists (recall-first veil) and never
     // on typing/self-grade — timing what can't be answered yet is unfair.
     if (!optsShown || qMode === 'type' || qMode === 'card') return;
-    const t = setTimeout(() => boltOutRef.current?.(), SPEED_WINDOW);
+    const t = setTimeout(() => boltOutRef.current?.(), readingBudgetMs(current.q));
     return () => clearTimeout(t);
   }, [current, locked, screen, prefs.speedRound, optsShown, qMode]);
 
@@ -1362,6 +1434,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   const shownTyped = shownEntry?.typed;
   const shownOk = shownEntry?.ok;
   const shownRing = shownQ ? masteryDots(cardStates[shownQ._key]) : ring;
+  const inRun = screen === 'game' || screen === 'review';
   const quests = activeQuests();
   const goalPct = stats?.dailyGoal ? Math.min(100, ((stats.reviewedToday || 0) / stats.dailyGoal) * 100) : 0;
 
@@ -1410,7 +1483,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
           <div className="hud-left">
             {runMode === 'survival' && (screen === 'game' || screen === 'review') ? (
               <>
-                <div className="lives">
+                <div className="lives" role="img" aria-label={`${Math.max(0, lives)} of ${MAX_LIVES} hearts left`}>
                   {[0, 1, 2].map((i) => <span key={i} className={`heart${i >= lives ? ' lost' : ''}`} />)}
                 </div>
                 {(save.shields || 0) > 0 && (
@@ -1429,13 +1502,33 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
             )}
           </div>
           <div className="hud-right">
-            <span className="hud-stat" ref={gemStatRef}><span className="hud-ico">💎</span>{save.gems}</span>
-            <span className="hud-stat" ref={xpStatRef}><span className="hud-ico">⚡</span>{save.xp}</span>
-            <button className="hud-btn" onClick={() => setModal('setup')} title="Session setup">⚙</button>
-            <button className="hud-btn" onClick={openLeague} title="League">🏆</button>
-            <button className="hud-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
-            {screen === 'home' && (
-              <button className="hud-btn" onClick={() => requestQuit('exit')} title="Exit">✕</button>
+            {/* Gem/XP stats stay mounted (off-screen while running) so the
+                fly-to-HUD particles still have a target. */}
+            <span className="hud-stat" ref={gemStatRef} style={inRun ? { position: 'absolute', opacity: 0, pointerEvents: 'none' } : undefined}><span className="hud-ico">💎</span>{save.gems}</span>
+            <span className="hud-stat" ref={xpStatRef} style={inRun ? { position: 'absolute', opacity: 0, pointerEvents: 'none' } : undefined}><span className="hud-ico">⚡</span>{save.xp}</span>
+            {inRun ? (
+              <div className="hud-menu-wrap">
+                <button className="hud-btn hud-more" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu" aria-haspopup="menu" aria-expanded={menuOpen}>⋯</button>
+                {menuOpen && (
+                  <>
+                    <div className="hud-menu-back" onClick={() => setMenuOpen(false)} />
+                    <div className="hud-menu" role="menu">
+                      <button role="menuitem" onClick={() => { toggleSound(); setMenuOpen(false); }}>{save.soundOn ? '🔊 Sound on' : '🔇 Sound off'}</button>
+                      <button role="menuitem" onClick={() => { setModal('setup'); setMenuOpen(false); }}>⚙ Answer style</button>
+                      <button role="menuitem" className="danger" onClick={() => { setMenuOpen(false); requestQuit('home'); }}>✕ End run</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <>
+                <button className="hud-btn" onClick={() => setModal('setup')} title="Session setup" aria-label="Session setup">⚙</button>
+                <button className="hud-btn" onClick={openLeague} title="League" aria-label="League">🏆</button>
+                <button className="hud-btn" onClick={toggleSound} title="Sound" aria-label="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
+                {screen === 'home' && (
+                  <button className="hud-btn" onClick={() => requestQuit('exit')} title="Exit" aria-label="Exit">✕</button>
+                )}
+              </>
             )}
           </div>
         </header>
@@ -1488,7 +1581,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                   <span className="mc-ico">🔥</span>
                   <span className="mc-mid">
                     <span className="mc-title">Survival Run</span>
-                    <span className="mc-desc">3 lives · {Math.min(SECTION_SIZE, bank.length)} questions · clear the section</span>
+                    <span className="mc-desc">3 lives · an auto-sized session, due cards first</span>
                   </span>
                   <span className="mc-arrow">›</span>
                 </button>
@@ -1540,7 +1633,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
             states={cardStates}
             canStart={cooldownMs <= 0}
             cooldownNote={cooldownMs > 0 ? `💔 Hearts recharging — ${Math.floor(cooldownMs / 60000)}:${String(Math.floor((cooldownMs % 60000) / 1000)).padStart(2, '0')} until you can play` : null}
-            onStartRecall={() => startRun('survival')}
+            showModes
+            mode={prefs.runMode === 'practice' ? 'practice' : 'survival'}
+            onMode={(m) => setPref('runMode', m)}
+            onStartRecall={({ mode: m, topics } = {}) => startRun(m || 'survival', topics?.length ? { topics } : null)}
             liveResourceId={resource?.id && isAuthed() ? resource.id : null}
             onBack={onBack}
           />
@@ -1549,28 +1645,19 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
         {/* ═══ GAME / REVIEW ═══ */}
         {(screen === 'game' || screen === 'review') && current && (
           <div className={screen === 'review' ? 'review-screen' : 'game-screen'}>
-            <div className="run-stats">
-              {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
-                <span className="deck-progress">{Math.min(qNum, sectionTarget)}/{sectionTarget}</span>
-              )}
-              <button className="quit-btn" onClick={() => requestQuit('home')}>quit</button>
-            </div>
-
-            {/* Per-question segmented progress (survival sections) — the gold
-                tick marks the personal best for this scope. */}
-            {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
-              <div className="progress">
-                {Array.from({ length: sectionTarget }, (_, i) => (
-                  <span
-                    key={i}
-                    className={`seg${i < answered ? ' done' : ''}${i === answered - 1 ? ' pop' : ''}`}
-                  />
-                ))}
-                {best > 0 && (
-                  <span className="pb-tick" style={{ left: `${(Math.min(best, sectionTarget) / sectionTarget) * 100}%` }}>
-                    <span className="pb-tick-lbl">PB {best}</span>
-                  </span>
-                )}
+            {/* Continuous progress for any session size; the tick marks the
+                personal best streak (survival only). */}
+            {screen === 'game' && sectionTarget > 0 && (
+              <div className="prog2-wrap">
+                <div className="prog2" role="progressbar" aria-label="Session progress" aria-valuemin={0} aria-valuemax={sectionTarget} aria-valuenow={Math.min(answered, sectionTarget)}>
+                  <i style={{ width: `${Math.min(100, (answered / sectionTarget) * 100)}%` }} />
+                  {runMode === 'survival' && best > 0 && best < sectionTarget && (
+                    <span className="pb-tick" style={{ left: `${(best / sectionTarget) * 100}%` }}>
+                      <span className="pb-tick-lbl">PB {best}</span>
+                    </span>
+                  )}
+                </div>
+                <span className="prog2-n">{Math.min(qNum, sectionTarget)} / {sectionTarget}</span>
               </div>
             )}
 
@@ -1578,10 +1665,16 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
               <div className="review-head">
                 <span className="review-title">Clear your misses</span>
                 <span className="review-count">{reviewQueue.length} left · {clearedN} cleared</span>
+                <button type="button" className="review-skip" onClick={() => finishToEnd()}>Skip for now</button>
               </div>
             )}
 
-            <div className={`qcard ${flash} ${cardAnim}`}>
+            <div className="sr-only" aria-live="polite" role="status">
+              {!pastEntry && locked && liveEntry
+                ? (liveEntry.ok ? 'Correct.' : `Incorrect. The answer is ${String.fromCharCode(65 + shownQ.a)}: ${shownQ.opts[shownQ.a]}.`)
+                : ''}
+            </div>
+            <div className={`qcard ${flash} ${cardAnim}${shownQ && isVignette(shownQ) ? ' tall' : ''}`}>
               {pastEntry && <span className="review-tag">↩ question {pastIdx + 1} of {history.length}</span>}
               {!pastEntry && screen === 'review' && <span className="review-tag">missed — try again</span>}
               {!pastEntry && reviewBadge && (
@@ -1590,7 +1683,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                 </span>
               )}
               <div className="qcard-head">
-                <span className="difficulty-tag" style={{ color: tierColor }}>{pastEntry ? 'earlier' : runMode === 'survival' ? tier : 'practice'}</span>
+                <span className="qhead-l">
+                  {pastEntry && <span className="qhead-tag">earlier</span>}
+                  <QuestionMeta q={shownQ} />
+                </span>
                 <span className="mastery-ring">
                   {shownRing.due && <span className="due-flag">⏰</span>}
                   {shownRing.mastered ? '🌟' : [0, 1, 2].map((d) => <span key={d} className={`mrdot${shownRing.dots > d ? ' on' : ''}`} />)}
@@ -1608,7 +1704,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                 </button>
               )}
 
-              <div className="qtext">{shownQ.q}</div>
+              <div className={`qtext${isVignette(shownQ) ? ' vignette' : ''}${shownQ.q.length > 450 ? ' xl' : shownQ.q.length > 220 ? ' lg' : ''}`}>{shownQ.q}</div>
 
               {/* Speed timer — only once the answer surface is visible: never
                   behind the recall-first veil, and never on typing/flip cards
@@ -1622,7 +1718,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                 && (prefs.speedRound
                   || (runMode === 'survival' && screen === 'game'
                     && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state))) && (
-                <div className="timer-track" key={`${qNum}-${current.idx}`}>
+                <div className="timer-track" key={`${qNum}-${current.idx}`} style={{ '--budget': `${readingBudgetMs(current.q)}ms` }}>
                   <div className="timer-fill" />
                 </div>
               )}
@@ -1643,6 +1739,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                   <div className={`type-result${shownOk ? ' ok' : ' no'}`}>
                     {shownTyped && <span className="tr-you">you typed: {shownTyped}</span>}
                     <span className="tr-ans">{shownQ.opts[shownQ.a]}</span>
+                    {!pastEntry && screen === 'game' && !shownOk && shownEntry?.via === 'type' && (lives > 0 || runMode !== 'survival') && (
+                      <button type="button" className="mark-ok" onClick={markTypedCorrect}>I was right — mark correct</button>
+                    )}
+                    {shownEntry?.marked && <span className="mark-done">✓ marked correct</span>}
                   </div>
                 ) : (
                   <form className="type-form" onSubmit={submitTyped}>
@@ -1669,7 +1769,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                   👀 Recall it first — tap to show choices
                 </button>
               ) : (
-              <div className="options">
+              <div className="options" role="radiogroup" aria-label="Answer choices">
                 {shownQ.opts.map((opt, i) => {
                   let cls = 'opt';
                   if (!pastEntry && eliminated.has(i)) cls += ' eliminated';
@@ -1682,9 +1782,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                   }
                   return (
                     <button key={`${pastEntry ? `p${pastIdx}` : current.idx}-${i}`} className={cls} style={{ '--i': i }}
+                      role="radio" aria-checked={isPicked}
                       disabled={shownLocked || (!pastEntry && eliminated.has(i))}
                       onClick={() => (screen === 'review' ? handleReviewPick(i) : handlePick(i))}>
-                      <span className="ltr">{i + 1}</span>
+                      <span className="ltr" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
                       <span className="opt-text">{opt}</span>
                       <span className="mark">
                         {shownLocked && isAns && (
@@ -1808,19 +1909,22 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
             ) : endInfo.deckCleared && (
               <div className="end-cleared-note">All {sectionTarget} questions survived · +{endInfo.clearBonus} XP bonus — come back when cards are due, spacing makes it stick.</div>
             )}
-            <div className="run-chips">
-              <span className="run-chip blue">+<CountUp value={endInfo.xp} /> XP</span>
-              <span className="run-chip gold">+<CountUp value={endInfo.gems} delay={100} /> 💎</span>
-              <span className="run-chip"><CountUp value={endInfo.acc} delay={200} suf="%" /> acc</span>
-              {endInfo.avgSec > 0 && <span className="run-chip">⏱ <CountUp value={endInfo.avgSec} dec={1} suf="s" delay={300} /> avg</span>}
-              {!endInfo.allMastered && endInfo.masteredTotal > 0 && (
-                <span className="run-chip green">🎓 {endInfo.masteredCount}/{endInfo.masteredTotal} mastered</span>
-              )}
-              {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
-              {endInfo.revives > 0 && <span className="run-chip revive-chip">❤️‍🩹 {endInfo.revives} revive{endInfo.revives > 1 ? 's' : ''}</span>}
-              <span className="run-chip gold">best: {Math.max(best, endInfo.best)}</span>
-              {endInfo.newBest && <span className="new-best-pill show">NEW BEST!</span>}
-            </div>
+            <div className="end-line">{endInfo.correct} of {endInfo.answered} correct · {endInfo.acc}%{endInfo.newBest ? ' · New best streak!' : ''}</div>
+
+            {endInfo.topics?.length >= 2 && (
+              <div className="end-topics" aria-label="Results by topic">
+                <div className="end-topics-h">By topic</div>
+                {endInfo.topics.slice(0, 6).map((t, i) => (
+                  <div key={t.key} className={`end-topic${i === 0 && t.pct < 70 ? ' weak' : ''}`}>
+                    <span className="et-n">{t.topic}</span>
+                    <span className="et-bar" aria-hidden="true"><i style={{ width: `${t.pct}%` }} /></span>
+                    <span className="et-v">{t.correct}/{t.total}</span>
+                  </div>
+                ))}
+                {endInfo.weakTopics?.length > 0 && <div className="end-topics-note">Weakest: <b>{endInfo.weakTopics[0].topic}</b></div>}
+              </div>
+            )}
+
             {stats?.dailyGoal != null && (
               <div className={`goal-nudge show ${(stats.reviewedToday || 0) >= stats.dailyGoal ? 'done' : (stats.dailyGoal - (stats.reviewedToday || 0)) <= 3 ? 'close' : 'far'}`}>
                 {(stats.reviewedToday || 0) >= stats.dailyGoal
@@ -1828,11 +1932,15 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                   : `🎯 ${stats.dailyGoal - (stats.reviewedToday || 0)} more to hit your daily goal`}
               </div>
             )}
-            <div className="end-quote show">“{endInfo.quote.t}”<span className="q-author">— {endInfo.quote.a}</span></div>
-            {questsCard({ marginTop: 14, textAlign: 'left' })}
-            <button className="primary" onClick={() => startRun(runMode)}>
-              {endInfo.allMastered ? (runMode === 'survival' ? 'Run it back' : 'Practice again') : 'Continue practice'}
+
+            <button className="primary" onClick={() => startRun(runMode, scopeRef.current, { next: !isDaily })}>
+              {endInfo.allMastered ? (runMode === 'survival' ? 'Run it back' : 'Practice again') : isDaily ? 'Continue practice' : 'Next session'}
             </button>
+            {endInfo.weakTopics?.length > 0 && !isDaily && (
+              <button className="end-weak" onClick={() => startRun(runMode, { topics: endInfo.weakTopics.map((t) => t.topic) })}>
+                Practise weak topics ({endInfo.weakTopics.reduce((s, t) => s + t.total, 0)})
+              </button>
+            )}
             <div className="secondary-row">
               {deckEntry && !snapshot ? (
                 <button onClick={() => setScreen('deck')}>Back to deck</button>
@@ -1840,6 +1948,26 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                 <button onClick={onBack}>{isDaily ? 'Done' : 'Exit'}</button>
               )}
             </div>
+
+            <button className="end-more" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((v) => !v)}>
+              {detailsOpen ? 'Hide' : 'Show'} rewards and details
+            </button>
+            {detailsOpen && (
+              <>
+                <div className="run-chips">
+                  <span className="run-chip blue">+<CountUp value={endInfo.xp} /> XP</span>
+                  <span className="run-chip gold">+<CountUp value={endInfo.gems} delay={100} /> 💎</span>
+                  {endInfo.avgSec > 0 && <span className="run-chip">⏱ <CountUp value={endInfo.avgSec} dec={1} suf="s" delay={300} /> avg</span>}
+                  {!endInfo.allMastered && endInfo.masteredTotal > 0 && (
+                    <span className="run-chip green">🎓 {endInfo.masteredCount}/{endInfo.masteredTotal} mastered</span>
+                  )}
+                  {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
+                  {endInfo.revives > 0 && <span className="run-chip revive-chip">❤️‍🩹 {endInfo.revives} revive{endInfo.revives > 1 ? 's' : ''}</span>}
+                  <span className="run-chip gold">best: {Math.max(best, endInfo.best)}</span>
+                </div>
+                {questsCard({ marginTop: 14, textAlign: 'left' })}
+              </>
+            )}
           </div>
         )}
       </div>
