@@ -1266,3 +1266,15 @@ html[data-theme="light"] .hm-sess:hover { background: rgba(26,24,20,.06); }
 html[data-theme="light"] .hm-sess-c { color: #8A5A00; }
 html[data-theme="light"] .hm-cust { background: rgba(26,24,20,.03); border-color: rgba(26,24,20,.1); }
 html[data-theme="light"] .hm-goalmsg { color: #1F8F5F; }
+
+/* Compact exam line + "custom selection active" dot */
+.hm-hero .hm-exam { margin-top: 10px; padding: 6px 12px; min-height: 44px; gap: 9px; }
+.hm-hero .hm-exam > svg { width: 18px; height: 18px; }
+.hm-hero .hm-exam-t b { font-size: 12.5px; }
+.hm-hero .hm-exam-t span { margin-top: 0; font-size: 11.5px; }
+.hm-hero .hm-exam-r { width: auto; min-width: 54px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 0 3px; }
+.hm-hero .hm-exam-r b { display: inline; font-size: 14px; }
+.hm-hero .hm-exam-r small { display: inline; }
+.hm-hero .hm-exam-r i { flex-basis: 100%; margin-top: 3px; }
+.hm-sess-dot { width: 7px; height: 7px; border-radius: 50%; background: #F5A623; box-shadow: 0 0 0 3px rgba(245,166,35,.22); flex: none; }
+html[data-theme="light"] .hm-sess-dot { background: #B4530E; box-shadow: 0 0 0 3px rgba(180,83,14,.18); }

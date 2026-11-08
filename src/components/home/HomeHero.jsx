@@ -226,7 +226,10 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
 
       <button className="hm-sess" aria-expanded={custOpen} onClick={() => setCustOpen((o) => !o)}>
         <span className="hm-sess-t"><b>{sessScope}</b>{n > 0 ? ` · ${n} card${n === 1 ? "" : "s"}` : ""}</span>
-        <span className="hm-sess-c">Customise <Chevron /></span>
+        <span className="hm-sess-c">
+          {(picks || !!folder) && <i className="hm-sess-dot" aria-label="Custom selection active" />}
+          Customise <Chevron />
+        </span>
       </button>
 
       {custOpen && (
