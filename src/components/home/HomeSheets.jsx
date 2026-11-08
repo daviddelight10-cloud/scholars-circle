@@ -5,6 +5,7 @@ import { lapsedSubjects } from "../../lib/homeUtils.js";
 import { levelProgress } from "../../features/streak-survival/survivalStore.js";
 import { localDayKey } from "../../lib/dayKey.js";
 import AvatarMark from "../AvatarMark.jsx";
+import { examKeyOf, daysUntil, needPerDay, todayIso } from "../../hooks/useReviewPlan.js";
 
 const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 const FREEZE_CAP = 3; // server cap — keeps the streak meaningful
@@ -339,6 +340,73 @@ export function GoalSheet({ open, onClose, dailyGoal, onSelect }) {
         </button>
       ))}
       <p className="hm-goal-note">Your goal caps how many due items appear in each daily review session.</p>
+    </Sheet>
+  );
+}
+
+/* ── Study plan: exam dates per folder + daily goal ── */
+const up5 = (n) => Math.min(100, Math.ceil(n / 5) * 5);
+
+export function StudyPlanSheet({ open, onClose, folders, prefs, goal, focusKey, onSetExam, onSetGoal }) {
+  const [err, setErr] = useState(null);
+  const list = folders || [];
+  const focus = list.find((f) => examKeyOf(f) === focusKey) || null;
+  const focusIso = focus ? prefs?.[examKeyOf(focus)] : null;
+  const focusDays = focusIso ? daysUntil(focusIso) : null;
+  const need = focus && focusDays != null && focusDays >= 0 ? needPerDay(focus, focusDays) : null;
+
+  const changeDate = async (f, value) => {
+    setErr(null);
+    const ok = await onSetExam(examKeyOf(f), value || null);
+    if (!ok) setErr("Couldn't save that date — check your connection.");
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <SheetHead title="Study plan" onClose={onClose} />
+      <p className="hm-sh-sub">Set exam dates and a daily goal. Your reviews are paced around the nearest exam.</p>
+
+      <h5 className="hm-plan-h">EXAM DATES</h5>
+      {list.length === 0 && <p className="hm-sh-sub">Add study materials first — each folder can then have its own exam date.</p>}
+      {list.map((f) => {
+        const iso = prefs?.[examKeyOf(f)] || "";
+        const d = iso ? daysUntil(iso) : null;
+        const sub = d == null ? "No date set" : d < 0 ? "Date passed" : d === 0 ? "Today" : `${d} day${d === 1 ? "" : "s"} to go`;
+        return (
+          <div className="hm-plan-row" key={f.key}>
+            <label htmlFor={`ex-${f.key}`}>
+              <b>{f.folderName}</b>
+              <small className={d != null && d >= 0 && d <= 7 ? "soon" : ""}>{sub}</small>
+            </label>
+            <input
+              id={`ex-${f.key}`}
+              type="date"
+              className="hm-plan-date"
+              value={iso}
+              min={todayIso()}
+              onChange={(e) => changeDate(f, e.target.value)}
+            />
+            {iso && <button className="hm-plan-clear" aria-label={`Clear ${f.folderName} exam date`} onClick={() => changeDate(f, "")}>×</button>}
+          </div>
+        );
+      })}
+      {err && <p className="hm-plan-err" role="alert">{err}</p>}
+
+      <h5 className="hm-plan-h">DAILY GOAL</h5>
+      <div className="hm-plan-goal">
+        <button aria-label="Lower goal" disabled={goal <= 5} onClick={() => onSetGoal(Math.max(5, goal - 5))}>−</button>
+        <div className="hm-plan-gv">{goal}<small>reviews a day · about {Math.max(1, Math.round(goal * 20 / 60))} min</small></div>
+        <button aria-label="Raise goal" disabled={goal >= 100} onClick={() => onSetGoal(Math.min(100, goal + 5))}>+</button>
+      </div>
+      <p className="hm-plan-hint">
+        {need != null ? (
+          <>
+            For {focus.folderName} you need about <b>{need} a day</b> (cards due plus cards still learning).
+            {need > goal ? <button onClick={() => onSetGoal(up5(need))}>Use {up5(need)}/day</button> : " Your goal covers it."}
+          </>
+        ) : "Add an exam date to get a suggested daily pace."}
+      </p>
+      <button className="hm-plan-done" onClick={onClose}>Done</button>
     </Sheet>
   );
 }

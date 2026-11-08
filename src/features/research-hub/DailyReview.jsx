@@ -23,7 +23,7 @@ const GRADE_LABELS = {
 
 const STATE_LABELS = { 0: "🆕 New", 1: "📖 Learning", 2: "🔄 Review", 3: "🔁 Relearning" };
 
-export default function DailyReview({ onBack, onComplete }) {
+export default function DailyReview({ onBack, onComplete, initialFolder = null, size = null }) {
   // Device/browser back exits the session instead of leaving the app.
   useOverlayBackClose(onBack, { open: !!onBack });
 
@@ -44,7 +44,7 @@ export default function DailyReview({ onBack, onComplete }) {
   const [clearedCount, setClearedCount] = useState(0);
 
   // Folder selection
-  const [selectedFolder, setSelectedFolder] = useState(null); // null = show folder picker
+  const [selectedFolder, setSelectedFolder] = useState(initialFolder); // null = show folder picker
   const [byFolder, setByFolder] = useState({});
   const [allItems, setAllItems] = useState([]);
 
@@ -54,7 +54,10 @@ export default function DailyReview({ onBack, onComplete }) {
   const fetchDue = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/due?limit=50`, { headers: getAuthHeaders() });
+      const qs = new URLSearchParams({ limit: "50" });
+      if (size) qs.set("size", String(size));
+      if (initialFolder && initialFolder !== "__all__") qs.set("folder", initialFolder);
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/due?${qs}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setAllItems((data.items || []).filter(i => i.itemType !== "flashcard"));
@@ -72,9 +75,12 @@ export default function DailyReview({ onBack, onComplete }) {
       setError("Network error loading review items");
     }
     setLoading(false);
-  }, []);
+  }, [size, initialFolder]);
 
   useEffect(() => { fetchDue(); }, [fetchDue]);
+
+  // Session length: Home passes an explicit size; otherwise the daily goal.
+  const sessionCap = size || dailyGoal || 20;
 
   // When a folder is selected, set items and session stats
   useEffect(() => {
@@ -89,8 +95,8 @@ export default function DailyReview({ onBack, onComplete }) {
     }
     setItems(folderItems);
     setCurrentIdx(0);
-    setSessionStats({ reviewed: 0, correct: 0, total: Math.min(folderItems.length, dailyGoal || 20) });
-  }, [selectedFolder, byFolder, allItems, dailyGoal]);
+    setSessionStats({ reviewed: 0, correct: 0, total: Math.min(folderItems.length, sessionCap) });
+  }, [selectedFolder, byFolder, allItems, sessionCap]);
 
   // Scroll to top when current item changes
   useEffect(() => {
@@ -124,7 +130,7 @@ export default function DailyReview({ onBack, onComplete }) {
   };
 
   const advanceSession = () => {
-    if (currentIdx + 1 >= items.length || sessionStats.reviewed >= dailyGoal) {
+    if (currentIdx + 1 >= items.length || sessionStats.reviewed >= sessionCap) {
       if (missedQueue.length > 0) {
         setReviewPhase(true);
         setCardNonce(n => n + 1);

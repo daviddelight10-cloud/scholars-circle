@@ -1853,11 +1853,97 @@ router.post("/fsrs/rate", requireAuth, async (req, res) => {
   }
 });
 
+// Folder bucket for a review item. Owned resources group under the
+// resource's folder; bookmarked community resources group under the caller's
+// bookmark folder (or "Community" when unfiled) — the resource's own folderId
+// belongs to the uploader, not the reviewer.
+function reviewFolderOf(item, userId) {
+  const owned = item.resource?.uploadedBy === userId;
+  const bookmark = item.resource?.bookmarks?.[0];
+  const folderId = owned ? (item.resource?.folderId || null) : (bookmark?.folderId || null);
+  const folder = owned ? item.resource?.folder : bookmark?.folder;
+  return {
+    key: folderId || (owned ? "__unfiled__" : "__community__"),
+    folderId,
+    folderName: folder?.name || (owned ? "Unfiled" : "Community"),
+    courseCode: folder?.courseCode || null,
+  };
+}
+
+// ── GET /api/resources/fsrs/folders — Uncapped per-folder review aggregates ──
+// /fsrs/due caps its items at the daily goal, so its per-folder counts can't
+// drive the Home chips; this returns the real due/deck numbers.
+router.get("/fsrs/folders", requireAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    const userId = req.user.sub;
+    const items = await prisma.pdfReviewItem.findMany({
+      where: { userId, itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] } },
+      select: {
+        state: true, stability: true, difficulty: true, dueAt: true, lastReviewAt: true, reps: true, lapses: true, resourceId: true,
+        resource: {
+          select: {
+            id: true, title: true, folderId: true, uploadedBy: true,
+            folder: { select: { id: true, name: true, courseCode: true } },
+            bookmarks: { where: { userId }, take: 1, select: { folderId: true, folder: { select: { id: true, name: true, courseCode: true } } } },
+          },
+        },
+      },
+    });
+    const buckets = new Map();
+    for (const it of items) {
+      const f = reviewFolderOf(it, userId);
+      let b = buckets.get(f.key);
+      if (!b) {
+        b = { ...f, due: 0, total: 0, mastered: 0, learning: 0, _r: 0, _rn: 0, _mats: new Map() };
+        buckets.set(f.key, b);
+      }
+      const isDue = new Date(it.dueAt) <= now;
+      b.total++;
+      if (isDue) b.due++;
+      if (isMastered(it)) b.mastered++;
+      if (it.state === 1 || it.state === 3) b.learning++;
+      if (it.state === 2 && it.stability > 0 && it.lastReviewAt) {
+        const elapsed = Math.max(0, Math.round((now - new Date(it.lastReviewAt)) / 86400000));
+        b._r += Math.pow(1 + elapsed / (9 * it.stability), -1);
+        b._rn++;
+      }
+      const rid = it.resource?.id || it.resourceId;
+      if (rid) {
+        const m = b._mats.get(rid) || { title: it.resource?.title || "Untitled", due: 0 };
+        if (isDue) m.due++;
+        b._mats.set(rid, m);
+      }
+    }
+    const folders = [...buckets.values()].map((b) => ({
+      key: b.key,
+      folderId: b.folderId,
+      folderName: b.folderName,
+      courseCode: b.courseCode,
+      due: b.due,
+      total: b.total,
+      mastered: b.mastered,
+      learning: b.learning,
+      retention: b._rn ? Math.round((b._r / b._rn) * 1000) / 1000 : 1,
+      materialCount: b._mats.size,
+      materials: [...b._mats.values()].sort((x, y) => y.due - x.due).slice(0, 8),
+    })).sort((a, b) => b.due - a.due || a.folderName.localeCompare(b.folderName));
+    res.json({ folders });
+  } catch (error) {
+    console.error("Error fetching FSRS folder summary:", error);
+    res.status(500).json({ error: "Failed to fetch folder summary" });
+  }
+});
+
 // ── GET /api/resources/fsrs/due — All due items, interleaved ──
+// Optional: ?folder=<key> scopes to one folder bucket; ?size=N sets the
+// session length explicitly (overrides the daily-goal cap).
 router.get("/fsrs/due", requireAuth, async (req, res) => {
   try {
     const now = new Date();
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 50));
+    const sizeParam = parseInt(req.query.size);
+    const folderParam = req.query.folder ? String(req.query.folder) : null;
     const subjectFilter = req.query.subject || null;
 
     // chat_mcq items are aggregate per-document cards fed by in-chat quiz
@@ -1899,8 +1985,9 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
 
     // Apply daily cap after sorting — most important items first
     const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
-    const dailyCap = Math.min(dailyGoal || limit, limit);
-    const cappedItems = items.slice(0, dailyCap);
+    const pool = folderParam ? items.filter((i) => reviewFolderOf(i, req.user.sub).key === folderParam) : items;
+    const dailyCap = sizeParam > 0 ? Math.min(sizeParam, 100) : Math.min(dailyGoal || limit, limit);
+    const cappedItems = pool.slice(0, dailyCap);
 
     // Enrich items
     const enriched = cappedItems.map((i) => {
@@ -1941,11 +2028,7 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     // own folderId belongs to the uploader, not the reviewer.
     const byFolder = {};
     for (const item of enriched) {
-      const owned = item.resource?.uploadedBy === req.user.sub;
-      const bookmark = item.resource?.bookmarks?.[0];
-      const folderId = owned ? (item.resource?.folderId || null) : (bookmark?.folderId || null);
-      const folderName = owned ? (item.resource?.folder?.name || "Unfiled") : (bookmark?.folder?.name || "Community");
-      const key = folderId || (owned ? "__unfiled__" : "__community__");
+      const { key, folderId, folderName } = reviewFolderOf(item, req.user.sub);
       if (!byFolder[key]) {
         byFolder[key] = { folderId, folderName, items: [], dueCount: 0 };
       }
@@ -1957,10 +2040,10 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
       items: enriched,
       byTopic,
       byFolder,
-      totalDue: items.length,
+      totalDue: pool.length,
       dailyGoal,
       dailyCap,
-      dailyProgress: Math.min(items.length, dailyGoal),
+      dailyProgress: Math.min(pool.length, dailyGoal),
     });
   } catch (error) {
     console.error("Error fetching FSRS due items:", error);

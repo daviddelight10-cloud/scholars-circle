@@ -380,6 +380,20 @@ router.get("/:courseCode/export", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/curriculum/prefs — All of the user's exam dates in one call
+router.get("/prefs", requireAuth, async (req, res) => {
+  try {
+    const rows = await prisma.userCoursePref.findMany({
+      where: { userId: req.user.sub, examDate: { not: null } },
+      select: { courseCode: true, examDate: true },
+    });
+    res.json({ prefs: rows });
+  } catch (err) {
+    console.error("Error listing course prefs:", err.message);
+    res.status(500).json({ error: "Failed to list course prefs" });
+  }
+});
+
 // GET /api/curriculum/:courseCode/prefs — Per-course user preferences (exam date)
 router.get("/:courseCode/prefs", requireAuth, async (req, res) => {
   try {

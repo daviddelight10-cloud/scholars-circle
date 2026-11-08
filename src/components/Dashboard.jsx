@@ -13,7 +13,8 @@ import GameBar from "./home/GameBar.jsx";
 import HomeHero from "./home/HomeHero.jsx";
 import StreakMoment from "./home/StreakMoment.jsx";
 import StreakSheet from "./home/StreakSheet.jsx";
-import { ShopSheet, BoardSheet, StatsSheet, GoalSheet } from "./home/HomeSheets.jsx";
+import { ShopSheet, BoardSheet, StatsSheet, GoalSheet, StudyPlanSheet } from "./home/HomeSheets.jsx";
+import { useReviewPlan } from "../hooks/useReviewPlan.js";
 import HIcon from "./home/HIcon.jsx";
 import AvatarMark from "./AvatarMark.jsx";
 import { useStreakMoment } from "../hooks/useStreakMoment.js";
@@ -57,8 +58,12 @@ export default function Dashboard({
     try { return JSON.parse(localStorage.getItem("sc_fsrs_stats") || "null")?.data ?? null; } catch { return null; }
   });
   const [showDailyReview, setShowDailyReview] = useState(false);
+  const [reviewOpts, setReviewOpts] = useState(null); // { folder, size } from the hero; null = folder picker
+  const [planFocus, setPlanFocus] = useState(null);
+  const [circleAll, setCircleAll] = useState(false);
+  const plan = useReviewPlan();
   const [save, setSave] = useState(() => ({ ...loadSave() }));
-  const [openSheet, setOpenSheet] = useState(null); // 'shop' | 'board' | 'stats' | 'goal' | 'streak'
+  const [openSheet, setOpenSheet] = useState(null); // 'shop' | 'board' | 'stats' | 'goal' | 'streak' | 'plan'
   const [toast, setToast] = useState(null);
   const [recents, setRecents] = useState(() => listRecentDocs());
   const [guidedProg, setGuidedProg] = useState({});
@@ -344,6 +349,20 @@ export default function Dashboard({
     setOpenSheet(null);
   }, [showToast]);
 
+  // Study plan goal stepper: saves immediately and keeps the sheet open.
+  const handleGoalStep = useCallback(async (n) => {
+    setFsrsStats((s) => (s ? { ...s, dailyGoal: n } : s));
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/daily-goal`, {
+        method: "PUT", headers: getAuthHeaders(), body: JSON.stringify({ dailyGoal: n }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFsrsStats((s) => (s ? { ...s, dailyGoal: data.dailyGoal } : s));
+      } else throw new Error();
+    } catch { showToast("Couldn't update goal"); fetchFsrsStats(); }
+  }, [showToast, fetchFsrsStats]);
+
   const handleInvite = useCallback(async () => {
     const text = "Join me on Scholars Circle — let's keep our study streaks going together.";
     try {
@@ -367,6 +386,19 @@ export default function Dashboard({
     const idx = ranked.findIndex((e) => e.username === me);
     return { ranked, idx };
   }, [leaderboard, userName, authUser]);
+
+  const circleRows = useMemo(() => {
+    const me = userName || authUser?.username;
+    return myRank.ranked.map((e, i) => ({ ...e, rank: i + 1, xp: e.totalXP || e.xp || 0, me: !!me && e.username === me }));
+  }, [myRank, userName, authUser]);
+  const circleMax = circleRows[0]?.xp || 0;
+  // Collapsed: top 5, but your own row always stays visible.
+  const circleShown = useMemo(() => {
+    if (circleAll) return circleRows.slice(0, 25);
+    const top = circleRows.slice(0, 5);
+    const mine = circleRows.find((r) => r.me);
+    return mine && !top.includes(mine) ? [...top.slice(0, 4), mine] : top;
+  }, [circleRows, circleAll]);
 
   const displayName = userName || authUser?.username || authUser?.name || "Scholar";
   const streak = stats?.streak || fsrsStats?.streak || 0;
@@ -431,7 +463,11 @@ export default function Dashboard({
               firstRun={firstRun}
               fsrsStats={fsrsStats}
               bankDueCount={bankDueCount}
-              onStartDaily={() => setShowDailyReview(true)}
+              folders={plan.folders}
+              foldersLoading={plan.folders == null && !plan.failed}
+              prefs={plan.prefs}
+              onStartDaily={(opts) => { setReviewOpts(opts || null); setShowDailyReview(true); }}
+              onOpenPlan={(key) => { setPlanFocus(key); setOpenSheet("plan"); }}
               onAddFirst={() => window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { openUpload: true } }))}
               onTrySample={() => openResearchHub("community")}
             />
@@ -602,32 +638,42 @@ export default function Dashboard({
 
           {/* ── Study circle ── */}
           <div className="hm-section hm-sec-circle">
-            <div className="hm-sec-head"><h2>Your study circle {leaderboard.length > 0 && <span className="hm-count">{leaderboard.length}</span>}</h2></div>
-            <div className="hm-board">
-              {leaderboard.length > 0 ? (
+            <div className="hm-sec-head">
+              <h2>Study circle {leaderboard.length > 0 && <span className="hm-count">{leaderboard.length}</span>}</h2>
+              <button onClick={() => setOpenSheet("board")}>Leaderboard →</button>
+            </div>
+            <div className="hm-circ">
+              {circleRows.length > 0 ? (
                 <>
-                  <div className="hm-stack">
-                    {[...leaderboard]
-                      .sort((a, b) => (b.totalXP || b.xp || 0) - (a.totalXP || a.xp || 0))
-                      .slice(0, 4)
-                      .map((e, i) => (
-                        <AvatarMark key={e.userId || i} avatar={e.avatar} name={e.username} size={32}
-                          className="hm-p" style={e.avatar ? {} : { background: avColor(e.username) }} />
-                      ))}
+                  <div className="hm-cs">
+                    <span><b>{leaderboard.length} scholar{leaderboard.length === 1 ? "" : "s"}</b> on the board</span>
+                    {myRank.idx >= 0 && <span>You: #{myRank.idx + 1}</span>}
                   </div>
-                  <h4>{leaderboard.length} scholar{leaderboard.length === 1 ? "" : "s"} on the board</h4>
-                  <p>Keep your streak alive to climb the all-time ranks.</p>
+                  {circleShown.map((r) => (
+                    <div key={r.userId || r.username} className={`hm-mrow${r.me ? " me" : ""}`}>
+                      <span className="hm-rk">{r.rank}</span>
+                      <AvatarMark avatar={r.avatar} name={r.username} size={34}
+                        className="hm-av2" style={r.avatar ? {} : { background: r.me ? "#F5A623" : avColor(r.username), color: "#1B1A17" }} />
+                      <div className="hm-mn">
+                        {r.me ? "You" : r.username}
+                        <div className="hm-mpb"><i style={{ width: `${circleMax ? Math.max(3, Math.round((r.xp / circleMax) * 100)) : 0}%` }} /></div>
+                      </div>
+                      <span className="hm-mc">{r.xp.toLocaleString()}<small>XP</small></span>
+                    </div>
+                  ))}
+                  {circleRows.length > 5 && (
+                    <button className="hm-showall" onClick={() => setCircleAll((v) => !v)}>
+                      {circleAll ? "Show less" : `Show top ${Math.min(circleRows.length, 25)}`}
+                    </button>
+                  )}
                 </>
               ) : (
-                <>
-                  <div className="hm-stack" />
+                <div className="hm-circ-empty">
                   <h4>No leaderboard data yet</h4>
                   <p>Invite friends and race on all-time XP.</p>
-                </>
+                  <button className="hm-invite" onClick={handleInvite}><HIcon name="users" size={13} />Invite friends</button>
+                </div>
               )}
-              <button className="hm-invite" onClick={() => setOpenSheet("board")}>
-                <HIcon name="trophy" size={13} />View leaderboard
-              </button>
             </div>
           </div>
         </div>
@@ -642,6 +688,11 @@ export default function Dashboard({
         onViewFull={() => { setOpenSheet(null); onOpenStats?.(); }}
       />
       <GoalSheet open={openSheet === "goal"} onClose={() => setOpenSheet(null)} dailyGoal={fsrsStats?.dailyGoal || 20} onSelect={handleSetGoal} />
+      <StudyPlanSheet
+        open={openSheet === "plan"} onClose={() => setOpenSheet(null)}
+        folders={plan.folders} prefs={plan.prefs} goal={fsrsStats?.dailyGoal || 20} focusKey={planFocus}
+        onSetExam={plan.setExam} onSetGoal={handleGoalStep}
+      />
 
       {/* ── Streak detail sheet (GameBar flame chip) ── */}
       <StreakSheet
@@ -661,7 +712,7 @@ export default function Dashboard({
         dueCount={dueCount}
         recentDoc={recents[0] || null}
         onClose={dismissMoment}
-        onStartDaily={() => setShowDailyReview(true)}
+        onStartDaily={() => { setReviewOpts(null); setShowDailyReview(true); }}
         onOpenDoc={(shareToken) => onOpenResource?.(shareToken)}
         onOpenLibrary={() => openResearchHub("library")}
       />
@@ -672,6 +723,8 @@ export default function Dashboard({
       {showDailyReview && (
         <div className="fixed inset-0 z-[9999] flex flex-col bg-hub-bg">
           <DailyReview
+            initialFolder={reviewOpts?.folder || null}
+            size={reviewOpts?.size || null}
             onBack={() => { setShowDailyReview(false); fetchFsrsStats(); refreshSave(); }}
             onComplete={() => { fetchFsrsStats(); refreshSave(); }}
           />
