@@ -3,6 +3,7 @@ import { API_BASE } from "../../lib/constants";
 import PracticeMcqCard from "../streak-survival/PracticeMcqCard.jsx";
 import { normalizeQuestion } from "../streak-survival/fsrsBridge.js";
 import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
+import { survivalCooldownRemaining, freeHeartsLeft, freeTierPhase, triggerSurvivalCooldown } from "../../lib/freeTier.js";
 
 
 function getAuthHeaders() {
@@ -42,6 +43,22 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
   const [missedQueue, setMissedQueue] = useState([]);
   const [reviewPhase, setReviewPhase] = useState(false);
   const [clearedCount, setClearedCount] = useState(0);
+
+  // Free-tier hearts wall — daily review respects the same cooldown/pool as
+  // Survival so it can't be used to bypass the recharge. An empty pool here
+  // starts the clock too.
+  const [coolingMs, setCoolingMs] = useState(() => survivalCooldownRemaining());
+  const heartsExhausted = freeTierPhase() === "free" && freeHeartsLeft() <= 0;
+  useEffect(() => {
+    if (!heartsExhausted || coolingMs > 0) return;
+    const ms = triggerSurvivalCooldown();
+    if (ms > 0) setCoolingMs(ms);
+  }, [heartsExhausted, coolingMs]);
+  useEffect(() => {
+    if (coolingMs <= 0) return;
+    const t = setInterval(() => setCoolingMs(survivalCooldownRemaining()), 1000);
+    return () => clearInterval(t);
+  }, [coolingMs > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Folder selection
   const [selectedFolder, setSelectedFolder] = useState(initialFolder); // null = show folder picker
@@ -227,6 +244,31 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
           <button onClick={fetchDue} className="cursor-pointer rounded-xl bg-gold px-5 py-2.5 text-[12px] font-bold text-[var(--app-bg)] transition-all active:scale-95">↻ Retry</button>
           <button onClick={onBack} className="cursor-pointer rounded-xl border border-hub-border px-5 py-2.5 text-[12px] font-semibold text-hub-text-muted transition-all active:scale-95">← Back</button>
         </div>
+      </div>
+    );
+  }
+
+  // ── Free-tier hearts wall (cooldown active or pool exhausted) ──
+  if (coolingMs > 0 || heartsExhausted) {
+    const mm = Math.floor(coolingMs / 60000);
+    const ss = String(Math.floor((coolingMs % 60000) / 1000)).padStart(2, "0");
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+        <div className="mb-4 text-5xl">💔</div>
+        <div className="mb-1 text-base font-bold text-hub-text">Out of free hearts</div>
+        <div className="mb-1 font-mono text-2xl font-extrabold tabular-nums text-hub-text">
+          {coolingMs > 0 ? `${mm}:${ss} until free hearts return` : "Recharging your hearts…"}
+        </div>
+        <div className="mb-6 max-w-[280px] text-[12px] leading-relaxed text-hub-text-dim">
+          Hearts refill after the cooldown — and always reset to full on a new day. Premium members never wait.
+        </div>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}
+          className="mb-3 w-full max-w-[280px] cursor-pointer rounded-xl bg-gold py-3 text-[13px] font-bold text-[var(--app-bg)] transition-all active:scale-[0.98]"
+        >
+          💎 Go Premium — keep practising
+        </button>
+        <button onClick={onBack} className="cursor-pointer text-[12px] font-semibold text-hub-text-muted transition-colors hover:text-hub-text">← Back</button>
       </div>
     );
   }

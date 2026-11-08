@@ -66,7 +66,9 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
   }, [data, rangeOn, pFrom, pTo]);
   const maxQ = data ? Math.min(DEFAULT_QUESTION_CAP, maxSupportedQuestions(effChars)) : DEFAULT_QUESTION_CAP;
   const autoN = data ? autoQuestionCount(effChars) : 20;
-  const n = Math.max(1, Math.min(count, maxQ));
+  // `maxQ` is a guidance estimate only — premium users may push past it up to
+  // the hard 150 cap (the engine warns when the doc truly can't reach).
+  const n = Math.max(1, Math.min(count, DEFAULT_QUESTION_CAP));
   const shortDoc = data && maxQ < 20;
 
   const clampSet = (v) => setCount(Math.max(1, Math.min(parseInt(v, 10) || 1, DEFAULT_QUESTION_CAP)));
@@ -136,15 +138,15 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
                   <div className="gm-lab">Number of questions</div>
                   <div className="gm-count">
                     <button aria-label="Fewer" onClick={() => setCount(Math.max(1, n - (n > 20 ? 5 : 1)))}>−</button>
-                    <input type="number" inputMode="numeric" min="1" max={maxQ} value={count} onChange={(e) => setCount(e.target.value === "" ? "" : parseInt(e.target.value, 10) || 1)} onBlur={(e) => clampSet(e.target.value)} aria-label="Number of questions" />
-                    <button aria-label="More" onClick={() => setCount(Math.min(maxQ, n + (n >= 20 ? 5 : 1)))}>+</button>
+                    <input type="number" inputMode="numeric" min="1" max={DEFAULT_QUESTION_CAP} value={count} onChange={(e) => setCount(e.target.value === "" ? "" : parseInt(e.target.value, 10) || 1)} onBlur={(e) => clampSet(e.target.value)} aria-label="Number of questions" />
+                    <button aria-label="More" onClick={() => setCount(Math.min(DEFAULT_QUESTION_CAP, n + (n >= 20 ? 5 : 1)))}>+</button>
                   </div>
                   <div className="gm-chips">
-                    {[10, 20, 50, 100, 150].filter((v) => v <= DEFAULT_QUESTION_CAP).map((v) => (
-                      <button key={v} className={n === v ? "on" : ""} disabled={v > maxQ} onClick={() => setCount(v)}>{v}</button>
+                    {[10, 20, 50, 100, 150].map((v) => (
+                      <button key={v} className={n === v ? "on" : ""} onClick={() => setCount(v)}>{v}</button>
                     ))}
                   </div>
-                  <p className="gm-help">{count > maxQ ? `This ${rangeOn ? "page range" : "material"} supports about ${maxQ} questions, so we'll cap it there.` : `This ${rangeOn ? "page range" : "material"} supports up to about ${maxQ} questions.`}</p>
+                  <p className="gm-help">{n > maxQ ? `This ${rangeOn ? "page range" : "material"} supports about ${maxQ} strong questions — beyond that, questions may repeat facts or range further from the source.` : `This ${rangeOn ? "page range" : "material"} supports up to about ${maxQ} questions.`}</p>
 
                   <div className="gm-lab">Question style</div>
                   <div className="gm-seg" role="radiogroup">

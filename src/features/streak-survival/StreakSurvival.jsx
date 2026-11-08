@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { callAI } from '../../lib/aiClient.js';
 import { recordPracticeResult } from '../../lib/studyHistory.js';
 import { API_BASE, FREE_TIER_LIMITS } from '../../lib/constants';
-import { recordSurvivalHeartLoss, survivalCooldownRemaining, freeTierPhase, triggerSurvivalCooldown } from '../../lib/freeTier.js';
+import { recordSurvivalHeartLoss, survivalCooldownRemaining, freeTierPhase, triggerSurvivalCooldown, freeHeartsLeft, restoreSurvivalHeart } from '../../lib/freeTier.js';
 import { getMyLeague, getLeagueStandings, checkBadges } from '../../lib/gamificationApi.js';
 import {
   loadSave, mutate, tickDay,
@@ -372,7 +372,16 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     if (startedRef.current || bank.length === 0) return;
     startedRef.current = true;
     if (isDaily) {
-      serveIdx(0, 'practice');
+      // Daily review respects the same hearts wall — no free-tier bypass.
+      const ms = survivalCooldownRemaining();
+      const exhausted = !snapshot && freeTierPhase() === 'free' && freeHeartsLeft() <= 0;
+      if (ms > 0 || exhausted) {
+        const rem = ms > 0 ? ms : triggerSurvivalCooldown();
+        if (rem > 0) setCooldownMs(rem);
+        setScreen('home');
+      } else {
+        serveIdx(0, 'practice');
+      }
     } else if (!deckEntry) {
       startRun('survival');
     }
@@ -645,11 +654,15 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     const nl = lives - 1;
     setLives(nl);
     sound.heart();
-    // Free-tier pacing: N lost hearts → cooldown on new sessions (this run
-    // continues). Preview runs don't count toward the cooldown counter.
-    if (!snapshot && recordSurvivalHeartLoss()) {
-      setCooldownMs(survivalCooldownRemaining());
-      toast(`💔 Hearts depleted — ${FREE_TIER_LIMITS.survivalCooldownMinutes} min recharge`, '#FF5E7E', 2800);
+    // Free tier: every lost heart drains the persistent cross-session pool
+    // (quitting mid-run doesn't reset it). Pool empty → the run ends now.
+    if (!snapshot) {
+      recordSurvivalHeartLoss();
+      if (freeTierPhase() === 'free' && freeHeartsLeft() <= 0 && nl > 0) {
+        setLives(0);
+        setTimeout(() => triggerGameOver(), 650);
+        return;
+      }
     }
     if (nl <= 0) setTimeout(() => triggerGameOver(), 650);
   }
@@ -675,15 +688,18 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
 
   const reviveCostNow = () => REVIVE_COSTS[Math.min(revivesUsed, REVIVE_COSTS.length - 1)];
 
-  // Free-tier pacing: one refill chance per run (any kind — free refill, gem
-  // revive or a shop heart refill all spend the same single slot). A second
-  // death then triggers the premium wall + cooldown via triggerGameOver.
+  // Free-tier pacing: hearts live in a persistent pool of 6 that carries
+  // across sessions (drains per loss, refills after cooldown / on a new day).
+  // One free refill per run; a second death triggers the wall via
+  // triggerGameOver. `heartMax` is the pip count shown in the HUD.
   const isFreeRun = !snapshot && freeTierPhase() === 'free';
   const reviveLimit = isFreeRun ? 1 : MAX_REVIVES;
+  const heartMax = isFreeRun ? FREE_TIER_LIMITS.survivalHeartsBeforeCooldown : MAX_LIVES;
   const freeWall = isFreeRun && gameOver && (revivesUsed >= reviveLimit || cooldownMs > 0);
 
   function freeRefill() {
     if (!isFreeRun || revivesUsed >= reviveLimit) return;
+    restoreSurvivalHeart(); // +1 back into the shared pool
     setRevivesUsed(1);
     setLives(1);
     setGameOver(false);
@@ -750,9 +766,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
 
       // Earn-back heart: 5 straight after a miss restores one life (once per run)
       sinceMissRef.current += 1;
-      if (runMode === 'survival' && !heartEarnedRef.current && sinceMissRef.current >= 5 && lives < MAX_LIVES) {
+      if (runMode === 'survival' && !heartEarnedRef.current && sinceMissRef.current >= 5 && lives < heartMax) {
         heartEarnedRef.current = true;
-        setLives((l) => Math.min(MAX_LIVES, l + 1));
+        if (isFreeRun) restoreSurvivalHeart(); // earned heart goes back into the pool too
+        setLives((l) => Math.min(heartMax, l + 1));
         toast('❤️ Heart earned back — 5 straight!', '#FF7A9E');
         sound.milestone();
         haptics.success();
@@ -1069,6 +1086,15 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
       toast(`💔 Out of hearts — recharging`, '#FF5E7E', 2400);
       return;
     }
+    // Free tier: an empty persistent pool starts the wall immediately —
+    // no fresh set of hearts on a new session.
+    if (!snapshot && freeTierPhase() === 'free' && freeHeartsLeft() <= 0) {
+      const ms = triggerSurvivalCooldown();
+      if (ms > 0) setCooldownMs(ms);
+      setScreen('home');
+      toast(`💔 Out of hearts — recharging`, '#FF5E7E', 2400);
+      return;
+    }
     // Daily warmup bonus once per LOCAL day (matches server streak day)
     const today = localDayKey();
     if (save.warmupDate !== today) {
@@ -1076,7 +1102,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
       setPendingChest('warmup');
     }
     setRunMode(mode);
-    setLives(MAX_LIVES);
+    // Free users resume with whatever the shared pool has left (up to 6);
+    // everyone else gets a fresh set of 3 per run.
+    setLives(!snapshot && freeTierPhase() === 'free' ? Math.max(1, freeHeartsLeft()) : MAX_LIVES);
     setStreak(0); setRunBest(0);
     setQNum(0); setAnswered(0); setCorrectN(0);
     setSessionXp(0); setSessionGems(0);
@@ -1510,8 +1538,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
           <div className="hud-left">
             {runMode === 'survival' && (screen === 'game' || screen === 'review') ? (
               <>
-                <div className="lives" role="img" aria-label={`${Math.max(0, lives)} of ${MAX_LIVES} hearts left`}>
-                  {[0, 1, 2].map((i) => <span key={i} className={`heart${i >= lives ? ' lost' : ''}`} />)}
+                <div className="lives" role="img" aria-label={`${Math.max(0, lives)} of ${heartMax} hearts left`}>
+                  {Array.from({ length: heartMax }, (_, i) => <span key={i} className={`heart${i >= lives ? ' lost' : ''}`} />)}
                 </div>
                 {(save.shields || 0) > 0 && (
                   <span className="shield-pill" title="Shield — blocks one heart loss">🛡</span>
@@ -1608,7 +1636,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
                   <span className="mc-ico">🔥</span>
                   <span className="mc-mid">
                     <span className="mc-title">Survival Run</span>
-                    <span className="mc-desc">3 lives · an auto-sized session, due cards first</span>
+                    <span className="mc-desc">{isFreeRun ? `${Math.max(0, freeHeartsLeft())} hearts left · they carry over` : '3 lives · an auto-sized session, due cards first'}</span>
                   </span>
                   <span className="mc-arrow">›</span>
                 </button>
@@ -1663,6 +1691,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
             showModes
             mode={prefs.runMode === 'practice' ? 'practice' : 'survival'}
             onMode={(m) => setPref('runMode', m)}
+            survivalNote={isFreeRun ? `${Math.max(0, freeHeartsLeft())} hearts left` : null}
             onStartRecall={({ mode: m, topics } = {}) => startRun(m || 'survival', topics?.length ? { topics } : null)}
             liveResourceId={resource?.id && isAuthed() ? resource.id : null}
             onBack={onBack}

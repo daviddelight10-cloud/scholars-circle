@@ -79,6 +79,7 @@ function DeckView({
   showModes = false, // saved decks: topics strip, mode toggle, session summary
   mode = "survival",
   onMode,
+  survivalNote,    // e.g. "5 hearts left" for the free-tier pool (default "3 lives")
 }) {
   const navigate = useNavigate();
   const [liveBusy, setLiveBusy] = useState(false);
@@ -206,7 +207,7 @@ function DeckView({
           <div className="deck-sess">
             <div className="deck-seg" role="radiogroup" aria-label="Run style">
               <button role="radio" aria-checked={mode === "survival"} className={mode === "survival" ? "on" : ""} onClick={() => onMode?.("survival")}>
-                <b>Survival</b><span>3 lives</span>
+                <b>Survival</b><span>{survivalNote || "3 lives"}</span>
               </button>
               <button role="radio" aria-checked={mode === "practice"} className={mode === "practice" ? "on" : ""} onClick={() => onMode?.("practice")}>
                 <b>Practice</b><span>No lives</span>

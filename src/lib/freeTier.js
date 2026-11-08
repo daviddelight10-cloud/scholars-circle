@@ -4,6 +4,7 @@
 // `scholars-circle-auth` blob (authUser.isActivated).
 
 import { FREE_TIER_LIMITS } from "./constants";
+import { localDayKey } from "./dayKey.js";
 
 const STORE_PREFIX = "sc_freetier::";
 
@@ -28,6 +29,7 @@ function defaults() {
     aiMsgsDate: "",           // AI Tutor daily counter
     aiMsgs: 0,
     heartsLost: 0,            // survival hearts lost toward the cooldown threshold
+    heartsDate: "",           // local day the losses belong to — pool resets daily
     cooldownUntil: 0,         // epoch ms — survival sessions blocked until then
     trialEndNotified: false,  // one-time "trial ended" modal shown
     wasActivated: false,      // user has held a paid/activated plan before
@@ -246,13 +248,28 @@ export function isSurvivalCoolingDown() {
   return survivalCooldownRemaining() > 0;
 }
 
+// Free-tier heart pool: `survivalHeartsBeforeCooldown` hearts that persist
+// ACROSS sessions (quitting at 4 hearts → next session starts at 4). The pool
+// refills when the cooldown ends, and always resets to full on a new local
+// day — yesterday's losses never carry into today.
+export function freeHeartsLeft() {
+  if (freeTierPhase() !== "free") return Infinity;
+  const s = loadState();
+  if ((s.cooldownUntil || 0) > Date.now()) return 0;
+  const today = localDayKey();
+  const lost = s.heartsDate === today ? (s.heartsLost || 0) : 0;
+  return Math.max(0, FREE_TIER_LIMITS.survivalHeartsBeforeCooldown - lost);
+}
+
 // Called from loseLife() — returns true when this heart loss triggered a cooldown.
-// Hidden backstop accumulator: hearts lost across sessions still count, so a
-// free user can't dodge the wall by quitting before a second death.
+// Hearts drain the persistent cross-session pool, so a free user can't dodge
+// the wall by quitting before a second death.
 export function recordSurvivalHeartLoss() {
   if (freeTierPhase() !== "free") return false;
   let triggered = false;
   mutate((s) => {
+    const today = localDayKey();
+    if (s.heartsDate !== today) { s.heartsDate = today; s.heartsLost = 0; }
     if (s.cooldownUntil > Date.now()) return; // already cooling down
     s.heartsLost = (s.heartsLost || 0) + 1;
     if (s.heartsLost >= FREE_TIER_LIMITS.survivalHeartsBeforeCooldown) {
@@ -274,6 +291,18 @@ export function triggerSurvivalCooldown() {
     if (s.cooldownUntil > Date.now()) return; // already cooling down
     s.cooldownUntil = Date.now() + FREE_TIER_LIMITS.survivalCooldownMinutes * 60000;
     s.heartsLost = 0;
+    s.heartsDate = localDayKey();
   });
   return survivalCooldownRemaining();
+}
+
+// The one free refill (or a mid-run earned heart) puts a heart back into the
+// pool — same-day only, capped at the pool maximum.
+export function restoreSurvivalHeart() {
+  if (freeTierPhase() !== "free") return;
+  mutate((s) => {
+    const today = localDayKey();
+    if (s.heartsDate !== today) { s.heartsDate = today; s.heartsLost = 0; }
+    s.heartsLost = Math.max(0, (s.heartsLost || 0) - 1);
+  });
 }
