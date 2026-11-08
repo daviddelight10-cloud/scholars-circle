@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { extractFileText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
-import { generateMcqs, generateSummary } from "../../lib/generationCore";
+import { generateMcqs, generateSummary, countExistingMcqs } from "../../lib/generationCore";
 import { API_BASE } from "../../lib/constants";
 import { consume } from "../../lib/freeTier.js";
 
@@ -114,8 +114,25 @@ export function useMaterialGenerate() {
   const lastResourceRef = useRef(null);
   const lastKindRef = useRef(null);
   const lastOnSaveRef = useRef(null);
+  const lastOptionsRef = useRef(null);
+  const analysisRef = useRef(null); // { id, promise } — extracted text is reused by generate()
 
-  const generate = useCallback(async (resource, kind, onSave, existingMcqData) => {
+  // Extract + inspect a material once (cached) so the generate sheet can show
+  // what it supports and detect question banks without a second download.
+  const analyze = useCallback((resource) => {
+    if (!resource?.id) return Promise.resolve(null);
+    if (analysisRef.current?.id === resource.id) return analysisRef.current.promise;
+    const promise = extractResourceText(resource).then(({ text, images, pageStarts }) => ({
+      text, images, pageStarts: pageStarts || [], chars: text.length,
+      pages: pageStarts?.length || 0,
+      existingCount: countExistingMcqs(text),
+    }));
+    promise.catch(() => { if (analysisRef.current?.promise === promise) analysisRef.current = null; });
+    analysisRef.current = { id: resource.id, promise };
+    return promise;
+  }, []);
+
+  const generate = useCallback(async (resource, kind, onSave, existingMcqData, genOptions = null) => {
     if (!resource || !onSave) return;
     if (activeRef.current) return; // prevent concurrent generations
     activeRef.current = resource.id;
@@ -123,6 +140,7 @@ export function useMaterialGenerate() {
     lastResourceRef.current = resource;
     lastKindRef.current = kind;
     lastOnSaveRef.current = onSave;
+    lastOptionsRef.current = genOptions;
     setGeneratingId(resource.id);
     setGenError("");
     setGenErrorId(null);
@@ -148,14 +166,33 @@ export function useMaterialGenerate() {
           setDraftTitle(`${baseTitle} — Rapid Recall`);
           setDraftRows([]);
           setGenProgress("Extracting text from material…");
-          const { text, images } = await extractResourceText(resource);
+          const analysis = genOptions ? await analyze(resource) : null;
+          const { text: fullText, images } = analysis || await extractResourceText(resource);
+          let text = fullText;
+          const pr = genOptions?.pageRange;
+          if (pr && analysis?.pageStarts?.length) {
+            const ps = analysis.pageStarts;
+            const from = Math.max(1, Math.min(pr.from || 1, ps.length));
+            const to = Math.max(from, Math.min(pr.to || ps.length, ps.length));
+            const sliced = fullText.slice(ps[from - 1], to < ps.length ? ps[to] : undefined);
+            if (sliced.trim().length > 200) text = sliced;
+          }
           ensureNotAbortedLocal(abortRef.current?.signal);
           setGenProgress("Generating Rapid Recall…");
-          const { rows } = await generateMcqs(text, images, setGenProgress, {
+          const { rows, warnings } = await generateMcqs(text, images, setGenProgress, {
             signal: abortRef.current?.signal,
             onRows: (rows) => setDraftRows((prev) => (prev == null ? prev : [...prev, ...rows])),
+            ...(genOptions ? {
+              rich: true,
+              autoTarget: genOptions.mode === "auto" ? genOptions.count : null,
+              customCount: genOptions.mode === "custom" ? genOptions.count : null,
+              style: genOptions.style, difficulty: genOptions.difficulty,
+              realWorld: genOptions.realWorld, highYield: genOptions.highYield,
+              focusTopic: genOptions.focusTopic, verify: !!genOptions.verify,
+            } : {}),
           });
           mcqRows = rows;
+          if (warnings?.length) setGenProgress(warnings[0]);
         }
         finalMcqRows = mcqRows;
 
@@ -218,7 +255,7 @@ export function useMaterialGenerate() {
       abortRef.current = null;
       setGeneratingId(null);
     }
-  }, []);
+  }, [analyze]);
 
   // Stop the in-flight generation (abort the AI stream and close the overlay)
   const cancel = useCallback(() => {
@@ -245,7 +282,7 @@ export function useMaterialGenerate() {
     const kind = lastKindRef.current;
     const onSave = lastOnSaveRef.current;
     if (resource && kind && onSave) {
-      generate(resource, kind, onSave, null);
+      generate(resource, kind, onSave, null, lastOptionsRef.current);
     }
   }, [generate]);
 
@@ -254,5 +291,5 @@ export function useMaterialGenerate() {
     setGenErrorId(null);
   }, []);
 
-  return { generatingId, genProgress, genError, genErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate, retry, cancel, closeStream, closeDraft, clearError };
+  return { generatingId, genProgress, genError, genErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate, analyze, retry, cancel, closeStream, closeDraft, clearError };
 }

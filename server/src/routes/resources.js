@@ -1446,13 +1446,24 @@ router.get("/deck/:sourceId", requireAuth, async (req, res) => {
         fileName: "__quiz_deck__",
         sourceResourceId: sourceId,
       },
-      select: { id: true, mcqData: true },
+      select: { id: true, mcqData: true, shareToken: true },
     });
-    if (!deck) return res.json({ id: null, mcqData: [] });
-    const mcqData = Array.isArray(deck.mcqData)
-      ? deck.mcqData
-      : typeof deck.mcqData === "string" ? JSON.parse(deck.mcqData) : [];
-    res.json({ id: deck.id, mcqData });
+    // The AI-generated Rapid Recall set for this material (separate from the
+    // chat-saved deck) so the viewer's Deck tab can show both.
+    const gen = await prisma.resource.findFirst({
+      where: {
+        uploadedBy: req.user.sub,
+        contentType: "mcq",
+        sourceResourceId: sourceId,
+        NOT: { fileName: "__quiz_deck__" },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, mcqData: true, shareToken: true },
+    });
+    const parse = (v) => (Array.isArray(v) ? v : typeof v === "string" ? JSON.parse(v) : []);
+    const generated = gen ? { id: gen.id, shareToken: gen.shareToken, mcqData: parse(gen.mcqData) } : null;
+    if (!deck) return res.json({ id: null, mcqData: [], shareToken: null, generated });
+    res.json({ id: deck.id, mcqData: parse(deck.mcqData), shareToken: deck.shareToken, generated });
   } catch (err) {
     console.error("Deck fetch error:", err);
     res.status(500).json({ error: "Failed to fetch deck" });

@@ -165,3 +165,82 @@ describe("generation mode (normal document)", () => {
     expect(rows.length).toBe(10);
   });
 });
+
+import { allocateQuestions, rebalanceAnswers, buildMcqPrompt, maxSupportedQuestions, autoQuestionCount, verifyMcqRows } from "./generationCore";
+
+const mkRows = (n) => Array.from({ length: n }, (_, i) => ({
+  question: `Rich question ${i} about cardiology?`,
+  options: { A: `a${i}`, B: `b${i}`, C: `c${i}`, D: `d${i}` },
+  correct: "B",
+  explanation: "",
+}));
+
+describe("customise engine", () => {
+  it("allocates questions across chunks in proportion to length and never above 25 each", () => {
+    const out = allocateQuestions(["x".repeat(9000), "x".repeat(3000)], 20);
+    expect(out.reduce((a, b) => a + b, 0)).toBe(20);
+    expect(out[0]).toBeGreaterThan(out[1]);
+    expect(allocateQuestions(["a", "b"], 100).every((n) => n <= 25)).toBe(true);
+  });
+
+  it("caps supported questions by material length and auto at 20", () => {
+    expect(maxSupportedQuestions(30000)).toBe(150);
+    expect(maxSupportedQuestions(1000)).toBe(10);
+    expect(autoQuestionCount(100000)).toBe(20);
+    expect(autoQuestionCount(1000)).toBe(10);
+  });
+
+  it("builds a clinical-vignette prompt with the chosen options", () => {
+    const p = buildMcqPrompt("text", 12, { style: "vignette", difficulty: "hard", realWorld: true, highYield: true, focusTopic: "brachial plexus", rich: true });
+    expect(p).toContain("Generate exactly 12");
+    expect(p).toContain("clinical-vignette");
+    expect(p).toContain("Difficulty: hard");
+    expect(p).toContain("REAL-WORLD FOCUS");
+    expect(p).toContain("HIGH-YIELD ONLY");
+    expect(p).toContain("brachial plexus");
+  });
+
+  it("rebalances the correct letter and keeps the correct text", () => {
+    const rows = mkRows(40);
+    const out = rebalanceAnswers(rows);
+    const counts = { A: 0, B: 0, C: 0, D: 0 };
+    out.forEach((r, i) => {
+      counts[r.correct]++;
+      expect(r.options[r.correct]).toBe(`b${i}`);
+    });
+    Object.values(counts).forEach((c) => expect(c).toBe(10));
+  });
+
+  it("leaves questions with positional options untouched", () => {
+    const rows = [{ question: "q?", options: { A: "x", B: "y", C: "z", D: "All of the above" }, correct: "D", explanation: "" }];
+    expect(rebalanceAnswers(rows)).toEqual(rows);
+  });
+
+  it("verification drops bad questions and fixes wrong keys", async () => {
+    callAI.mockResolvedValue(JSON.stringify([
+      { i: 0, verdict: "ok" }, { i: 1, verdict: "fix", correct: "C" }, { i: 2, verdict: "drop" }, { i: 3, verdict: "ok" },
+    ]));
+    const out = await verifyMcqRows(mkRows(4), "source");
+    expect(out.length).toBe(3);
+    expect(out[1].correct).toBe("C");
+  });
+
+  it("verification never wipes the set (falls back when most are dropped or the call fails)", async () => {
+    callAI.mockResolvedValue(JSON.stringify([{ i: 0, verdict: "drop" }, { i: 1, verdict: "drop" }, { i: 2, verdict: "drop" }]));
+    expect((await verifyMcqRows(mkRows(3), "s")).length).toBe(3);
+    callAI.mockRejectedValue(new Error("boom"));
+    expect((await verifyMcqRows(mkRows(3), "s")).length).toBe(3);
+  });
+
+  it("autoTarget generates that many questions with the rich prompt", async () => {
+    callAI.mockImplementation(async (prompt) => {
+      const count = parseInt(prompt.match(/Generate exactly (\d+)/)?.[1] || "0", 10);
+      return JSON.stringify(Array.from({ length: count }, (_, i) => ({ question: `Auto q${i} ${Math.random()}?`, options: { A: "a", B: "b", C: "c", D: "d" }, correct: "A", explanation: "", topic: "Renal", difficulty: "hard", type: "vignette" })));
+    });
+    const prose = "Some study content about renal physiology. ".repeat(2000);
+    const { rows } = await generateMcqs(prose, [], () => {}, { autoTarget: 20, rich: true });
+    expect(rows.length).toBe(20);
+    expect(rows[0].topic).toBe("Renal");
+    expect(callAI.mock.calls[0][0]).toContain("senior medical-school examiner");
+  });
+});

@@ -24,10 +24,12 @@ export const MIN_CHUNK_SIZE = 5000;
 // huge docs don't produce an unwieldy/expensive bank.
 export const DEFAULT_QUESTION_FLOOR = 10;
 export const DEFAULT_QUESTION_CAP = 150;
+export const AUTO_QUESTION_COUNT = 20;
 const CHARS_PER_QUESTION = 5000;
 const EXTRACT_RETRY_ROUNDS = 2;
 
-export function buildMcqPrompt(text, questionCount, { extractMode = false, expectedCount = 0, retryHint = false } = {}) {
+export function buildMcqPrompt(text, questionCount, opts = {}) {
+  const { extractMode = false, expectedCount = 0, retryHint = false } = opts;
   if (extractMode) {
     const countHint = expectedCount > 0 ? ` This section contains approximately ${expectedCount} questions — extract ALL of them.` : "";
     const retryText = retryHint ? " A previous pass missed questions — extract EVERY single one, do not stop early." : "";
@@ -56,7 +58,9 @@ Format:
 ]`;
   }
 
-  return `You are an expert exam MCQ generator for university students. Generate exactly ${questionCount} multiple-choice questions based on this content:
+  const { style = "mixed", difficulty = "mixed", realWorld = false, highYield = false, focusTopic = "", rich = false } = opts;
+  if (!rich) {
+    return `You are an expert exam MCQ generator for university students. Generate exactly ${questionCount} multiple-choice questions based on this content:
 
 """
 ${text}
@@ -79,6 +83,142 @@ Format:
     "explanation": "Brief explanation."
   }
 ]`;
+  }
+
+  const styleRule = {
+    recall: "Write direct recall questions: definitions, facts, classifications, key values. One clear stem, no story.",
+    applied: "Write applied questions: a 1-2 sentence scenario where the student must apply a concept from the content.",
+    vignette: "Write clinical-vignette questions: a short patient case (age, sex, setting, presenting complaint, relevant history/examination/vital signs/investigations WITH units), then a single-best-answer lead-in such as \"What is the most likely diagnosis?\", \"What is the most appropriate next step?\" or \"Which mechanism explains this?\".",
+    mixed: "Mix the styles: about 30% direct recall, 40% applied short scenarios, 30% clinical vignettes (age, sex, presentation, key findings with units).",
+  }[style] || "";
+  const diffRule = {
+    easy: "Difficulty: straightforward. Test core must-know facts; distractors clearly belong to the same category but are distinguishable.",
+    hard: "Difficulty: hard. Test discrimination between closely related concepts. Every distractor must be a plausible near-miss that a half-prepared student would choose.",
+    mixed: "Difficulty: mixed — roughly 30% easy, 45% medium, 25% hard.",
+  }[difficulty] || "";
+  const extras = [
+    realWorld ? "REAL-WORLD FOCUS: prefer real clinical/practical situations — common presentations, red flags, investigation and management decisions, drug choice/dose/adverse effects — over abstract definitions." : "",
+    highYield ? "HIGH-YIELD ONLY: prioritise what exams most often test — common conditions, classic presentations, first-line management, key mechanisms. Skip trivia." : "",
+    focusTopic ? `FOCUS: concentrate on "${String(focusTopic).slice(0, 120)}" as it appears in the content; ignore unrelated parts.` : "",
+  ].filter(Boolean).join("\n");
+
+  return `You are a senior medical-school examiner writing high-quality single-best-answer MCQs. Generate exactly ${questionCount} questions based ONLY on this content:
+
+"""
+${text}
+"""
+
+STYLE: ${styleRule}
+${diffRule}
+${extras}
+
+ITEM-WRITING RULES (follow strictly):
+1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
+2. Exactly 4 options (A, B, C, D), exactly ONE unambiguously best answer that is supported by the content.
+3. All options must be the same category and similar length (e.g. all diagnoses, or all drugs). Distractors must be plausible, never silly.
+4. Never use "all of the above", "none of the above", "A and B", or absolute words (always/never) as cues. Do not leak the answer in the stem.
+5. Do not repeat a question or test the same fact twice. Spread questions across DIFFERENT topics in the content.
+6. Use exact terms, doses and values from the content; never invent facts that are not in it.
+7. explanation = 2-3 short sentences: why the correct answer is right, then why the most tempting distractor is wrong.
+8. Add "topic" (2-4 word subtopic), "difficulty" ("easy"|"medium"|"hard") and "type" ("recall"|"applied"|"vignette").
+
+Format:
+[
+  {
+    "question": "Stem?",
+    "options": {"A":"...","B":"...","C":"...","D":"..."},
+    "correct": "A",
+    "explanation": "Why A is right; why the best distractor is wrong.",
+    "topic": "Brachial plexus",
+    "difficulty": "medium",
+    "type": "applied"
+  }
+]`;
+}
+
+// Is a clinical-vignette/rich prompt enabled for this run?
+export function isRichOptions(o) {
+  return !!o && (o.style || o.difficulty || o.realWorld || o.highYield || o.focusTopic || o.rich);
+}
+
+export function maxSupportedQuestions(chars) {
+  return Math.max(10, Math.min(DEFAULT_QUESTION_CAP, Math.round((chars || 0) / 200)));
+}
+
+export function autoQuestionCount(chars) {
+  return Math.min(AUTO_QUESTION_COUNT, maxSupportedQuestions(chars));
+}
+
+// Split `total` questions across chunks in proportion to their length (largest remainder).
+export function allocateQuestions(chunks, total) {
+  const n = chunks.length;
+  if (!n) return [];
+  const lens = chunks.map((c) => Math.max(1, c.length));
+  const sum = lens.reduce((a, b) => a + b, 0);
+  const raw = lens.map((l) => (l / sum) * total);
+  const out = raw.map((r) => Math.min(QUESTIONS_PER_CHUNK, Math.floor(r)));
+  let left = Math.min(total, n * QUESTIONS_PER_CHUNK) - out.reduce((a, b) => a + b, 0);
+  const order = raw.map((r, i) => [r - Math.floor(r), i]).sort((a, b) => b[0] - a[0]);
+  for (let k = 0; left > 0 && k < order.length * 3; k++) {
+    const i = order[k % order.length][1];
+    if (out[i] < QUESTIONS_PER_CHUNK) { out[i]++; left--; }
+  }
+  return out;
+}
+
+const POSITIONAL_RE = /\b(all|none) of the above\b|\b(both|either)\b.*\b[A-D]\b|\b[A-D]\s*(and|&|,)\s*[A-D]\b/i;
+
+// LLMs over-pick B/C as the answer. Spread the correct letter evenly by
+// permuting options (skipped for questions whose options refer to each other).
+export function rebalanceAnswers(rows, rng = Math.random) {
+  const L = ["A", "B", "C", "D"];
+  const targets = [];
+  while (targets.length < rows.length) targets.push(...[...L].sort(() => rng() - 0.5));
+  return rows.map((r, i) => {
+    const opts = r.options || {};
+    if (L.some((k) => !opts[k]) || L.some((k) => POSITIONAL_RE.test(String(opts[k])))) return r;
+    const target = targets[i];
+    const others = L.filter((k) => k !== r.correct).map((k) => opts[k]).sort(() => rng() - 0.5);
+    const next = {};
+    let oi = 0;
+    for (const k of L) next[k] = k === target ? opts[r.correct] : others[oi++];
+    return { ...r, options: next, correct: target };
+  });
+}
+
+// Second AI pass: check each answer key against the source and drop/fix bad ones.
+export async function verifyMcqRows(rows, sourceText, { signal } = {}) {
+  if (!rows.length) return rows;
+  const list = rows.map((r, i) => `${i}. ${r.question}\nA) ${r.options.A}\nB) ${r.options.B}\nC) ${r.options.C}\nD) ${r.options.D}\nMarked answer: ${r.correct}`).join("\n\n");
+  const prompt = `You are a strict examiner. Using ONLY the SOURCE, check each question's marked answer.
+
+SOURCE:
+"""
+${sourceText.slice(0, 14000)}
+"""
+
+QUESTIONS:
+${list}
+
+For every question return a verdict: "ok" (marked answer is supported and unambiguous), "fix" (a different option is correct — give it), or "drop" (not answerable from the source, ambiguous, or more than one correct option).
+Return ONLY a JSON array: [{"i":0,"verdict":"ok"},{"i":1,"verdict":"fix","correct":"C"},{"i":2,"verdict":"drop"}]`;
+  try {
+    ensureNotAborted(signal);
+    const raw = await callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
+    const verdicts = extractJSON(raw, "array");
+    if (!Array.isArray(verdicts)) return rows;
+    const byIdx = new Map(verdicts.map((v) => [Number(v.i), v]));
+    const out = [];
+    rows.forEach((r, i) => {
+      const v = byIdx.get(i);
+      if (!v || v.verdict === "ok") return out.push(r);
+      if (v.verdict === "fix" && ["A", "B", "C", "D"].includes(String(v.correct).toUpperCase())) return out.push({ ...r, correct: String(v.correct).toUpperCase(), _verified: "fixed" });
+    });
+    return out.length >= Math.ceil(rows.length / 2) ? out : rows;
+  } catch (e) {
+    if (e?.stoppedByUser) throw e;
+    return rows;
+  }
 }
 
 export function buildFlashcardPrompt(text, count) {
@@ -243,6 +383,9 @@ export function mapAiMcqsToRows(parsed) {
         };
       }
       row.correct = row.correct.toUpperCase();
+      if (q.topic) row.topic = String(q.topic).slice(0, 60);
+      if (["easy", "medium", "hard"].includes(String(q.difficulty).toLowerCase())) row.difficulty = String(q.difficulty).toLowerCase();
+      if (["recall", "applied", "vignette"].includes(String(q.type).toLowerCase())) row.qtype = String(q.type).toLowerCase();
       return row;
     })
     .filter((r) => r.options.A.trim() && r.options.B.trim() && r.options.C.trim() && r.options.D.trim() && r.question.trim());
@@ -273,7 +416,10 @@ export function mapAiFlashcards(parsed) {
  * @returns {Promise<{rows: Array, warnings: string[]}>}
  */
 export async function generateMcqs(text, images, onProgress, options = {}) {
-  const { customCount = null, onWarning, onRows, signal, allowExtract = true } = options;
+  const { customCount = null, autoTarget = null, onWarning, onRows, signal, allowExtract = true, verify = false } = options;
+  const rich = isRichOptions(options);
+  const promptOpts = { style: options.style, difficulty: options.difficulty, realWorld: options.realWorld, highYield: options.highYield, focusTopic: options.focusTopic, rich };
+  const mcqTotal = customCount || autoTarget || undefined;
   const warnings = [];
   ensureNotAborted(signal);
 
@@ -281,7 +427,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   if (images.length > 0 && text.length < 50) {
     const imgCount = customCount || Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS);
     onProgress?.(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
-    const prompt = buildMcqPrompt("The images contain study material. Generate comprehensive MCQs covering all the content visible.", imgCount);
+    const prompt = buildMcqPrompt("The images contain study material. Generate comprehensive MCQs covering all the content visible.", imgCount, promptOpts);
     const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
     const rows = mapAiMcqsToRows(extractJSON(raw, "array"));
     if (rows.length === 0) throw new Error("AI didn't generate valid questions. Try again.");
@@ -319,7 +465,9 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     ? Math.min(existingCount, MAX_QUESTIONS)
     : customCount
       ? Math.min(customCount, totalPossible)
-      : Math.min(totalPossible, Math.max(DEFAULT_QUESTION_FLOOR, Math.min(DEFAULT_QUESTION_CAP, Math.round(text.length / CHARS_PER_QUESTION))));
+      : autoTarget
+        ? Math.min(autoTarget, totalPossible)
+        : Math.min(totalPossible, Math.max(DEFAULT_QUESTION_FLOOR, Math.min(DEFAULT_QUESTION_CAP, Math.round(text.length / CHARS_PER_QUESTION))));
   const questionsPerChunk = Math.min(QUESTIONS_PER_CHUNK, Math.ceil(targetCount / chunks.length));
 
   if (useExtractMode) {
@@ -337,7 +485,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   // Streamed chunk call — feeds each completed question object to onRows while
   // the AI writes it; the buffered raw text stays the authoritative source.
   const runChunk = (prompt) => {
-    const cfg = { provider: "openrouter", model: "z-ai/glm-5.3-flash" };
+    const cfg = { provider: "openrouter", model: "z-ai/glm-5.3-flash", ...(mcqTotal ? { mcqTotal } : {}) };
     if (!onRows) {
       return callAI(prompt, cfg)
         .then((raw) => {
@@ -373,6 +521,8 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       .catch((err) => ({ raw: "", rows: [], error: err.message }));
   };
 
+  const alloc = !useExtractMode && (rich || customCount || autoTarget) ? allocateQuestions(chunks, targetCount) : null;
+
   // Process chunks in concurrency-limited batches to avoid rate-limit (429) errors
   const chunkResults = [];
   for (let batchStart = 0; batchStart < chunks.length; batchStart += CONCURRENCY_LIMIT) {
@@ -385,10 +535,14 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       if (useExtractMode) {
         prompt = buildMcqPrompt(chunks[idx], 0, { extractMode: true, expectedCount: chunkExpected[idx] || avgExpectedPerChunk });
         requested = 0;
+      } else if (alloc) {
+        requested = alloc[idx];
+        if (requested <= 0) { batchPromises.push(Promise.resolve({ rows: [], requested: 0, error: null })); continue; }
+        prompt = buildMcqPrompt(chunks[idx], requested, promptOpts);
       } else {
         const count = idx === chunks.length - 1 ? Math.min(QUESTIONS_PER_CHUNK, targetCount - (questionsPerChunk * (chunks.length - 1))) : questionsPerChunk;
         requested = Math.max(5, count);
-        prompt = buildMcqPrompt(chunks[idx], requested);
+        prompt = buildMcqPrompt(chunks[idx], requested, promptOpts);
       }
       batchPromises.push(
         runChunk(prompt)
@@ -400,6 +554,17 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   }
   ensureNotAborted(signal);
 
+  // Optional answer-check pass: verify each chunk's questions against its own source text.
+  if (verify && !useExtractMode) {
+    onProgress?.("Checking answers against your material…");
+    for (let i = 0; i < chunkResults.length; i += CONCURRENCY_LIMIT) {
+      ensureNotAborted(signal);
+      const slice = chunkResults.slice(i, i + CONCURRENCY_LIMIT);
+      const checked = await Promise.all(slice.map((r, k) => (r.rows.length ? verifyMcqRows(r.rows, chunks[i + k], { signal }) : r.rows)));
+      checked.forEach((rows, k) => { chunkResults[i + k] = { ...chunkResults[i + k], rows }; });
+    }
+  }
+
   let allRows = chunkResults.flatMap((r) => r.rows);
 
   // Deduplicate in extraction mode (AI may extract the same question from overlapping chunks)
@@ -408,7 +573,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     // In extraction mode, do NOT cap to the heuristic estimate — keep all extracted questions
     allRows = allRows.slice(0, MAX_QUESTIONS);
   } else {
-    allRows = allRows.slice(0, targetCount);
+    allRows = (rich ? dedupeMcqs(allRows) : allRows).slice(0, targetCount);
   }
 
   // Adaptive retry: if total < 50% of target, retry underproducing chunks with halved counts
@@ -427,9 +592,9 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
         for (let ri = rStart; ri < rEnd; ri++) {
           const r = underproducing[ri];
           const retryCount = Math.max(5, Math.ceil(r.requested / 2));
-          const prompt = buildMcqPrompt(chunks[r.idx], retryCount);
+          const prompt = buildMcqPrompt(chunks[r.idx], retryCount, promptOpts);
           retryBatchPromises.push(
-            callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
+            callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash", ...(mcqTotal ? { mcqTotal } : {}) })
               .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
               .catch(() => [])
           );
@@ -440,6 +605,8 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       allRows = [...allRows, ...retryRows.flat()].slice(0, targetCount);
     }
   }
+
+  if (rich && !useExtractMode) allRows = rebalanceAnswers(dedupeMcqs(allRows));
 
   // Extraction mode: retry chunks that produced FEWER questions than their
   // per-chunk estimate, so a question-bank document yields its real count.

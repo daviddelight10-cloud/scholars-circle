@@ -34,6 +34,7 @@ import { buildSearchResults } from "./pdf-reader/textSearch.js";
 import { buildNotesMarkdown, downloadTextFile } from "./pdf-reader/notesExport.js";
 import { NoteEditorModal, NotesPanel, ShortcutsModal, StatsModal } from "./pdf-reader/panels.jsx";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
+import PdfDeckTab, { usePdfDeck } from "./pdf-reader/PdfDeckTab.jsx";
 
 
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
@@ -239,6 +240,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // ── AI Study Tools state (voice tutor + chat only) ─────────────────────────
   const [studyToolsOpen, setStudyToolsOpen] = useState(false);
+  const [studyTab, setStudyTab] = useState("tools"); // "tools" | "deck"
+  const studyDeck = usePdfDeck(propResourceId, studyToolsOpen);
   const studyResourceId = propResourceId || docKey;
 
   // Mastery — fed by recordPracticeResult from chat quiz answers and any
@@ -5201,7 +5204,37 @@ Passage:
                   </div>
                 )}
 
-                  <div style={s.studyBody}>
+                  {propResourceId && (
+                    <div role="tablist" aria-label="Study tools" style={{ display: "flex", gap: 6, padding: "0 12px 8px" }}>
+                      {[["tools", "Tools"], ["deck", `Deck${studyDeck.items.length ? ` (${studyDeck.items.length})` : ""}`]].map(([id, label]) => (
+                        <button
+                          key={id}
+                          role="tab"
+                          aria-selected={studyTab === id}
+                          onClick={() => setStudyTab(id)}
+                          style={{
+                            flex: 1, height: 36, borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit",
+                            border: `1px solid ${studyTab === id ? T.accent : T.border}`,
+                            background: studyTab === id ? T.accent : "transparent",
+                            color: studyTab === id ? "#fff" : T.muted,
+                          }}
+                        >{label}</button>
+                      ))}
+                    </div>
+                  )}
+
+                  {propResourceId && studyTab === "deck" && (
+                    <div style={s.studyBody}>
+                      <PdfDeckTab
+                        resourceId={propResourceId}
+                        T={T}
+                        deck={studyDeck}
+                        onJump={(p) => { goToPage(p); if (isMobile) closeStudyTools(); }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ ...s.studyBody, ...(propResourceId && studyTab === "deck" ? { display: "none" } : null) }}>
 
                     {/* Mastery progress bar */}
                     {mastery.totalQuestions > 0 && (

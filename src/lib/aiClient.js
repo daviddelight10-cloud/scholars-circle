@@ -46,7 +46,7 @@ export function resetProxyStatusCache() {
   _proxyStatus = null;
 }
 
-async function callViaProxy(prompt, provider, model) {
+async function callViaProxy(prompt, provider, model, extra = {}) {
   let res;
   try {
     // Get auth token for secure proxy
@@ -62,7 +62,7 @@ async function callViaProxy(prompt, provider, model) {
       method: "POST",
       headers,
       credentials: "include", // Support httpOnly cookies
-      body: JSON.stringify({ prompt, provider, model }),
+      body: JSON.stringify({ prompt, provider, model, ...extra }),
       signal: AbortSignal.timeout(120000) // 120s for long generations (e.g. large MCQ batches)
     });
   } catch (netErr) {
@@ -161,7 +161,7 @@ export async function callAI(prompt, aiConfig = {}) {
                                      "gpt-4o-mini");
     console.log(`Calling proxy with provider=${provider}, model=${model}`);
     try {
-      const result = await callViaProxy(prompt, provider, model);
+      const result = await callViaProxy(prompt, provider, model, aiConfig.mcqTotal ? { mcqTotal: aiConfig.mcqTotal } : {});
       console.log("Proxy call successful, response length:", result?.length || 0);
       return result;
     } catch (proxyError) {
@@ -327,7 +327,7 @@ export async function callAIStream(prompt, aiConfig = {}, { onToken, signal } = 
       method: "POST",
       headers,
       credentials: "include",
-      body: JSON.stringify({ prompt, provider, model, stream: true }),
+      body: JSON.stringify({ prompt, provider, model, stream: true, ...(aiConfig.mcqTotal ? { mcqTotal: aiConfig.mcqTotal } : {}) }),
       signal: ctl.signal,
     });
   } catch (netErr) {
@@ -355,6 +355,7 @@ export async function callAIStream(prompt, aiConfig = {}, { onToken, signal } = 
     clearTimeout(timeout);
     let data = {};
     try { data = await res.json(); } catch {}
+    if (data?.code === "premium_required") window.dispatchEvent(new CustomEvent("sc-open-premium"));
     if (res.status === 429) {
       window.dispatchEvent(new CustomEvent("ai-limit", {
         detail: { used: data?.used, limit: data?.limit, plan: data?.plan },

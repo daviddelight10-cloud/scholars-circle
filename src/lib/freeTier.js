@@ -95,6 +95,12 @@ export function isActivatedUser() {
   }
 }
 
+// Custom Rapid Recall sets (count, clinical style, difficulty, focus) are a
+// paid feature — the free trial does not unlock them.
+export function canCustomiseMcq() {
+  return isActivatedUser();
+}
+
 // True when the user is on the free experience (opted in, not activated).
 export function isFreeTier() {
   return loadState().active === true && !isActivatedUser();

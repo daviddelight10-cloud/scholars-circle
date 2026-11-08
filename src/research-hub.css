@@ -3238,3 +3238,59 @@ html[data-theme="dark"] .mc-due { color: #FFC857; }
 .mc-sugg-row input { width: 20px; height: 20px; accent-color: #F5A623; }
 .mc-sugg-row b { display: block; font-size: 14px; }
 .mc-sugg-row small { color: var(--app-dim); font-size: 11.5px; }
+
+/* ── Rapid Recall generate sheet (gm-*) ─────────────────────────────── */
+.gm { display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+.gm-load { display: flex; align-items: center; gap: 10px; padding: 18px 4px; color: var(--app-dim); font-size: 13.5px; }
+.gm-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--app-border); border-top-color: var(--app-accent); animation: gmspin .8s linear infinite; }
+@keyframes gmspin { to { transform: rotate(360deg); } }
+.gm-err { color: #E5484D; font-size: 13px; margin: 6px 0; }
+.gm-card {
+  position: relative; display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; font-family: inherit;
+  padding: 14px 15px; border-radius: 16px; cursor: pointer; color: var(--app-text);
+  background: var(--app-card); border: 1.5px solid var(--app-border);
+}
+.gm-card b { font-size: 15px; font-weight: 800; }
+.gm-card > span:not(.gm-tag) { font-size: 12.5px; color: var(--app-dim); line-height: 1.45; }
+.gm-card.on { border-color: var(--app-accent); background: var(--app-accent-soft); }
+.gm-card.locked { opacity: .92; }
+.gm-tag { align-self: flex-start; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--app-accent-soft); color: var(--app-accent); border: 1px solid var(--app-accent-line); margin-bottom: 3px; }
+.gm-tag.pro { background: rgba(245,166,35,.14); }
+.gm-lock { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-radius: 12px; background: rgba(245,166,35,.12); border: 1px solid rgba(245,166,35,.4); font-size: 12.5px; color: var(--app-text); }
+.gm-lock span { flex: 1; line-height: 1.4; }
+.gm-lock button { flex: none; border: 0; border-radius: 999px; padding: 8px 14px; font: 800 12.5px inherit; background: var(--app-accent-fill); color: #151005; cursor: pointer; }
+.gm-panel { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 16px; background: var(--app-tint-soft); border: 1px solid var(--app-border); }
+.gm-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+.gm-presets button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--app-border); background: var(--app-card); color: var(--app-text); cursor: pointer; font-family: inherit; text-align: left; }
+.gm-presets b { font-size: 13px; font-weight: 800; }
+.gm-presets span { font-size: 11px; color: var(--app-dim); }
+.gm-lab { margin-top: 8px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--app-dim); }
+.gm-count { display: flex; align-items: center; gap: 8px; }
+.gm-count button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--app-border); background: var(--app-card); color: var(--app-text); font-size: 20px; font-weight: 700; cursor: pointer; }
+.gm-count input { flex: 1; min-width: 0; height: 44px; text-align: center; font: 800 22px inherit; border-radius: 12px; border: 1px solid var(--app-border); background: var(--app-card); color: var(--app-text); -moz-appearance: textfield; }
+.gm-count input::-webkit-outer-spin-button, .gm-count input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.gm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.gm-chips button, .gm-seg button { padding: 8px 13px; min-height: 36px; border-radius: 999px; border: 1px solid var(--app-border); background: var(--app-card); color: var(--app-dim); font: 700 12.5px inherit; cursor: pointer; }
+.gm-chips button.on, .gm-seg button.on { background: var(--app-accent-fill); color: #151005; border-color: var(--app-accent-fill); }
+.gm-chips button:disabled { opacity: .35; cursor: default; }
+.gm-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.gm-help { margin: 2px 2px 0; font-size: 11.5px; color: var(--app-dim); line-height: 1.45; }
+.gm-tog { display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; cursor: pointer; }
+.gm-tog input { width: 20px; height: 20px; margin-top: 1px; flex: none; accent-color: var(--app-accent); }
+.gm-tog b { display: block; font-size: 13px; color: var(--app-text); }
+.gm-tog small { display: block; font-size: 11.5px; color: var(--app-dim); line-height: 1.4; }
+.gm-focus { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 10px; padding: 10px 2px; border: 0; border-top: 1px solid var(--app-border); background: none; color: var(--app-accent); font: 700 12.5px inherit; cursor: pointer; text-align: left; }
+.gm-focus-body { display: flex; flex-direction: column; gap: 8px; }
+.gm-text { height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--app-border); background: var(--app-card); color: var(--app-text); font: 500 14px inherit; }
+.gm-range { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--app-dim); }
+.gm-range input { width: 64px; height: 40px; text-align: center; border-radius: 10px; border: 1px solid var(--app-border); background: var(--app-card); color: var(--app-text); font: 700 14px inherit; }
+.gm-foot { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.gm-go { height: 50px; border: 0; border-radius: 15px; background: linear-gradient(180deg, #FFC857, #F5A623); color: #151005; font: 800 15px inherit; cursor: pointer; box-shadow: 0 6px 18px rgba(245,166,35,.28); }
+.gm-go:disabled { background: var(--app-border); color: var(--app-faint); box-shadow: none; cursor: default; }
+.gm-est { margin: 0; text-align: center; font-size: 11.5px; color: var(--app-dim); }
+.gm-cancel { height: 40px; border: 0; background: none; color: var(--app-dim); font: 700 13px inherit; cursor: pointer; }
+html[data-theme="light"] .gm-card.on { background: rgba(245,166,35,.12); border-color: #A07D00; }
+html[data-theme="light"] .gm-tag { color: #8A5A00; }
+html[data-theme="light"] .gm-focus { color: #8A5A00; }
+html[data-theme="light"] .gm-lock { background: #FBE9C4; border-color: rgba(160,125,0,.45); }
+@media (prefers-reduced-motion: reduce) { .gm-spin { animation-duration: 2s; } }

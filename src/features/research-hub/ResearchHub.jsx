@@ -39,7 +39,8 @@ import RecycleBinSheet from "./RecycleBinSheet.jsx";
 import CommunityFolderCard from "./CommunityFolderCard.jsx";
 import PdfCard from "./PdfCard.jsx";
 import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
-import { canUse, survivalCooldownRemaining } from "../../lib/freeTier.js";
+import { canUse, canCustomiseMcq, usageRemaining, isFreeTier, survivalCooldownRemaining } from "../../lib/freeTier.js";
+import GenerateMcqSheet from "./GenerateMcqSheet.jsx";
 import { FREE_TIER_LIMITS } from "../../lib/constants.js";
 import SummaryStreamOverlay from "../SummaryStreamOverlay.jsx";
 import { getGuidedProgressIndex } from "../../lib/studyCache.js";
@@ -304,9 +305,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return () => setMobileNavHidden(false);
   }, [viewerToken, sessionMode, activeFolder, setMobileNavHidden]);
 
-  const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate: generateFromMaterial, retry: retryMaterialGenerate, cancel: cancelMaterialGenerate, closeStream, closeDraft, clearError: clearMaterialGenError } = useMaterialGenerate();
+  const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate: generateFromMaterial, analyze: analyzeMaterial, retry: retryMaterialGenerate, cancel: cancelMaterialGenerate, closeStream, closeDraft, clearError: clearMaterialGenError } = useMaterialGenerate();
   // Streaming Rapid Recall deck: saved resource + active preview run
   const [savedMcqDeck, setSavedMcqDeck] = useState(null);
+  const [genSheetTarget, setGenSheetTarget] = useState(null); // material awaiting Auto/Customise choice
   const [previewRun, setPreviewRun] = useState(null); // { title, rows }
 
   useEffect(() => {
@@ -1707,11 +1709,25 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         }
       } catch {}
     }
+    if (kind === "mcqs" && !existingMcqData && resource.contentType !== "mcq") {
+      setGenSheetTarget(resource);
+      return;
+    }
     setGeneratedSummary(null);
     setSavedMcqDeck(null);
     setPreviewRun(null);
     generateFromMaterial(resource, kind, handleWizardStudyToolSave, existingMcqData);
   }, [generateFromMaterial, handleWizardStudyToolSave]);
+
+  const confirmGenerateMcqs = useCallback((options) => {
+    const resource = genSheetTarget;
+    setGenSheetTarget(null);
+    if (!resource) return;
+    setGeneratedSummary(null);
+    setSavedMcqDeck(null);
+    setPreviewRun(null);
+    generateFromMaterial(resource, "mcqs", handleWizardStudyToolSave, null, options);
+  }, [genSheetTarget, generateFromMaterial, handleWizardStudyToolSave]);
 
   const subjects = useMemo(() => {
     const set = new Set(resources.filter((r) => r.status !== "rejected").map((r) => r.subject).filter(Boolean));
@@ -2132,6 +2148,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           <div><div className="mc-r-t">Cancel</div></div>
         </button>
       </CircleSheet>
+      <GenerateMcqSheet
+        open={!!genSheetTarget}
+        onClose={() => setGenSheetTarget(null)}
+        resource={genSheetTarget}
+        analyze={analyzeMaterial}
+        onGenerate={confirmGenerateMcqs}
+        isPaid={canCustomiseMcq()}
+        remainingFree={isFreeTier() ? usageRemaining("mcqGen") : null}
+      />
       <CircleSheet open={!!moveTarget} onClose={() => setMoveTarget(null)} title={moveTarget?.title} kind="Move to">
         {moveTarget && (
           <>

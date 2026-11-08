@@ -2,6 +2,8 @@ import { prisma } from "../db.js";
 
 const FREE_TRIAL_AI_DAILY_LIMIT = parseInt(process.env.FREE_TRIAL_AI_DAILY_LIMIT || "10", 10);
 
+const FREE_MCQ_TOTAL_CAP = 30;
+
 function getResetAt() {
   const tomorrow = new Date();
   tomorrow.setHours(24, 0, 0, 0);
@@ -15,11 +17,21 @@ export async function aiRateLimit(req, res, next) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isActivated: true },
+      select: { isActivated: true, role: true },
     });
 
-    if (!user || user.isActivated) {
+    const paid = !user || user.isActivated || ["TEACHER", "LECTURER", "ADMIN"].includes(String(user.role).toUpperCase());
+    if (paid) {
       return next();
+    }
+
+    // Customised Rapid Recall (more than the auto-size set) is a paid feature.
+    const mcqTotal = Number(req.body?.mcqTotal);
+    if (Number.isFinite(mcqTotal) && mcqTotal > FREE_MCQ_TOTAL_CAP) {
+      return res.status(403).json({
+        error: `Custom question sets over ${FREE_MCQ_TOTAL_CAP} questions are a Premium feature.`,
+        code: "premium_required",
+      });
     }
 
     const startOfDay = new Date();
