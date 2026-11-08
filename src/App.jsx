@@ -83,7 +83,7 @@ import { adoptServerGems } from "./features/streak-survival/survivalStore.js";
 import { localDayKey, tzOffsetMinutes } from "./lib/dayKey.js";
 import {
   isFreeTier, freeTierPhase, trialDaysLeft, trialEndPending, markTrialEndNotified,
-  enterFreeTier, exitFreeTier, canUse, consume, loadState,
+  enterFreeTier, exitFreeTier, canUse, consume, loadState, noteDeactivated,
 } from "./lib/freeTier.js";
 import {
   loadFromStorage, todayKey, percent, pickAdaptiveQuestion,
@@ -1890,7 +1890,9 @@ function App() {
     if (!freeTierMode || !booted) return;
     const isNewTrial = !loadState().trialStartDate;
     enterFreeTier(); // idempotent — sets trialStartDate once
-    if (isNewTrial) setShowFreeTierTour(true);
+    // Ex-paid accounts get trialStartDate stamped but land on the capped
+    // free tier — don't show them the new-trial tour.
+    if (isNewTrial && freeTierPhase() === "trial") setShowFreeTierTour(true);
   }, [freeTierMode, booted]);
 
   // Trial lifecycle: warn near expiry, show the one-time "trial ended" modal
@@ -4208,9 +4210,12 @@ function App() {
 
           toast.error("Your account has been deactivated. Please contact your teacher.");
 
-          // Exit free tier if active
+          // Exit free tier if active and mark the account ex-paid so the
+          // free tier skips the trial entirely on re-entry
 
           exitFreeTier();
+
+          noteDeactivated();
 
           setFreeTierMode(false);
 

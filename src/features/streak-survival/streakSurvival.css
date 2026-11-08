@@ -1000,6 +1000,25 @@
 }
 .ss-root .go-continue:hover{ color:var(--text); border-color:var(--text-dim); }
 
+/* Free-tier wall — shown on a second death (refill spent) */
+.ss-root .go-wall{ margin-bottom:6px; }
+.ss-root .go-wall-title{
+  font-family:var(--font-mono); font-weight:700; font-size:13px; color:var(--rose);
+  letter-spacing:0.08em; text-transform:uppercase;
+}
+.ss-root .go-wall-count{
+  font-family:var(--font-mono); font-size:22px; font-weight:800; color:var(--text);
+  margin-top:8px; font-variant-numeric:tabular-nums;
+}
+.ss-root .go-wall-sub{
+  font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
+  margin-top:8px; line-height:1.6;
+}
+.ss-root .go-premium{
+  border-color:rgba(255,182,39,0.8); background:linear-gradient(135deg, rgba(255,182,39,0.22), rgba(255,122,158,0.16));
+  color:var(--gold);
+}
+
 /* ---------- Last-life vignette ---------- */
 .ss-root .danger-vignette{
   position:fixed; inset:0; pointer-events:none; z-index:40;

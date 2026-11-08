@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { callAI } from '../../lib/aiClient.js';
 import { recordPracticeResult } from '../../lib/studyHistory.js';
 import { API_BASE, FREE_TIER_LIMITS } from '../../lib/constants';
-import { recordSurvivalHeartLoss, survivalCooldownRemaining } from '../../lib/freeTier.js';
+import { recordSurvivalHeartLoss, survivalCooldownRemaining, freeTierPhase, triggerSurvivalCooldown } from '../../lib/freeTier.js';
 import { getMyLeague, getLeagueStandings, checkBadges } from '../../lib/gamificationApi.js';
 import {
   loadSave, mutate, tickDay,
@@ -659,6 +659,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
     sound.heartbreak();
     sound.over();
     haptics.error();
+    // Free tier: a second death (the one refill is spent) ends the session in
+    // the premium wall — start the recharge now so the countdown is live.
+    if (!snapshot && freeTierPhase() === 'free' && revivesUsed >= 1) {
+      const ms = triggerSurvivalCooldown();
+      if (ms > 0) setCooldownMs(ms);
+    }
     setGameOver(true);
   }
 
@@ -669,9 +675,27 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
 
   const reviveCostNow = () => REVIVE_COSTS[Math.min(revivesUsed, REVIVE_COSTS.length - 1)];
 
+  // Free-tier pacing: one refill chance per run (any kind — free refill, gem
+  // revive or a shop heart refill all spend the same single slot). A second
+  // death then triggers the premium wall + cooldown via triggerGameOver.
+  const isFreeRun = !snapshot && freeTierPhase() === 'free';
+  const reviveLimit = isFreeRun ? 1 : MAX_REVIVES;
+  const freeWall = isFreeRun && gameOver && (revivesUsed >= reviveLimit || cooldownMs > 0);
+
+  function freeRefill() {
+    if (!isFreeRun || revivesUsed >= reviveLimit) return;
+    setRevivesUsed(1);
+    setLives(1);
+    setGameOver(false);
+    sound.levelup();
+    haptics.success();
+    toast('❤️ Free refill — make it count!', '#FF7A9E');
+    setTimeout(() => serveNext(runMode), 250);
+  }
+
   function reviveWithGems() {
     const cost = reviveCostNow();
-    if (revivesUsed >= MAX_REVIVES || save.gems < cost) return;
+    if (revivesUsed >= reviveLimit || save.gems < cost) return;
     editSave((s) => { s.gems -= cost; });
     setRevivesUsed((n) => n + 1);
     setLives(1);
@@ -683,7 +707,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
   }
 
   function redeemHeartRefill() {
-    if (revivesUsed >= MAX_REVIVES || save.heartRefills <= 0) return;
+    if (revivesUsed >= reviveLimit || save.heartRefills <= 0) return;
     editSave((s) => { s.heartRefills -= 1; });
     setRevivesUsed((n) => n + 1);
     setLives(1);
@@ -1355,8 +1379,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
       if (gameOver) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          if (save.heartRefills > 0 && revivesUsed < MAX_REVIVES) redeemHeartRefill();
-          else if (revivesUsed < MAX_REVIVES && save.gems >= reviveCostNow()) reviveWithGems();
+          if (freeWall) dismissGameOver();
+          else if (isFreeRun && revivesUsed < reviveLimit) freeRefill();
+          else if (save.heartRefills > 0 && revivesUsed < reviveLimit) redeemHeartRefill();
+          else if (revivesUsed < reviveLimit && save.gems >= reviveCostNow()) reviveWithGems();
           else dismissGameOver();
         }
         return;
@@ -2026,25 +2052,55 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
             streak <span className="go-streak">{runBest}</span> · {answered} answered · {reviewMissedRef.current.length} to review
           </div>
           <div className="go-actions">
-            {save.heartRefills > 0 && revivesUsed < MAX_REVIVES && (
-              <button className="go-revive" onClick={redeemHeartRefill}>
-                ❤️ Use heart refill — free revive
-              </button>
+            {freeWall ? (
+              <>
+                <div className="go-wall">
+                  <div className="go-wall-title">💔 Out of free hearts</div>
+                  {cooldownMs > 0 && (
+                    <div className="go-wall-count" role="timer">
+                      {Math.floor(cooldownMs / 60000)}:{String(Math.floor((cooldownMs % 60000) / 1000)).padStart(2, '0')} until free hearts return
+                    </div>
+                  )}
+                  <div className="go-wall-sub">Premium members never wait — unlimited hearts and sessions.</div>
+                </div>
+                <button className="go-revive go-premium" onClick={() => window.dispatchEvent(new CustomEvent('sc-open-premium'))}>
+                  💎 Go Premium — keep playing
+                </button>
+                <button className="go-continue" onClick={dismissGameOver}>
+                  {reviewMissedRef.current.length > 0 ? 'Review your misses →' : 'See results →'}
+                </button>
+              </>
+            ) : (
+              <>
+                {isFreeRun ? (
+                  <button className="go-revive" onClick={freeRefill}>
+                    ❤️ Free refill — your one second chance
+                  </button>
+                ) : (
+                  <>
+                    {save.heartRefills > 0 && revivesUsed < reviveLimit && (
+                      <button className="go-revive" onClick={redeemHeartRefill}>
+                        ❤️ Use heart refill — free revive
+                      </button>
+                    )}
+                    <button
+                      className="go-revive"
+                      disabled={revivesUsed >= reviveLimit || save.gems < reviveCostNow()}
+                      onClick={reviveWithGems}
+                    >
+                      {revivesUsed >= reviveLimit
+                        ? 'No revives left this run'
+                        : save.gems >= reviveCostNow()
+                          ? `💎 ${reviveCostNow()} — Revive & keep going`
+                          : `💎 Revive — need ${reviveCostNow()} gems`}
+                    </button>
+                  </>
+                )}
+                <button className="go-continue" onClick={dismissGameOver}>
+                  {reviewMissedRef.current.length > 0 ? 'Review your misses →' : 'See results →'}
+                </button>
+              </>
             )}
-            <button
-              className="go-revive"
-              disabled={revivesUsed >= MAX_REVIVES || save.gems < reviveCostNow()}
-              onClick={reviveWithGems}
-            >
-              {revivesUsed >= MAX_REVIVES
-                ? 'No revives left this run'
-                : save.gems >= reviveCostNow()
-                  ? `💎 ${reviveCostNow()} — Revive & keep going`
-                  : `💎 Revive — need ${reviveCostNow()} gems`}
-            </button>
-            <button className="go-continue" onClick={dismissGameOver}>
-              {reviewMissedRef.current.length > 0 ? 'Review your misses →' : 'See results →'}
-            </button>
           </div>
         </div>
       )}

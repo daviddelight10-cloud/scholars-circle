@@ -30,6 +30,7 @@ function defaults() {
     heartsLost: 0,            // survival hearts lost toward the cooldown threshold
     cooldownUntil: 0,         // epoch ms — survival sessions blocked until then
     trialEndNotified: false,  // one-time "trial ended" modal shown
+    wasActivated: false,      // user has held a paid/activated plan before
   };
 }
 
@@ -101,6 +102,27 @@ export function canCustomiseMcq() {
   return isActivatedUser();
 }
 
+// True when the auth blob proves this account once held an activated plan
+// (`activatedAt`/`activationExpiry` survive deactivation — only isActivated
+// and planType are cleared). A lapsed subscriber never gets a trial.
+export function everActivated() {
+  try {
+    const authRaw = localStorage.getItem("scholars-circle-auth");
+    if (!authRaw) return false;
+    const u = JSON.parse(authRaw).authUser;
+    return !!(u?.activatedAt || u?.activationExpiry);
+  } catch {
+    return false;
+  }
+}
+
+// Called when the auth refresh detects activation being revoked (plan expiry
+// or admin deactivation). Permanently marks the account as ex-paid so the
+// free tier skips the trial — even if the trial was never used.
+export function noteDeactivated() {
+  mutate((s) => { s.wasActivated = true; s.trialEndNotified = true; });
+}
+
 // True when the user is on the free experience (opted in, not activated).
 export function isFreeTier() {
   return loadState().active === true && !isActivatedUser();
@@ -111,6 +133,9 @@ export function isFreeTier() {
 export function freeTierPhase() {
   if (!isFreeTier()) return null;
   const s = loadState();
+  // Ex-paid accounts land straight on the capped free tier — no fresh trial,
+  // no leftover trial days once a plan has been held.
+  if (s.wasActivated || everActivated()) return "free";
   if (!s.trialStartDate) return "trial";
   const elapsedDays = (Date.now() - s.trialStartDate) / 86400000;
   return elapsedDays < FREE_TIER_LIMITS.trialDays ? "trial" : "free";
@@ -137,6 +162,7 @@ export function markTrialEndNotified() {
 export function enterFreeTier() {
   return mutate((s) => {
     s.active = true;
+    if (s.wasActivated || everActivated()) s.trialEndNotified = true; // no "trial ended" modal for ex-paid
     if (!s.trialStartDate) s.trialStartDate = Date.now();
   });
 }
@@ -221,6 +247,8 @@ export function isSurvivalCoolingDown() {
 }
 
 // Called from loseLife() — returns true when this heart loss triggered a cooldown.
+// Hidden backstop accumulator: hearts lost across sessions still count, so a
+// free user can't dodge the wall by quitting before a second death.
 export function recordSurvivalHeartLoss() {
   if (freeTierPhase() !== "free") return false;
   let triggered = false;
@@ -234,4 +262,18 @@ export function recordSurvivalHeartLoss() {
     }
   });
   return triggered;
+}
+
+// Called when a free-tier survival run ends in a second death (3 hearts plus
+// the one refill already spent). Starts the recharge immediately so the
+// premium wall can show a live countdown. Returns remaining ms (0 for
+// trial/paid or when already cooling down).
+export function triggerSurvivalCooldown() {
+  if (freeTierPhase() !== "free") return 0;
+  mutate((s) => {
+    if (s.cooldownUntil > Date.now()) return; // already cooling down
+    s.cooldownUntil = Date.now() + FREE_TIER_LIMITS.survivalCooldownMinutes * 60000;
+    s.heartsLost = 0;
+  });
+  return survivalCooldownRemaining();
 }
