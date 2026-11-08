@@ -127,43 +127,19 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
   const idle = done === 0 && shownDue > 0;
 
   const toggle = (k) => setOpen((o) => (o === k ? null : k));
-  const hl = open === "m" ? "m" : open === "l" ? "l" : null;
 
-  const mats = (folder ? [folder] : list).flatMap((f) => f.materials || []);
+  const [custOpen, setCustOpen] = useState(false);
+  const sessScope = picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"}` : folder ? folder.folderName : "All courses";
 
+  const [retLabel, retColor] = retInfo(retPct);
   let detail = null;
-  if (open === "ret") {
-    const [label, color] = retInfo(retPct);
+  if (open === "sum") {
     detail = (
       <>
-        <b style={{ color }}>{label} · {retPct}%</b>
-        <br />Of the cards that come up for review, this is the share you answer correctly. Below 90% means you are forgetting between reviews.
-        <div className="hm-meter" aria-hidden="true"><i style={{ width: `${retPct}%` }} /><u /></div>
-        <div className="hm-mlab"><span>0</span><span>target 90</span><span>100</span></div>
-      </>
-    );
-  } else if (open === "m") {
-    detail = <><b>Mastered · {a.m.toLocaleString()} cards</b><br />Cards you remember reliably. They return rarely, so they cost almost no time.</>;
-  } else if (open === "l") {
-    detail = <><b>Learning · {a.l.toLocaleString()} cards</b><br />Cards still settling in. A few more successful reviews and they move to Mastered. {rest.toLocaleString()} still to learn.</>;
-  } else if (open === "done") {
-    detail = (
-      <>
-        <b>{done} of {goal} done today</b>
-        <br />{toGoal > 0 ? `${toGoal} more reviews reaches your daily goal. Short, regular sessions beat one long one.` : "Daily goal reached. Anything more is a bonus round."}
-      </>
-    );
-  } else if (open === "src") {
-    detail = (
-      <>
-        <b>You will practise from</b><br />Questions made from the materials you uploaded.
-        {mats.length > 0 && (
-          <ul className="hm-mats">
-            {mats.slice(0, 8).map((m, i) => (
-              <li key={i}><span>{m.title}</span><small>{m.due} q due</small></li>
-            ))}
-          </ul>
-        )}
+        <b>How you are doing</b>
+        <br /><b style={{ color: "#3DDC97" }}>{a.m.toLocaleString()} mastered</b>: you remember these reliably, so they come back rarely.
+        <br /><b style={{ color: "#F5A623" }}>{a.l.toLocaleString()} learning</b>: a few more good reviews and they move up.{rest > 0 ? ` ${rest.toLocaleString()} not started yet.` : ""}
+        <br /><b style={{ color: retColor }}>{retPct}% remembered ({retLabel})</b>: the share of due cards you answer correctly. Aim for about 90%.
       </>
     );
   }
@@ -182,7 +158,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
             {shownDue > 0 ? (
               <>
                 <div className="hm-num" aria-live="polite">{shownDue.toLocaleString()}</div>
-                <div className="hm-cap">due in <b>{picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"}` : folder ? folder.folderName : "all courses"}</b></div>
+                <div className="hm-cap">cards to review today</div>
               </>
             ) : (
               <div className="hm-cap">
@@ -193,14 +169,8 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
               </div>
             )}
           </div>
-          {a.total > 0 && (
-            <button className="hm-deckb" aria-pressed={open === "src"} onClick={() => toggle("src")}>
-              <span>{a.total.toLocaleString()} in deck{a.mats != null ? ` · ${a.mats} material${a.mats === 1 ? "" : "s"}` : ""}</span>
-              <Chevron />
-            </button>
-          )}
         </div>
-        <button className={`hm-ring${done >= goal ? " done" : ""}`} onClick={() => onOpenPlan?.(null)} aria-label={`Daily goal: ${done} of ${goal} done. Open study plan`}>
+        <button className={`hm-ring${done >= goal ? " done" : ""}`} onClick={() => onOpenPlan?.(null)} aria-label={`Daily goal: ${done} of ${goal} reviewed today. Tap to change your goal`}>
           <svg width="58" height="58" viewBox="0 0 54 54" aria-hidden="true">
             <circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="5" />
             <circle className="hm-ring-arc" cx="27" cy="27" r="22" fill="none" stroke={done >= goal ? "#3DDC97" : "url(#hm-grad)"} strokeWidth="5" strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - ringPct)} style={{ transition: "stroke-dashoffset .6s" }} />
@@ -211,7 +181,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
               </linearGradient>
             </defs>
           </svg>
-          <div className="hm-ring-lbl"><b>{done}/{goal}</b><span>GOAL</span></div>
+          <div className="hm-ring-lbl"><b>{done}/{goal}</b><span>TODAY</span></div>
         </button>
       </div>
 
@@ -241,60 +211,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         </button>
       )}
 
-      {foldersLoading && (
-        <div className="hm-pick hm-pick-skel" aria-hidden="true"><i /><i /><i /></div>
-      )}
-
-      {hasFolders && chips.length > 0 && (
-        <div className="hm-pick" role="radiogroup" aria-label="Choose a course to review">
-          {[{ key: "all", folderName: "All courses", due: list.reduce((s, f) => s + f.due, 0) + (bankDueCount || 0) }, ...chips].map((c) => (
-            <button key={c.key} className={`hm-cc${c.due === 0 ? " zero" : ""}`} role="radio" aria-checked={c.key === effScope} onClick={() => pick(c.key)}>
-              <span className="hm-cc-n">{c.folderName}</span>
-              <em>{c.due === 0 ? <CheckIcon /> : c.due}</em>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {hasFolders && scopeMats.length > 0 && (
-        <div className="hm-mpick">
-          <button className={`hm-mpick-b${picks ? " on" : ""}`} onClick={() => setMatsOpen(true)} aria-haspopup="dialog">
-            <span>{picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"} selected` : "Choose materials to practise"}</span>
-            <em>{picks ? `${pickDue} due` : `${scopeMats.length}`}</em>
-          </button>
-          {picks && <button className="hm-mpick-x" onClick={() => setPick([])} aria-label="Clear selected materials">Clear</button>}
-        </div>
-      )}
-      {hasFolders && onOpenSpace && (
-        <button className="hm-spacelink" onClick={onOpenSpace}>
-          Not studying a space? Archive it in My Space <span aria-hidden="true">→</span>
-        </button>
-      )}
-      <MaterialsSheet open={matsOpen} onClose={() => setMatsOpen(false)} materials={scopeMats} selected={pickedMats.map((m) => m.id)} onChange={setPick} />
-
-      {a.total > 0 && (
-        <div className={`hm-seg-bar${hl ? " has" : ""}`} aria-hidden="true">
-          <div className={`hm-seg m${hl === "m" ? " on" : ""}`} style={{ width: `${pct(a.m, a.total)}%` }} />
-          <div className={`hm-seg l${hl === "l" ? " on" : ""}`} style={{ width: `${pct(a.l, a.total)}%` }} />
-          <div className="hm-seg r" style={{ width: `${pct(rest, a.total)}%` }} />
-        </div>
-      )}
-
-      <div className="hm-stats" role="group" aria-label="Stats. Tap one for details">
-        <button className="hm-stat" aria-pressed={open === "ret"} onClick={() => toggle("ret")}><b style={{ color: retInfo(retPct)[1] }}>{retPct}%</b><span>Retention</span></button>
-        <button className="hm-stat" aria-pressed={open === "m"} onClick={() => toggle("m")}><b>{a.m.toLocaleString()}</b><span><i className="hm-sdot" style={{ background: "#3DDC97" }} />Mastered</span></button>
-        <button className="hm-stat" aria-pressed={open === "l"} onClick={() => toggle("l")}><b>{a.l.toLocaleString()}</b><span><i className="hm-sdot" style={{ background: "#F5A623" }} />Learning</span></button>
-        <button className="hm-stat" aria-pressed={open === "done"} onClick={() => toggle("done")}><b>{done}</b><span>Done today</span></button>
-      </div>
-
-      {detail && <div className="hm-dbox">{detail}</div>}
-
       <div className="hm-act">
-        <div className="hm-size" role="group" aria-label="Cards in this session">
-          <button aria-label="Fewer cards" disabled={idx <= 0} onClick={() => stepTo(idx - 1)}>−</button>
-          <div><span>{n}</span><small>CARDS</small></div>
-          <button aria-label="More cards" disabled={idx < 0 || idx >= presets.length - 1} onClick={() => stepTo(idx + 1)}>+</button>
-        </div>
         <button className={`hm-cta${idle ? " idle" : ""}`} onClick={start} disabled={avail <= 0}>
           <span>{shownDue > 0 ? (picks ? "Start practice" : "Start review") : picks && avail > 0 ? "Practice ahead" : "All caught up"}</span>
           <small>
@@ -302,6 +219,74 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
           </small>
         </button>
       </div>
+
+      {done > 0 && done >= goal && shownDue > 0 && (
+        <div className="hm-goalmsg" role="status">Daily goal reached. Anything more is a bonus round.</div>
+      )}
+
+      <button className="hm-sess" aria-expanded={custOpen} onClick={() => setCustOpen((o) => !o)}>
+        <span className="hm-sess-t"><b>{sessScope}</b>{n > 0 ? ` · ${n} card${n === 1 ? "" : "s"}` : ""}</span>
+        <span className="hm-sess-c">Customise <Chevron /></span>
+      </button>
+
+      {custOpen && (
+        <div className="hm-cust">
+          {foldersLoading && (
+            <div className="hm-pick hm-pick-skel" aria-hidden="true"><i /><i /><i /></div>
+          )}
+          {hasFolders && chips.length > 0 && (
+            <div className="hm-pick" role="radiogroup" aria-label="Choose a course to review">
+              {[{ key: "all", folderName: "All courses", due: list.reduce((s, f) => s + f.due, 0) + (bankDueCount || 0) }, ...chips].map((c) => (
+                <button key={c.key} className={`hm-cc${c.due === 0 ? " zero" : ""}`} role="radio" aria-checked={c.key === effScope} onClick={() => pick(c.key)}>
+                  <span className="hm-cc-n">{c.folderName}</span>
+                  <em>{c.due === 0 ? <CheckIcon /> : c.due}</em>
+                </button>
+              ))}
+            </div>
+          )}
+          {hasFolders && scopeMats.length > 0 && (
+            <div className="hm-mpick">
+              <button className={`hm-mpick-b${picks ? " on" : ""}`} onClick={() => setMatsOpen(true)} aria-haspopup="dialog">
+                <span>{picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"} selected` : "Choose materials to practise"}</span>
+                <em>{picks ? `${pickDue} due` : `${scopeMats.length}`}</em>
+              </button>
+              {picks && <button className="hm-mpick-x" onClick={() => setPick([])} aria-label="Clear selected materials">Clear</button>}
+            </div>
+          )}
+          <div className="hm-cust-row">
+            <span>Cards this session</span>
+            <div className="hm-size" role="group" aria-label="Cards in this session">
+              <button aria-label="Fewer cards" disabled={idx <= 0} onClick={() => stepTo(idx - 1)}>−</button>
+              <div><span>{n}</span></div>
+              <button aria-label="More cards" disabled={idx < 0 || idx >= presets.length - 1} onClick={() => stepTo(idx + 1)}>+</button>
+            </div>
+          </div>
+          {hasFolders && onOpenSpace && (
+            <button className="hm-spacelink" onClick={onOpenSpace}>
+              Not studying a space? Archive it in My Space <span aria-hidden="true">→</span>
+            </button>
+          )}
+        </div>
+      )}
+      <MaterialsSheet open={matsOpen} onClose={() => setMatsOpen(false)} materials={scopeMats} selected={pickedMats.map((m) => m.id)} onChange={setPick} />
+
+      {a.total > 0 && (
+        <>
+          <div className="hm-seg-bar" aria-hidden="true">
+            <div className="hm-seg m" style={{ width: `${pct(a.m, a.total)}%` }} />
+            <div className="hm-seg l" style={{ width: `${pct(a.l, a.total)}%` }} />
+            <div className="hm-seg r" style={{ width: `${pct(rest, a.total)}%` }} />
+          </div>
+          <button className="hm-line" aria-expanded={open === "sum"} onClick={() => toggle("sum")}>
+            <span><i className="hm-sdot" style={{ background: "#3DDC97" }} />{a.m.toLocaleString()} mastered</span>
+            <span><i className="hm-sdot" style={{ background: "#F5A623" }} />{a.l.toLocaleString()} learning</span>
+            <span style={{ color: retColor }}>{retPct}% remembered</span>
+            <Chevron />
+          </button>
+        </>
+      )}
+
+      {detail && <div className="hm-dbox">{detail}</div>}
     </div>
   );
 }
