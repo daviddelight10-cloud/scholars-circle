@@ -1349,15 +1349,6 @@
 .pm-hero-btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
 .pm-hero-btn:disabled { opacity: 0.55; cursor: default; }
 
-.pm-hero-actions { display: flex; gap: 10px; }
-.pm-hero-actions .pm-hero-btn { flex: 1; min-width: 0; }
-.pm-hero-btn-alt {
-  background: var(--app-card2);
-  color: var(--app-text);
-  border-color: var(--app-line-strong);
-  box-shadow: none;
-}
-
 .pm-header-meta {
   display: flex; align-items: center; gap: 5px;
   font-size: 11px; color: var(--app-dim);

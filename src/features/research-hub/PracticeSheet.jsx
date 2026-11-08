@@ -497,22 +497,13 @@ export default function PracticeSheet({
                 )}
               </div>
             </div>
-            <div className="pm-hero-actions">
-              <button
-                className="pm-hero-btn"
-                disabled={generating}
-                onClick={act(() => (mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs")))}
-              >
-                {mcq ? (prog ? "Continue recall" : "Start recall") : generating ? "Generating…" : "Generate questions"} <IcoArrowRight size={15} />
-              </button>
-              <button
-                className="pm-hero-btn pm-hero-btn-alt"
-                onClick={act(() => onOpen(file.shareToken))}
-                title="Read the document — search, circle-to-ask AI, AI tutor chat, highlights"
-              >
-                <IcoFileText size={15} /> Read &amp; ask AI
-              </button>
-            </div>
+            <button
+              className="pm-hero-btn"
+              disabled={generating}
+              onClick={act(() => (mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs")))}
+            >
+              {mcq ? (prog ? "Continue recall" : "Start recall") : generating ? "Generating…" : "Generate questions"} <IcoArrowRight size={15} />
+            </button>
           </section>
 
           <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to practice</div>
@@ -552,9 +543,17 @@ export default function PracticeSheet({
               disabled={!canExtract || generating}
               onClick={act(() => onExamSimulation?.(exam || file))}
             />
+            <PmTile
+              delay={210}
+              tint="tint-rose"
+              icon={<IcoFile size={17} />}
+              name="Material"
+              sub={file.fileName || "Source document"}
+              onClick={act(() => onOpen(file.shareToken))}
+            />
             {onSaveMaterial && (
               <PmTile
-                delay={210}
+                delay={250}
                 tint="tint-amber"
                 icon={<IcoBookmark size={17} />}
                 name="Save to My Space"
