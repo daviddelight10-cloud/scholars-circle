@@ -47,6 +47,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
   const goal = fsrsStats?.dailyGoal || 20;
   const done = fsrsStats?.reviewedToday || 0;
   const ringPct = goal > 0 ? Math.min(1, done / goal) : 0;
+  const reduced = useMemo(() => window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false, []);
 
   const a = useMemo(() => {
     if (hasFolders) {
@@ -178,10 +179,11 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         <button className={`hm-ring${done >= goal ? " done" : ""}`} onClick={() => onOpenPlan?.(null)} aria-label={`Daily goal: ${done} of ${goal} done. Open study plan`}>
           <svg width="58" height="58" viewBox="0 0 54 54" aria-hidden="true">
             <circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="5" />
-            <circle cx="27" cy="27" r="22" fill="none" stroke={done >= goal ? "#3DDC97" : "url(#hm-grad)"} strokeWidth="5" strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - ringPct)} style={{ transition: "stroke-dashoffset .6s" }} />
+            <circle className="hm-ring-arc" cx="27" cy="27" r="22" fill="none" stroke={done >= goal ? "#3DDC97" : "url(#hm-grad)"} strokeWidth="5" strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - ringPct)} style={{ transition: "stroke-dashoffset .6s" }} />
             <defs>
               <linearGradient id="hm-grad" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stopColor="#FFC857" /><stop offset="100%" stopColor="#F5A623" />
+                {!reduced && <animateTransform attributeName="gradientTransform" type="rotate" from="0 .5 .5" to="360 .5 .5" dur="6s" repeatCount="indefinite" />}
               </linearGradient>
             </defs>
           </svg>
