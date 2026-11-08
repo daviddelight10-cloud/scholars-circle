@@ -2132,6 +2132,42 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           <div><div className="mc-r-t">Cancel</div></div>
         </button>
       </CircleSheet>
+      <CircleSheet open={!!moveTarget} onClose={() => setMoveTarget(null)} title={moveTarget?.title} kind="Move to">
+        {moveTarget && (
+          <>
+            {(folders.own || []).filter((f) => f.id !== activeFolder).map((f) => (
+              <button key={f.id} className="mc-act-row" onClick={() => confirmMove(f.id)}>
+                <McIcon name="folder" />
+                <div><div className="mc-r-t">{f.name}</div></div>
+              </button>
+            ))}
+            <button className="mc-act-row" onClick={() => confirmMove(null)}>
+              <McIcon name="books" />
+              <div><div className="mc-r-t">No space (loose)</div><div className="mc-r-s">Keep it under Materials in My Space</div></div>
+            </button>
+            <button className="mc-act-row" onClick={() => setMoveTarget(null)}>
+              <McIcon name="x" />
+              <div><div className="mc-r-t">Cancel</div></div>
+            </button>
+          </>
+        )}
+      </CircleSheet>
+    </div>
+  );
+
+  // Toasts must render in every branch (folder view early-returns before the
+  // main JSX, so an inline toast there would never paint).
+  const hubToast = (
+    <div className="mc-root" style={{ display: "contents" }}>
+      {toast && (
+        <div className="mc-toast show">
+          <McIcon name={toast.icon || "check"} />
+          <span>{toast.msg}</span>
+          {toast.actLabel && (
+            <button className="mc-toast-act" onClick={runToastAction}>{toast.actLabel}</button>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -2214,6 +2250,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       {deckOverlay}
       {shareSheet}
       {fileActionSheets}
+      {hubToast}
     </>);
   }
 
@@ -2562,15 +2599,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         </div>
       )}
 
-      {toast && (
-        <div className="mc-toast show">
-          <McIcon name={toast.icon || "check"} />
-          <span>{toast.msg}</span>
-          {toast.actLabel && (
-            <button className="mc-toast-act" onClick={runToastAction}>{toast.actLabel}</button>
-          )}
-        </div>
-      )}
+      {hubToast}
 
       {showFab && activeTab === "library" && (
         <div onClick={() => setShowFab(false)} className="mc-fab-overlay fixed inset-0 z-[998] bg-black/50" style={{ animation: "fade-up 0.15s ease" }} />
@@ -2674,27 +2703,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           <div><div className="mc-r-t">Not now</div><div className="mc-r-s">Don't suggest again for 7 days</div></div>
         </button>
       </CircleSheet>
-      <CircleSheet open={!!moveTarget} onClose={() => setMoveTarget(null)} title={moveTarget?.title} kind="Move to">
-        {moveTarget && (
-          <>
-            {(folders.own || []).filter((f) => f.id !== activeFolder).map((f) => (
-              <button key={f.id} className="mc-act-row" onClick={() => confirmMove(f.id)}>
-                <McIcon name="folder" />
-                <div><div className="mc-r-t">{f.name}</div></div>
-              </button>
-            ))}
-            <button className="mc-act-row" onClick={() => confirmMove(null)}>
-              <McIcon name="books" />
-              <div><div className="mc-r-t">No space (loose)</div><div className="mc-r-s">Keep it under Materials in My Space</div></div>
-            </button>
-            <button className="mc-act-row" onClick={() => setMoveTarget(null)}>
-              <McIcon name="x" />
-              <div><div className="mc-r-t">Cancel</div></div>
-            </button>
-          </>
-        )}
-      </CircleSheet>
-
       {uploadWizard}
       {createFolderModal}
       {bookmarkPicker}
