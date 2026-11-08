@@ -1186,3 +1186,46 @@ html[data-theme="dark"] .hm-hero { border-color: rgba(255,200,87,.22); }
 .hm-mat-n { flex: none; font: 600 10.5px var(--hm-font-mono, monospace); color: var(--app-dim); }
 .hm-mat-n.due { color: #B4530E; }
 .hm-mat-done { width: 100%; margin-top: 12px; height: 48px; border: 0; border-radius: 14px; font: 700 14px var(--hm-font-display, inherit); color: #1B1A17; background: linear-gradient(180deg, #FFBE4A, #F5A623); cursor: pointer; }
+
+/* ── Light theme: cream-paper review card ────────────────────────────
+   Same layout; dark slab becomes a warm paper card so it matches the
+   rest of Home. Dark theme keeps the prototype look untouched. */
+html[data-theme="light"] .hm-hero {
+  --hm-text: #1A1814; --hm-muted: #6B6557; --hm-faint: #7A7463;
+  --hm-card: rgba(26,24,20,.04); --hm-stroke: rgba(26,24,20,.14); --hm-stroke-soft: rgba(26,24,20,.09);
+  background: radial-gradient(120% 100% at 100% 0%, rgba(245,166,35,.14) 0%, transparent 55%), linear-gradient(160deg, #FDFBF3, #F7F2E4);
+  border-color: rgba(26,24,20,.10);
+  box-shadow: 0 1px 2px rgba(74,64,40,.08), 0 12px 30px rgba(74,64,40,.13), inset 0 1px 0 rgba(255,255,255,.7);
+}
+html[data-theme="light"] .hm-hero-glow { background: radial-gradient(circle, rgba(245,166,35,.22), transparent 65%); }
+html[data-theme="light"] .hm-tag-s,
+html[data-theme="light"] .hm-deckb[aria-pressed="true"],
+html[data-theme="light"] .hm-exam > svg { color: #A07D00; }
+html[data-theme="light"] .hm-due .hm-num { background: linear-gradient(180deg, #1B1A17, #4A4030); -webkit-background-clip: text; background-clip: text; }
+html[data-theme="light"] .hm-caught { color: #159C63; }
+html[data-theme="light"] .hm-ck { color: #159C63; }
+html[data-theme="light"] .hm-ring circle:first-of-type { stroke: rgba(26,24,20,.10); }
+html[data-theme="light"] .hm-exam {
+  border-color: rgba(245,166,35,.35); background: #FBE9C4;
+}
+html[data-theme="light"] .hm-exam:hover { background: #F7DFAF; }
+html[data-theme="light"] .hm-exam-t span.warn { color: #B4530E; }
+html[data-theme="light"] .hm-exam-r i { background: rgba(26,24,20,.14); }
+html[data-theme="light"] .hm-cc { border-color: rgba(26,24,20,.14); background: rgba(26,24,20,.03); }
+html[data-theme="light"] .hm-cc em { background: rgba(26,24,20,.08); }
+html[data-theme="light"] .hm-cc[aria-checked="true"] { background: #FBE9C4; border-color: rgba(160,125,0,.7); color: #8A5A00; }
+html[data-theme="light"] .hm-cc[aria-checked="true"] em { background: #F5A623; color: #1B1A17; }
+html[data-theme="light"] .hm-pick-skel i { background: rgba(26,24,20,.06); }
+html[data-theme="light"] .hm-seg.r { background: #E4DECF; }
+html[data-theme="light"] .hm-stat { background: rgba(26,24,20,.035); }
+html[data-theme="light"] .hm-stat:hover { background: rgba(26,24,20,.06); }
+html[data-theme="light"] .hm-stat[aria-pressed="true"] { background: rgba(26,24,20,.07); border-color: rgba(26,24,20,.18); }
+html[data-theme="light"] .hm-dbox { background: rgba(26,24,20,.04); border-color: rgba(26,24,20,.09); }
+html[data-theme="light"] .hm-meter { background: rgba(26,24,20,.14); }
+html[data-theme="light"] .hm-meter u { background: #1A1814; }
+html[data-theme="light"] .hm-size { background: rgba(26,24,20,.04); border-color: rgba(26,24,20,.12); }
+html[data-theme="light"] .hm-cta[disabled] { background: #E4DECF; color: #8B8574; }
+html[data-theme="light"] .hm-mpick-b { border-color: rgba(26,24,20,.18); background: rgba(26,24,20,.03); }
+html[data-theme="light"] .hm-mpick-b.on { border-color: rgba(160,125,0,.6); background: rgba(245,166,35,.14); }
+html[data-theme="light"] .hm-mpick-b em { color: #A07D00; }
+html[data-theme="light"] .hm-hero.idle { box-shadow: 0 1px 2px rgba(74,64,40,.08), 0 12px 30px rgba(74,64,40,.13), 0 0 0 3px rgba(245,166,35,.35); }
