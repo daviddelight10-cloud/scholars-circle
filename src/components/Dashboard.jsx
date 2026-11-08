@@ -729,6 +729,8 @@ export default function Dashboard({
           <DailyReview
             initialFolder={reviewOpts?.folder || null}
             size={reviewOpts?.size || null}
+            resources={reviewOpts?.resources || null}
+            practice={!!reviewOpts?.practice}
             onBack={() => { setShowDailyReview(false); fetchFsrsStats(); refreshSave(); }}
             onComplete={() => { fetchFsrsStats(); refreshSave(); }}
           />

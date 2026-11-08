@@ -1,10 +1,12 @@
 import { memo, useMemo, useState } from "react";
 import HIcon from "./HIcon.jsx";
+import { MaterialsSheet } from "./HomeSheets.jsx";
 import { examKeyOf, daysUntil, readiness, needPerDay } from "../../hooks/useReviewPlan.js";
 
 const RING_C = 138.2; // 2πr for r=22
 const SCOPE_KEY = "sc_home_review_scope";
 const SIZE_KEY = "sc_home_review_size";
+const MATS_KEY = "sc_home_review_mats";
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, String(v)); } catch {} };
 
@@ -36,6 +38,9 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
   const [scope, setScope] = useState(() => lsGet(SCOPE_KEY) || "all");
   const [size, setSize] = useState(() => { const n = parseInt(lsGet(SIZE_KEY), 10); return n > 0 ? n : null; });
   const [open, setOpen] = useState(null); // 'ret' | 'm' | 'l' | 'done' | 'src'
+  const [picked, setPicked] = useState(() => { try { const v = JSON.parse(lsGet(MATS_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } });
+  const [matsOpen, setMatsOpen] = useState(false);
+  const setPick = (ids) => { setPicked(ids); lsSet(MATS_KEY, JSON.stringify(ids)); };
 
   const list = useMemo(() => folders || [], [folders]);
   const hasList = list.length > 0;
@@ -69,14 +74,31 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
     };
   }, [hasFolders, folder, list, bankDueCount, fsrsStats]);
 
+  // Materials the user hand-picked (within the current course scope).
+  const scopeMats = useMemo(
+    () => (folder ? [folder] : list).flatMap((f) => (f.materials || []).filter((m) => m.id).map((m) => ({ ...m, folderName: f.folderName }))),
+    [folder, list],
+  );
+  const pickedMats = useMemo(() => {
+    if (!hasFolders) return [];
+    const s = new Set(picked);
+    return scopeMats.filter((m) => s.has(m.id));
+  }, [picked, scopeMats, hasFolders]);
+  const picks = pickedMats.length > 0;
+  const pickDue = pickedMats.reduce((s, m) => s + m.due, 0);
+  const pickTotal = pickedMats.reduce((s, m) => s + m.total, 0);
+  const shownDue = picks ? pickDue : a.due;
+  const avail = picks ? pickTotal : a.due;
+
   // The big number is what's due; the stepper picks this session's length.
   const toGoal = Math.max(goal - done, 0);
   const presets = useMemo(() => {
     const s = new Set([3, 5, 10, 25, 50]);
     if (toGoal > 0) s.add(toGoal);
-    if (a.due > 0) s.add(a.due);
-    return [...s].filter((n) => n >= 1 && n <= Math.min(a.due, 100)).sort((x, y) => x - y);
-  }, [toGoal, a.due]);
+    if (shownDue > 0) s.add(shownDue);
+    if (avail > 0) s.add(avail);
+    return [...s].filter((n) => n >= 1 && n <= Math.min(avail, 100)).sort((x, y) => x - y);
+  }, [toGoal, shownDue, avail]);
   const n = !presets.length ? 0
     : size != null && presets.includes(size) ? size
     : toGoal > 0 && presets.includes(toGoal) ? toGoal
@@ -102,7 +124,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
 
   const retPct = Math.round(a.ret);
   const rest = Math.max(a.total - a.m - a.l, 0);
-  const idle = done === 0 && a.due > 0;
+  const idle = done === 0 && shownDue > 0;
 
   const toggle = (k) => setOpen((o) => (o === k ? null : k));
   const hl = open === "m" ? "m" : open === "l" ? "l" : null;
@@ -146,7 +168,9 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
     );
   }
 
-  const start = () => onStartDaily?.({ folder: effScope === "all" ? "__all__" : effScope, size: n || undefined });
+  const start = () => onStartDaily?.(picks
+    ? { folder: "__all__", resources: pickedMats.map((m) => m.id), practice: true, size: n || undefined }
+    : { folder: effScope === "all" ? "__all__" : effScope, size: n || undefined });
 
   return (
     <div className={`hm-hero${idle ? " idle" : ""}`}>
@@ -155,16 +179,16 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         <div>
           <div className="hm-tag"><span className="hm-dot" />TODAY'S REVIEW{done === 0 && <span className="hm-tag-s"> · not started</span>}</div>
           <div className="hm-due">
-            {a.due > 0 ? (
+            {shownDue > 0 ? (
               <>
-                <div className="hm-num" aria-live="polite">{a.due.toLocaleString()}</div>
-                <div className="hm-cap">due in <b>{folder ? folder.folderName : "all courses"}</b></div>
+                <div className="hm-num" aria-live="polite">{shownDue.toLocaleString()}</div>
+                <div className="hm-cap">due in <b>{picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"}` : folder ? folder.folderName : "all courses"}</b></div>
               </>
             ) : (
               <div className="hm-cap">
                 <b className="hm-caught">All caught up</b>
                 <span className="hm-backlog">
-                  {fsrsStats?.nextDueAt ? `next item in ${relIn(fsrsStats.nextDueAt)}` : `${a.total.toLocaleString()} items in deck`}
+                  {picks ? `${pickTotal.toLocaleString()} cards to practise ahead` : fsrsStats?.nextDueAt ? `next item in ${relIn(fsrsStats.nextDueAt)}` : `${a.total.toLocaleString()} items in deck`}
                 </span>
               </div>
             )}
@@ -232,6 +256,17 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         </div>
       )}
 
+      {hasFolders && scopeMats.length > 0 && (
+        <div className="hm-mpick">
+          <button className={`hm-mpick-b${picks ? " on" : ""}`} onClick={() => setMatsOpen(true)} aria-haspopup="dialog">
+            <span>{picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"} selected` : "Choose materials to practise"}</span>
+            <em>{picks ? `${pickDue} due` : `${scopeMats.length}`}</em>
+          </button>
+          {picks && <button className="hm-mpick-x" onClick={() => setPick([])} aria-label="Clear selected materials">Clear</button>}
+        </div>
+      )}
+      <MaterialsSheet open={matsOpen} onClose={() => setMatsOpen(false)} materials={scopeMats} selected={pickedMats.map((m) => m.id)} onChange={setPick} />
+
       {a.total > 0 && (
         <div className={`hm-seg-bar${hl ? " has" : ""}`} aria-hidden="true">
           <div className={`hm-seg m${hl === "m" ? " on" : ""}`} style={{ width: `${pct(a.m, a.total)}%` }} />
@@ -255,10 +290,10 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
           <div><span>{n}</span><small>CARDS</small></div>
           <button aria-label="More cards" disabled={idx < 0 || idx >= presets.length - 1} onClick={() => stepTo(idx + 1)}>+</button>
         </div>
-        <button className={`hm-cta${idle ? " idle" : ""}`} onClick={start} disabled={a.due <= 0}>
-          <span>{a.due > 0 ? "Start review" : "All caught up"}</span>
+        <button className={`hm-cta${idle ? " idle" : ""}`} onClick={start} disabled={avail <= 0}>
+          <span>{shownDue > 0 ? (picks ? "Start practice" : "Start review") : picks && avail > 0 ? "Practice ahead" : "All caught up"}</span>
           <small>
-            {a.due <= 0 ? "Nothing due here" : done === 0 ? `${mins(n)} · keep your ${fsrsStats?.streak || 0}-day streak` : `${mins(n)}${toGoal > 0 && n >= toGoal ? " · reaches goal" : ""}`}
+            {shownDue <= 0 ? (picks && avail > 0 ? "Nothing due · extra practice" : "Nothing due here") : done === 0 ? `${mins(n)} · keep your ${fsrsStats?.streak || 0}-day streak` : `${mins(n)}${toGoal > 0 && n >= toGoal ? " · reaches goal" : ""}`}
           </small>
         </button>
       </div>

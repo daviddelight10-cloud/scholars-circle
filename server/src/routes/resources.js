@@ -1910,7 +1910,8 @@ router.get("/fsrs/folders", requireAuth, async (req, res) => {
       }
       const rid = it.resource?.id || it.resourceId;
       if (rid) {
-        const m = b._mats.get(rid) || { title: it.resource?.title || "Untitled", due: 0 };
+        const m = b._mats.get(rid) || { id: rid, title: it.resource?.title || "Untitled", due: 0, total: 0 };
+        m.total++;
         if (isDue) m.due++;
         b._mats.set(rid, m);
       }
@@ -1926,7 +1927,7 @@ router.get("/fsrs/folders", requireAuth, async (req, res) => {
       learning: b.learning,
       retention: b._rn ? Math.round((b._r / b._rn) * 1000) / 1000 : 1,
       materialCount: b._mats.size,
-      materials: [...b._mats.values()].sort((x, y) => y.due - x.due).slice(0, 8),
+      materials: [...b._mats.values()].sort((x, y) => y.due - x.due).slice(0, 200),
     })).sort((a, b) => b.due - a.due || a.folderName.localeCompare(b.folderName));
     res.json({ folders });
   } catch (error) {
@@ -1945,15 +1946,18 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const sizeParam = parseInt(req.query.size);
     const folderParam = req.query.folder ? String(req.query.folder) : null;
     const subjectFilter = req.query.subject || null;
+    const resourceIds = req.query.resources ? String(req.query.resources).split(",").map((x) => x.trim()).filter(Boolean).slice(0, 100) : [];
+    const practiceAhead = resourceIds.length > 0 && req.query.practice === "1";
 
     // chat_mcq items are aggregate per-document cards fed by in-chat quiz
     // answers — they track document-level mastery but carry no question
     // content, so they must never surface as daily-review cards.
     const where = {
       userId: req.user.sub,
-      dueAt: { lte: now },
       itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] },
     };
+    if (!practiceAhead) where.dueAt = { lte: now };
+    if (resourceIds.length) where.resourceId = { in: resourceIds };
     if (subjectFilter) where.subject = subjectFilter;
 
     // Fetch ALL due items (not just `limit`) so we can prioritize properly before capping
@@ -1973,6 +1977,11 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
 
     // Priority sort: lapsed first, then weakest stability, then highest difficulty, then earliest due
     items.sort((a, b) => {
+      if (practiceAhead) {
+        const da = new Date(a.dueAt) <= now ? 0 : 1;
+        const db = new Date(b.dueAt) <= now ? 0 : 1;
+        if (da !== db) return da - db;
+      }
       const pa = a.lapses > 0 ? 0 : 1;
       const pb = b.lapses > 0 ? 0 : 1;
       if (pa !== pb) return pa - pb;

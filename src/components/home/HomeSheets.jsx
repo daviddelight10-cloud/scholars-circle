@@ -410,3 +410,40 @@ export function StudyPlanSheet({ open, onClose, folders, prefs, goal, focusKey, 
     </Sheet>
   );
 }
+
+/* ── Choose materials to practise (multi-select) ── */
+export function MaterialsSheet({ open, onClose, materials, selected, onChange }) {
+  const [q, setQ] = useState("");
+  const sel = new Set(selected);
+  const term = q.trim().toLowerCase();
+  const list = (materials || []).filter((m) => !term || m.title.toLowerCase().includes(term) || (m.folderName || "").toLowerCase().includes(term));
+  const toggle = (id) => onChange(sel.has(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  const count = selected.length;
+
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <SheetHead title="Choose materials" onClose={onClose} />
+      <p className="hm-sh-sub">Pick one or more materials to practise. Cards that are due come first; if nothing is due, you practise ahead.</p>
+      {(materials || []).length > 6 && (
+        <input className="hm-mat-q" type="search" placeholder="Search materials" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search materials" />
+      )}
+      <div className="hm-mat-tools">
+        <button onClick={() => onChange([...new Set([...selected, ...list.map((m) => m.id)])])}>Select all{term ? " shown" : ""}</button>
+        <button onClick={() => onChange(list.length && term ? selected.filter((id) => !list.some((m) => m.id === id)) : [])} disabled={!count}>Clear</button>
+        <button onClick={() => onChange((materials || []).filter((m) => m.due > 0).map((m) => m.id))}>Due only</button>
+      </div>
+      <div className="hm-mat-list" role="group" aria-label="Materials">
+        {list.length === 0 && <p className="hm-sh-sub">No materials match.</p>}
+        {list.map((m) => (
+          <label key={m.id} className={`hm-mat-row${sel.has(m.id) ? " on" : ""}`}>
+            <input type="checkbox" checked={sel.has(m.id)} onChange={() => toggle(m.id)} />
+            <span className="hm-mat-box" aria-hidden="true"><HIcon name="check" size={11} /></span>
+            <span className="hm-mat-t"><b>{m.title}</b><small>{m.folderName}</small></span>
+            <span className={`hm-mat-n${m.due > 0 ? " due" : ""}`}>{m.due > 0 ? `${m.due} due` : `${m.total} cards`}</span>
+          </label>
+        ))}
+      </div>
+      <button className="hm-mat-done" onClick={onClose}>{count ? `Done · ${count} selected` : "Done"}</button>
+    </Sheet>
+  );
+}

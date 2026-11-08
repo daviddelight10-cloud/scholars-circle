@@ -23,7 +23,7 @@ const GRADE_LABELS = {
 
 const STATE_LABELS = { 0: "🆕 New", 1: "📖 Learning", 2: "🔄 Review", 3: "🔁 Relearning" };
 
-export default function DailyReview({ onBack, onComplete, initialFolder = null, size = null }) {
+export default function DailyReview({ onBack, onComplete, initialFolder = null, size = null, resources = null, practice = false }) {
   // Device/browser back exits the session instead of leaving the app.
   useOverlayBackClose(onBack, { open: !!onBack });
 
@@ -51,12 +51,15 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
   // Scroll container ref for auto-scroll on item change
   const scrollRef = useRef(null);
 
+  const resourcesKey = Array.isArray(resources) ? resources.join(",") : "";
+
   const fetchDue = useCallback(async () => {
     setLoading(true);
     try {
       const qs = new URLSearchParams({ limit: "50" });
       if (size) qs.set("size", String(size));
       if (initialFolder && initialFolder !== "__all__") qs.set("folder", initialFolder);
+      if (resourcesKey) { qs.set("resources", resourcesKey); if (practice) qs.set("practice", "1"); }
       const res = await fetch(`${API_BASE}/api/resources/fsrs/due?${qs}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
@@ -75,7 +78,7 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
       setError("Network error loading review items");
     }
     setLoading(false);
-  }, [size, initialFolder]);
+  }, [size, initialFolder, resourcesKey, practice]);
 
   useEffect(() => { fetchDue(); }, [fetchDue]);
 
