@@ -124,7 +124,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
 
   const retPct = Math.round(a.ret);
   const rest = Math.max(a.total - a.m - a.l, 0);
-  const idle = done === 0 && shownDue > 0;
+  const idle = done < goal && shownDue > 0;
 
   const toggle = (k) => setOpen((o) => (o === k ? null : k));
 

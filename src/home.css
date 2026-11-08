@@ -298,7 +298,7 @@ html[data-theme="dark"] .hm-hero { border-color: rgba(255,200,87,.22); }
 .hm-cta[disabled] { background: #3B362C; color: #8C8575; box-shadow: none; cursor: default; }
 .hm-cta[disabled]::after { display: none; }
 .hm-cta-solo { width: 100%; flex: none; margin-top: 13px; flex-direction: row; gap: 8px; font-size: 14px; }
-/* Heartbeat nudge until the first review of the day — a few beats, then rest */
+/* Heartbeat nudge until the daily goal is reached — a few beats, then rest */
 .hm-cta.idle { animation: hmBeat 1.6s ease-in-out infinite; }
 .hm-hero.idle { animation: hmBeatCard 1.6s ease-in-out infinite; }
 .hm-hero.idle .hm-num { display: inline-block; transform-origin: left center; animation: hmBeatNum 1.6s ease-in-out infinite; }
