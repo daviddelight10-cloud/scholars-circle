@@ -15,7 +15,7 @@ export default function FolderDetailView({
   onGenerate, generatingId, genProgress, genError, genErrorId, onRetry, onDismissGenError,
   uploadModal, createFolderModal, bookmarkPicker,
   onStartStudying,
-  onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy, onRenameResource,
+  onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy, onRenameResource, onMoveResource,
   onGoLive, goingLive, onSetCourseCode, onJoinLive,
 }) {
   const [sheetFile, setSheetFile] = useState(null);
@@ -277,6 +277,7 @@ export default function FolderDetailView({
                   onDelete={onDeleteResource}
                   canDelete={canDeleteFile?.(file)}
                   onRename={onRenameResource}
+                  onMove={onMoveResource}
                   onPractice={(f) => f?.contentType === "exam" ? onOpen?.(f.shareToken) : setSheetFile(f)}
                   mcqProgress={mcqProgress}
                   index={i}

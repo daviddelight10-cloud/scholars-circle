@@ -472,6 +472,7 @@ export default function Dashboard({
               prefs={plan.prefs}
               onStartDaily={(opts) => { setReviewOpts(opts || null); setShowDailyReview(true); }}
               onOpenPlan={(key) => { setPlanFocus(key); setOpenSheet("plan"); }}
+              onOpenSpace={() => openResearchHub("library")}
               onAddFirst={() => window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { openUpload: true } }))}
               onTrySample={() => openResearchHub("community")}
             />

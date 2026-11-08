@@ -3191,3 +3191,42 @@ textarea.tpe-input { resize: vertical; line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) {
   .tp-bigring .arc { transition: none; }
 }
+
+/* ── My Space: ⋮ menu, due badge, archived section ─────────────────── */
+.mc-more {
+  flex-shrink: 0; width: 44px; height: 44px; margin-right: -8px; border: 0; background: none;
+  border-radius: 50%; color: var(--app-dim); display: grid; place-items: center; cursor: pointer; padding: 0;
+}
+.mc-more .mc-ic { width: 20px; height: 20px; }
+.mc-more:hover { background: var(--app-tint-soft); color: var(--app-text); }
+.mc-more:focus-visible, .mc-star:focus-visible { outline: 3px solid #1B5FA0; outline-offset: -2px; }
+.mc-due {
+  flex-shrink: 0; font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: 999px;
+  background: rgba(245,166,35,.16); color: #B4530E; border: 1px solid rgba(245,166,35,.45);
+  font-variant-numeric: tabular-nums;
+}
+html[data-theme="dark"] .mc-due { color: #FFC857; }
+.mc-row.archived { opacity: .72; }
+.mc-arch-toggle {
+  width: 100%; display: flex; align-items: center; gap: 8px; margin: 18px 0 8px; padding: 10px 2px;
+  border: 0; background: none; color: var(--mc-muted); cursor: pointer; font: 800 11px inherit; letter-spacing: .1em;
+}
+.mc-arch-toggle .mc-ic { width: 14px; height: 14px; transition: transform .2s; }
+.mc-arch-toggle[aria-expanded="true"] .mc-ic { transform: rotate(180deg); }
+.mc-arch-note { font-size: 12px; color: var(--mc-muted); margin: 0 0 10px; }
+.mc-suggest {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 11px 12px; border-radius: 14px;
+  border: 1px solid var(--app-line-strong); background: var(--app-card2);
+}
+.mc-suggest p { flex: 1; margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--app-text); }
+.mc-suggest button { border: 0; border-radius: 999px; padding: 8px 12px; font: 700 12px inherit; cursor: pointer; }
+.mc-suggest .go { background: #F5A623; color: #1B1A17; }
+.mc-suggest .no { background: transparent; color: var(--app-dim); }
+.mc-rename-input {
+  width: 100%; box-sizing: border-box; margin: 4px 0 10px; padding: 12px; border-radius: 12px;
+  border: 1px solid var(--app-line-strong); background: var(--app-card2); color: var(--app-text); font: 600 15px inherit;
+}
+.mc-sugg-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--app-line); cursor: pointer; }
+.mc-sugg-row input { width: 20px; height: 20px; accent-color: #F5A623; }
+.mc-sugg-row b { display: block; font-size: 14px; }
+.mc-sugg-row small { color: var(--app-dim); font-size: 11.5px; }

@@ -1229,3 +1229,6 @@ html[data-theme="light"] .hm-mpick-b { border-color: rgba(26,24,20,.18); backgro
 html[data-theme="light"] .hm-mpick-b.on { border-color: rgba(160,125,0,.6); background: rgba(245,166,35,.14); }
 html[data-theme="light"] .hm-mpick-b em { color: #A07D00; }
 html[data-theme="light"] .hm-hero.idle { box-shadow: 0 1px 2px rgba(74,64,40,.08), 0 12px 30px rgba(74,64,40,.13), 0 0 0 3px rgba(245,166,35,.35); }
+
+.hm-spacelink { display: block; width: 100%; margin-top: 6px; padding: 8px 2px; border: 0; background: transparent; text-align: left; color: var(--hm-faint); font: 500 11.5px var(--hm-font-body, inherit); cursor: pointer; }
+.hm-spacelink:hover { color: var(--hm-muted); }

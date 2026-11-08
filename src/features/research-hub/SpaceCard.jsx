@@ -10,8 +10,8 @@ const VISIBILITY_PILL = {
 };
 
 /**
- * My Space row — Gizmo-style: colored left edge, name, "N items", star pin.
- * Long-press/right-click (own spaces only) opens the delete confirmation.
+ * My Space row — Gizmo-style: colored left edge, name, "N items", due badge,
+ * star pin and a visible ⋮ menu. Long-press/right-click opens the same menu.
  */
 function SpaceCard({
   folder,
@@ -19,20 +19,22 @@ function SpaceCard({
   isBookmarked,
   bookmarkBusy,
   onToggleBookmark,
-  onRequestDelete,
+  onOpenMenu,
+  dueCount = 0,
+  archived = false,
 }) {
   // Count files only — bookmarked items saved into the space don't count
   const itemCount = folder._count?.resources ?? 0;
   const pill = VISIBILITY_PILL[folder.visibility] || VISIBILITY_PILL.private;
   const tint = tileTintStyle(folder.id || folder.name);
 
-  const longPress = useLongPress(() => onRequestDelete?.(folder));
+  const longPress = useLongPress(() => onOpenMenu?.(folder));
 
   return (
     <div
-      className="mc-row"
+      className={`mc-row${archived ? " archived" : ""}`}
       onClick={onClick}
-      {...(onRequestDelete ? {
+      {...(onOpenMenu ? {
         onPointerDown: longPress.onPointerDown,
         onPointerUp: longPress.onPointerUp,
         onPointerLeave: longPress.onPointerLeave,
@@ -52,17 +54,31 @@ function SpaceCard({
           )}
         </span>
       </div>
-      {onToggleBookmark && (
+      {dueCount > 0 && !archived && (
+        <span className="mc-due" title={`${dueCount} due for review`}>{dueCount} due</span>
+      )}
+      {onToggleBookmark && !archived && (
         <button
           className={`mc-star${isBookmarked ? " starred" : ""}`}
           disabled={bookmarkBusy}
           title={isBookmarked ? "Unpin" : "Pin to top"}
+          aria-label={isBookmarked ? "Unpin space" : "Pin space to top"}
           onClick={(e) => {
             e.stopPropagation();
             if (!bookmarkBusy) onToggleBookmark(folder);
           }}
         >
           <McIcon name="star" filled={isBookmarked} />
+        </button>
+      )}
+      {onOpenMenu && (
+        <button
+          className="mc-more"
+          aria-label={`More options for ${folder.name}`}
+          aria-haspopup="dialog"
+          onClick={(e) => { e.stopPropagation(); onOpenMenu(folder); }}
+        >
+          <McIcon name="more" />
         </button>
       )}
     </div>

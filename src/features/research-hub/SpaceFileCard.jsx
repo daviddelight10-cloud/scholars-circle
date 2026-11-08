@@ -84,6 +84,7 @@ export default function SpaceFileCard({
   onDelete,
   canDelete,
   onRename,
+  onMove,
   onPractice,
   mcqProgress,
   index = 0,
@@ -146,6 +147,7 @@ export default function SpaceFileCard({
         onDelete={onDelete}
         canDelete={canDelete}
         onRename={onRename}
+        extraItems={onMove ? [{ label: "Move to…", onClick: onMove }] : []}
       />
     </div>
   );

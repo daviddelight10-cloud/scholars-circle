@@ -14,6 +14,7 @@ import { matchDocumentToSkeleton } from "../lib/topicExtractionService.js";
 import { logError } from "../lib/logger.js";
 import { addLeagueXP } from "../lib/badges.js";
 import { parseScore, xpAttemptLimiter } from "../lib/validateScore.js";
+import { loadReviewScope, reviewFolderOf } from "../lib/reviewScope.js";
 
 const router = express.Router();
 
@@ -1853,23 +1854,6 @@ router.post("/fsrs/rate", requireAuth, async (req, res) => {
   }
 });
 
-// Folder bucket for a review item. Owned resources group under the
-// resource's folder; bookmarked community resources group under the caller's
-// bookmark folder (or "Community" when unfiled) — the resource's own folderId
-// belongs to the uploader, not the reviewer.
-function reviewFolderOf(item, userId) {
-  const owned = item.resource?.uploadedBy === userId;
-  const bookmark = item.resource?.bookmarks?.[0];
-  const folderId = owned ? (item.resource?.folderId || null) : (bookmark?.folderId || null);
-  const folder = owned ? item.resource?.folder : bookmark?.folder;
-  return {
-    key: folderId || (owned ? "__unfiled__" : "__community__"),
-    folderId,
-    folderName: folder?.name || (owned ? "Unfiled" : "Community"),
-    courseCode: folder?.courseCode || null,
-  };
-}
-
 // ── GET /api/resources/fsrs/folders — Uncapped per-folder review aggregates ──
 // /fsrs/due caps its items at the daily goal, so its per-folder counts can't
 // drive the Home chips; this returns the real due/deck numbers.
@@ -1884,15 +1868,17 @@ router.get("/fsrs/folders", requireAuth, async (req, res) => {
         resource: {
           select: {
             id: true, title: true, folderId: true, uploadedBy: true,
-            folder: { select: { id: true, name: true, courseCode: true } },
-            bookmarks: { where: { userId }, take: 1, select: { folderId: true, folder: { select: { id: true, name: true, courseCode: true } } } },
+            folder: { select: { id: true, name: true, courseCode: true, deletedAt: true } },
+            bookmarks: { where: { userId }, take: 1, select: { folderId: true, folder: { select: { id: true, name: true, courseCode: true, deletedAt: true } } } },
           },
         },
       },
     });
+    const scope = await loadReviewScope(userId);
     const buckets = new Map();
     for (const it of items) {
-      const f = reviewFolderOf(it, userId);
+      const f = reviewFolderOf(it, userId, scope);
+      if (!f) continue;
       let b = buckets.get(f.key);
       if (!b) {
         b = { ...f, due: 0, total: 0, mastered: 0, learning: 0, _r: 0, _rn: 0, _mats: new Map() };
@@ -1967,8 +1953,8 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
         resource: {
           select: {
             id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true, mcqData: true, folderId: true, uploadedBy: true,
-            folder: { select: { id: true, name: true } },
-            bookmarks: { where: { userId: req.user.sub }, take: 1, select: { folderId: true, folder: { select: { id: true, name: true } } } },
+            folder: { select: { id: true, name: true, deletedAt: true } },
+            bookmarks: { where: { userId: req.user.sub }, take: 1, select: { folderId: true, folder: { select: { id: true, name: true, deletedAt: true } } } },
           },
         },
       },
@@ -1994,7 +1980,11 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
 
     // Apply daily cap after sorting — most important items first
     const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
-    const pool = folderParam ? items.filter((i) => reviewFolderOf(i, req.user.sub).key === folderParam) : items;
+    const scope = await loadReviewScope(req.user.sub);
+    const pool = items.filter((i) => {
+      const f = reviewFolderOf(i, req.user.sub, scope);
+      return !!f && (!folderParam || f.key === folderParam);
+    });
     const dailyCap = sizeParam > 0 ? Math.min(sizeParam, 100) : Math.min(dailyGoal || limit, limit);
     const cappedItems = pool.slice(0, dailyCap);
 
@@ -2037,7 +2027,9 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     // own folderId belongs to the uploader, not the reviewer.
     const byFolder = {};
     for (const item of enriched) {
-      const { key, folderId, folderName } = reviewFolderOf(item, req.user.sub);
+      const bucket = reviewFolderOf(item, req.user.sub, scope);
+      if (!bucket) continue;
+      const { key, folderId, folderName } = bucket;
       if (!byFolder[key]) {
         byFolder[key] = { folderId, folderName, items: [], dueCount: 0 };
       }
@@ -2064,13 +2056,24 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
 router.get("/fsrs/stats", requireAuth, async (req, res) => {
   try {
     const now = new Date();
-    const items = await prisma.pdfReviewItem.findMany({
+    const raw = await prisma.pdfReviewItem.findMany({
       where: {
         userId: req.user.sub,
-        itemType: { notIn: ["page", "whole_pdf", "flashcard"] },
+        itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] },
       },
-      select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
+      select: {
+        state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true,
+        resource: {
+          select: {
+            uploadedBy: true, folderId: true,
+            folder: { select: { id: true, deletedAt: true } },
+            bookmarks: { where: { userId: req.user.sub }, take: 1, select: { folderId: true, folder: { select: { id: true, deletedAt: true } } } },
+          },
+        },
+      },
     });
+    const scope = await loadReviewScope(req.user.sub);
+    const items = raw.filter((i) => reviewFolderOf(i, req.user.sub, scope));
 
     // Progress row: streak numbers + the stored tz offset for local-day math
     const up = await prisma.userProgress.findUnique({
@@ -2149,13 +2152,24 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
     const since = new Date(now);
     since.setDate(since.getDate() - days);
 
-    const items = await prisma.pdfReviewItem.findMany({
+    const raw = await prisma.pdfReviewItem.findMany({
       where: {
         userId: req.user.sub,
-        itemType: { notIn: ["page", "whole_pdf", "flashcard"] },
+        itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] },
       },
-      select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true },
+      select: {
+        state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true,
+        resource: {
+          select: {
+            uploadedBy: true, folderId: true,
+            folder: { select: { id: true, deletedAt: true } },
+            bookmarks: { where: { userId: req.user.sub }, take: 1, select: { folderId: true, folder: { select: { id: true, deletedAt: true } } } },
+          },
+        },
+      },
     });
+    const scope = await loadReviewScope(req.user.sub);
+    const items = raw.filter((i) => reviewFolderOf(i, req.user.sub, scope));
 
     // Day buckets are in the user's LOCAL calendar — same notion of "day" as
     // updateUniversalStreak (UserProgress.tzOffsetMinutes).
@@ -2441,16 +2455,26 @@ router.get("/fsrs/warmup-question", requireAuth, async (req, res) => {
     const off = up?.tzOffsetMinutes || 0;
     const localDayStartMs = Math.floor((nowMs + off * 60000) / 86400000) * 86400000 - off * 60000;
 
-    const items = await prisma.pdfReviewItem.findMany({
+    const rawItems = await prisma.pdfReviewItem.findMany({
       where: {
         userId,
         itemType: { in: ["mcq", "legacy_mcq"] },
         lastReviewAt: { gte: since, lt: new Date(localDayStartMs) },
       },
-      include: { resource: { select: { id: true, title: true, subject: true, mcqData: true } } },
+      include: {
+        resource: {
+          select: {
+            id: true, title: true, subject: true, mcqData: true, uploadedBy: true, folderId: true,
+            folder: { select: { id: true, deletedAt: true } },
+            bookmarks: { where: { userId }, take: 1, select: { folderId: true, folder: { select: { id: true, deletedAt: true } } } },
+          },
+        },
+      },
       orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
       take: 25,
     });
+    const scope = await loadReviewScope(userId);
+    const items = rawItems.filter((i) => reviewFolderOf(i, userId, scope));
 
     const due = items.filter((i) => new Date(i.dueAt).getTime() <= nowMs);
     const pool = due.length ? due : items;
@@ -2721,6 +2745,40 @@ router.post("/:token/view", requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/resources/:id/move - Move a resource into a folder (or out to loose).
+// Owned resources update Resource.folderId; bookmarked resources re-point the
+// caller's bookmark folder.
+router.post("/:id/move", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.sub;
+    const folderId = req.body.folderId || null;
+
+    if (folderId) {
+      const folder = await prisma.folder.findUnique({ where: { id: folderId }, select: { ownerId: true, deletedAt: true, visibility: true } });
+      if (!folder || folder.deletedAt) return res.status(404).json({ error: "Folder not found" });
+      if (folder.ownerId !== userId && folder.visibility !== "link") {
+        return res.status(403).json({ error: "You can't add materials to that folder" });
+      }
+    }
+
+    const resource = await prisma.resource.findUnique({ where: { id }, select: { uploadedBy: true } });
+    if (!resource) return res.status(404).json({ error: "Resource not found" });
+
+    if (resource.uploadedBy === userId) {
+      await prisma.resource.update({ where: { id }, data: { folderId } });
+    } else {
+      const existing = await prisma.resourceBookmark.findUnique({ where: { resourceId_userId: { resourceId: id, userId } } });
+      if (!existing) return res.status(403).json({ error: "Save this material to your space before moving it" });
+      await prisma.resourceBookmark.update({ where: { id: existing.id }, data: { folderId } });
+    }
+    res.json({ success: true, folderId });
+  } catch (error) {
+    console.error("Error moving resource:", error);
+    res.status(500).json({ error: "Failed to move resource" });
+  }
+});
+
 // PATCH /api/resources/:id - Update resource (uploader or teacher/lecturer)
 router.patch("/:id", requireAuth, async (req, res) => {
   try {
@@ -2985,14 +3043,22 @@ router.get("/fsrs/due-mcqs", requireAuth, async (req, res) => {
       if (ids.length > 0) where.resourceId = { in: ids };
     }
 
-    const items = await prisma.pdfReviewItem.findMany({
+    const rawItems = await prisma.pdfReviewItem.findMany({
       where,
       include: {
-        resource: { select: { id: true, title: true, subject: true, shareToken: true, mcqData: true } },
+        resource: {
+          select: {
+            id: true, title: true, subject: true, shareToken: true, mcqData: true, uploadedBy: true, folderId: true,
+            folder: { select: { id: true, deletedAt: true } },
+            bookmarks: { where: { userId: req.user.sub }, take: 1, select: { folderId: true, folder: { select: { id: true, deletedAt: true } } } },
+          },
+        },
       },
       orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
       take: limit,
     });
+    const scope = await loadReviewScope(req.user.sub);
+    const items = rawItems.filter((i) => reviewFolderOf(i, req.user.sub, scope));
 
     const enriched = items.map((i) => {
       const base = {
@@ -3044,10 +3110,21 @@ router.get("/fsrs/weak-topics", requireAuth, async (req, res) => {
       if (ids.length > 0) where.resourceId = { in: ids };
     }
 
-    const items = await prisma.pdfReviewItem.findMany({
+    const rawItems = await prisma.pdfReviewItem.findMany({
       where,
-      select: { topic: true, subject: true, lapses: true, difficulty: true, state: true, dueAt: true },
+      select: {
+        topic: true, subject: true, lapses: true, difficulty: true, state: true, dueAt: true,
+        resource: {
+          select: {
+            uploadedBy: true, folderId: true,
+            folder: { select: { id: true, deletedAt: true } },
+            bookmarks: { where: { userId: req.user.sub }, take: 1, select: { folderId: true, folder: { select: { id: true, deletedAt: true } } } },
+          },
+        },
+      },
     });
+    const scope = await loadReviewScope(req.user.sub);
+    const items = rawItems.filter((i) => reviewFolderOf(i, req.user.sub, scope));
 
     // Group by topic
     const topicMap = {};

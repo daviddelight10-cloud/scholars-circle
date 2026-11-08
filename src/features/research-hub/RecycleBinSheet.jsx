@@ -11,14 +11,14 @@ export default function RecycleBinSheet({ open, onClose, items = [], onRestore, 
       <h2 className="mc-sheet-title" style={{ margin: "6px 0 4px" }}>Recycle bin</h2>
       <p className="mc-sheet-hint">
         Deleted spaces stay here for <b>30 days</b>, then are removed forever.<br />
-        Long-press (or right-click) a space in My Space and choose "Move to Recycle Bin".
+        Tap the <b>⋮</b> on a space in My Space and choose "Move to Recycle bin". Just want it out of your reviews? Use <b>Archive</b> instead.
       </p>
 
       {items.length === 0 ? (
         <div className="mc-tr-empty">
           Bin is empty.<br />
           <span style={{ fontSize: 11.5 }}>
-            Long-press or right-click a space, then choose "Move to Recycle Bin".
+            Use the ⋮ menu on a space, then "Move to Recycle bin".
           </span>
         </div>
       ) : (

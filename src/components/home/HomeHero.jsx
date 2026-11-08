@@ -34,7 +34,7 @@ const Chevron = () => (
 
 // Returning-user hero: real FSRS stats, course (folder) scope, session size,
 // expandable stat details and an exam countdown.
-function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs, onStartDaily, onOpenPlan }) {
+function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs, onStartDaily, onOpenPlan, onOpenSpace }) {
   const [scope, setScope] = useState(() => lsGet(SCOPE_KEY) || "all");
   const [size, setSize] = useState(() => { const n = parseInt(lsGet(SIZE_KEY), 10); return n > 0 ? n : null; });
   const [open, setOpen] = useState(null); // 'ret' | 'm' | 'l' | 'done' | 'src'
@@ -264,6 +264,11 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
           </button>
           {picks && <button className="hm-mpick-x" onClick={() => setPick([])} aria-label="Clear selected materials">Clear</button>}
         </div>
+      )}
+      {hasFolders && onOpenSpace && (
+        <button className="hm-spacelink" onClick={onOpenSpace}>
+          Not studying a space? Archive it in My Space <span aria-hidden="true">→</span>
+        </button>
       )}
       <MaterialsSheet open={matsOpen} onClose={() => setMatsOpen(false)} materials={scopeMats} selected={pickedMats.map((m) => m.id)} onChange={setPick} />
 

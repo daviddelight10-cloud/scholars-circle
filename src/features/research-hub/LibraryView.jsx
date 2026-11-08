@@ -4,6 +4,7 @@ import EmptyState from "./EmptyState";
 import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
 import SpaceCard from "./SpaceCard.jsx";
+import SpaceMenu from "./SpaceMenu.jsx";
 import McIcon from "./McIcon.jsx";
 import { getSubjectIcon, getSubjectColor } from "./subjectColors";
 
@@ -60,6 +61,15 @@ export default function LibraryView({
   onOpenRecycleBin,
   recycleCount = 0,
   onRequestDeleteSpace,
+  onReviewSpace,
+  onRenameSpace,
+  onShareSpace,
+  onToggleArchiveSpace,
+  archivedIds = [],
+  dueByFolder = {},
+  suggestions = [],
+  onReviewSuggestions,
+  onDismissSuggestions,
   search = "",
   fsrsStats,
   onStudySubject,
@@ -75,6 +85,9 @@ export default function LibraryView({
     try { return new Set(JSON.parse(localStorage.getItem("mc_own_pins") || "[]")); } catch { return new Set(); }
   });
   const sortRef = useRef(null);
+  const [archOpen, setArchOpen] = useState(false);
+  const [menuFolder, setMenuFolder] = useState(null);
+  const archivedSet = useMemo(() => new Set(archivedIds), [archivedIds]);
 
   useEffect(() => {
     try { localStorage.setItem("mc_own_pins", JSON.stringify([...ownPins])); } catch {}
@@ -156,13 +169,16 @@ export default function LibraryView({
   }
 
   const hasFolders = (filteredOwnFolders.length > 0 || filteredBookmarkedFolders.length > 0);
+  const activeOwn = filteredOwnFolders.filter((f) => !archivedSet.has(f.id));
+  const activeSaved = filteredBookmarkedFolders.filter((f) => !archivedSet.has(f.id));
+  const archivedSpaces = sortFolders([...filteredOwnFolders, ...filteredBookmarkedFolders].filter((f) => archivedSet.has(f.id)));
   const hasLooseMaterials = grouped.length > 0;
   const isEmpty = !hasFolders && !hasLooseMaterials && !search;
   const ownIds = new Set(filteredOwnFolders.map((f) => f.id));
   // One flat list: pinned own → saved (bookmarked) → rest of own
-  const pinnedOwn = sortFolders(filteredOwnFolders).filter((f) => ownPins.has(f.id));
-  const restOwn = sortFolders(filteredOwnFolders).filter((f) => !ownPins.has(f.id));
-  const allSpaces = [...pinnedOwn, ...sortFolders(filteredBookmarkedFolders), ...restOwn];
+  const pinnedOwn = sortFolders(activeOwn).filter((f) => ownPins.has(f.id));
+  const restOwn = sortFolders(activeOwn).filter((f) => !ownPins.has(f.id));
+  const allSpaces = [...pinnedOwn, ...sortFolders(activeSaved), ...restOwn];
 
   if (resourcesLoading) {
     return <LoadingState grid count={4} />;
@@ -240,6 +256,13 @@ export default function LibraryView({
           {(allSpaces.length > 0 || !search) && (
             <>
               <div className="mc-section-label">SPACES</div>
+              {!search && suggestions.length > 0 && (
+                <div className="mc-suggest" role="status">
+                  <p>{suggestions.length} space{suggestions.length === 1 ? "" : "s"} not used for 30+ days. Archive to keep Home focused?</p>
+                  <button className="go" onClick={onReviewSuggestions}>Review</button>
+                  <button className="no" onClick={onDismissSuggestions} aria-label="Dismiss suggestion">Not now</button>
+                </div>
+              )}
               <div className="mc-rows">
                 {!search && (
                   <button className="mc-row mc-row-new" onClick={onCreateFolder}>
@@ -257,11 +280,38 @@ export default function LibraryView({
                       isBookmarked={isOwn ? ownPins.has(folder.id) : true}
                       bookmarkBusy={folderBookmarkBusyId === folder.id}
                       onToggleBookmark={isOwn ? toggleOwnPin : onToggleFolderBookmark}
-                      onRequestDelete={isOwn ? onRequestDeleteSpace : undefined}
+                      onOpenMenu={setMenuFolder}
+                      dueCount={dueByFolder[folder.id] || 0}
                     />
                   );
                 })}
               </div>
+            </>
+          )}
+
+          {/* ARCHIVED — hidden from review; collapsed by default */}
+          {archivedSpaces.length > 0 && (
+            <>
+              <button className="mc-arch-toggle" aria-expanded={archOpen} onClick={() => setArchOpen((v) => !v)}>
+                ARCHIVED · {archivedSpaces.length}
+                <McIcon name="chev" />
+              </button>
+              {archOpen && (
+                <>
+                  <p className="mc-arch-note">Archived spaces are hidden from Home and Daily Review. Open the ⋮ menu to unarchive.</p>
+                  <div className="mc-rows">
+                    {archivedSpaces.map((folder) => (
+                      <SpaceCard
+                        key={folder.id}
+                        folder={folder}
+                        archived
+                        onClick={() => onOpenFolder(folder.id)}
+                        onOpenMenu={setMenuFolder}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -300,6 +350,22 @@ export default function LibraryView({
         </>
         )}
       </div>
+
+      <SpaceMenu
+        folder={menuFolder}
+        isOwn={!!menuFolder && ownIds.has(menuFolder.id)}
+        isPinned={!!menuFolder && ownPins.has(menuFolder.id)}
+        isArchived={!!menuFolder && archivedSet.has(menuFolder.id)}
+        dueCount={menuFolder ? dueByFolder[menuFolder.id] || 0 : 0}
+        onClose={() => setMenuFolder(null)}
+        onReview={(f) => { setMenuFolder(null); onReviewSpace?.(f); }}
+        onTogglePin={(f) => { setMenuFolder(null); toggleOwnPin(f); }}
+        onRename={async (f, name) => { if (await onRenameSpace?.(f, name)) setMenuFolder(null); }}
+        onShare={(f) => { setMenuFolder(null); onShareSpace?.(f); }}
+        onToggleArchive={(f) => { setMenuFolder(null); onToggleArchiveSpace?.(f); }}
+        onDelete={(f) => { setMenuFolder(null); onRequestDeleteSpace?.(f); }}
+        onRemoveSaved={(f) => { setMenuFolder(null); onToggleFolderBookmark?.(f); }}
+      />
     </div>
   );
 }

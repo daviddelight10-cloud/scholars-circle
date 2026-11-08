@@ -271,10 +271,16 @@ router.get("/", requireAuth, async (req, res) => {
       .map((b) => b.folder)
       .filter((f) => f && f.ownerId !== userId && !f.deletedAt); // exclude own + soft-deleted folders
 
+    const archived = await prisma.userArchivedFolder.findMany({
+      where: { userId },
+      select: { folderId: true },
+    }).catch(() => []);
+
     res.json({
       own: ownFolders,
       shared: sharedFolders,
       bookmarked: bookmarkedFolders,
+      archivedIds: archived.map((a) => a.folderId),
     });
   } catch (error) {
     console.error("Error listing folders:", error);
@@ -380,6 +386,84 @@ router.get("/recycle-bin", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error listing recycle bin:", error);
     res.status(500).json({ error: "Failed to list recycle bin" });
+  }
+});
+
+// GET /api/folders/archive-suggestions — Own/saved folders idle for 30+ days
+// (no reviews and no edits), offered for archiving.
+router.get("/archive-suggestions", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const cutoff = new Date(Date.now() - 30 * 86400000);
+    const [folders, recent] = await Promise.all([
+      prisma.folder.findMany({
+        where: {
+          OR: [{ ownerId: userId }, { folderBookmarks: { some: { userId } } }],
+          deletedAt: null,
+          updatedAt: { lt: cutoff },
+          archivedBy: { none: { userId } },
+        },
+        select: {
+          id: true, name: true, updatedAt: true, ownerId: true,
+          resources: { select: { id: true } },
+          _count: { select: { resources: true } },
+        },
+      }).catch(() => []),
+      prisma.pdfReviewItem.findMany({
+        where: { userId, lastReviewAt: { gte: cutoff } },
+        select: { resourceId: true },
+        distinct: ["resourceId"],
+      }).catch(() => []),
+    ]);
+    const recentIds = new Set(recent.map((r) => r.resourceId));
+    const idleDays = (f) => Math.floor((Date.now() - new Date(f.updatedAt).getTime()) / 86400000);
+    const out = folders
+      .filter((f) => f._count.resources > 0 && !f.resources.some((r) => recentIds.has(r.id)))
+      .map((f) => ({ id: f.id, name: f.name, itemCount: f._count.resources, daysIdle: idleDays(f), own: f.ownerId === userId }))
+      .sort((a, b) => b.daysIdle - a.daysIdle)
+      .slice(0, 5);
+    res.json({ suggestions: out });
+  } catch (error) {
+    console.error("Error fetching archive suggestions:", error);
+    res.status(500).json({ error: "Failed to fetch archive suggestions" });
+  }
+});
+
+// POST /api/folders/:id/archive — Archive a folder (own or saved). Hides its
+// review items from Home, Daily Review and stats until unarchived.
+router.post("/:id/archive", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.sub;
+    const folder = await prisma.folder.findUnique({ where: { id }, select: { ownerId: true, deletedAt: true } });
+    if (!folder || folder.deletedAt) {
+      return res.status(404).json({ error: "Folder not found" });
+    }
+    if (folder.ownerId !== userId) {
+      const saved = await prisma.folderBookmark.findUnique({ where: { userId_folderId: { userId, folderId: id } } });
+      if (!saved) return res.status(403).json({ error: "You can only archive your own or saved folders" });
+    }
+    await prisma.userArchivedFolder.upsert({
+      where: { userId_folderId: { userId, folderId: id } },
+      create: { userId, folderId: id },
+      update: {},
+    });
+    res.json({ success: true, archived: true });
+  } catch (error) {
+    console.error("Error archiving folder:", error);
+    res.status(500).json({ error: "Failed to archive folder" });
+  }
+});
+
+// DELETE /api/folders/:id/archive — Unarchive.
+router.delete("/:id/archive", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.userArchivedFolder.deleteMany({ where: { userId: req.user.sub, folderId: id } });
+    res.json({ success: true, archived: false });
+  } catch (error) {
+    console.error("Error unarchiving folder:", error);
+    res.status(500).json({ error: "Failed to unarchive folder" });
   }
 });
 

@@ -213,6 +213,7 @@ model User {
 
   folders           Folder[] @relation("FolderOwner")
   folderBookmarks   FolderBookmark[]
+  archivedFolders   UserArchivedFolder[]
   folderQuizAttempts FolderQuizAttempt[]
   reports           Report[]
 
@@ -1858,6 +1859,7 @@ model Folder {
   bookmarks     ResourceBookmark[]
   folderDepts   FolderDepartment[]
   folderBookmarks FolderBookmark[]
+  archivedBy     UserArchivedFolder[]
   folderQuizAttempts FolderQuizAttempt[]
 
   @@index([ownerId])
@@ -1874,6 +1876,21 @@ model FolderBookmark {
   folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
   courseCode  String?  // bookmarker's personal course code when the folder has none
   createdAt   DateTime @default(now())
+
+  @@unique([userId, folderId])
+  @@index([userId])
+  @@index([folderId])
+}
+
+// Per-user folder archive. Archived folders keep their data but their review
+// items are hidden from Home, Daily Review, stats and folder chips.
+model UserArchivedFolder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId  String
+  folder    Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@unique([userId, folderId])
   @@index([userId])

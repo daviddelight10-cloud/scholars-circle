@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../../lib/authToken.js";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
 
-import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, restoreFolder as apiRestoreFolder, purgeFolder as apiPurgeFolder, getRecycleBin, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark } from "../../lib/foldersApi";
+import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, restoreFolder as apiRestoreFolder, purgeFolder as apiPurgeFolder, getRecycleBin, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark, archiveFolder as apiArchiveFolder, unarchiveFolder as apiUnarchiveFolder, getArchiveSuggestions, moveResource as apiMoveResource } from "../../lib/foldersApi";
 import { submitReport } from "../../lib/reportsApi.js";
 import { getMyProfile } from "../../lib/profileApi.js";
 import { setUserDepartment } from "../../lib/departments.js";
@@ -200,6 +200,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [profileOwner, setProfileOwner] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // own space pending soft delete
   const [renameTarget, setRenameTarget] = useState(null); // file pending rename
+  const [dueByFolder, setDueByFolder] = useState({});
+  const [folderMaterials, setFolderMaterials] = useState({});
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestSel, setSuggestSel] = useState([]);
+  const [moveTarget, setMoveTarget] = useState(null); // file pending move
   const [renameValue, setRenameValue] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
   const [fileDeleteTarget, setFileDeleteTarget] = useState(null); // file pending delete
@@ -308,12 +314,42 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     fetchFsrsStats();
     fetchFsrsAnalytics();
     fetchFolders();
+    fetchFsrsFolders();
+    fetchSuggestions();
     fetchCommunityFolders();
     fetchBookmarks();
     fetchMcqProgress();
     fetchGuidedProgress();
     fetchUserProfile();
   }, []);
+
+  // Per-space due counts + material ids for "Review now" (My Space only).
+  const fetchFsrsFolders = async () => {
+    try {
+      const res = await fetch(API_BASE + "/api/resources/fsrs/folders", { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      const due = {}; const mats = {};
+      for (const f of data.folders || []) {
+        if (!f.folderId) continue;
+        due[f.folderId] = f.due || 0;
+        mats[f.folderId] = (f.materials || []).map((m) => m.id).filter(Boolean);
+      }
+      setDueByFolder(due);
+      setFolderMaterials(mats);
+    } catch {}
+  };
+
+  const fetchSuggestions = async () => {
+    try {
+      const until = Number(localStorage.getItem("sc_arch_sugg_until") || 0);
+      if (until > Date.now()) return;
+    } catch {}
+    try {
+      const data = await getArchiveSuggestions();
+      setSuggestions(data?.suggestions || []);
+    } catch {}
+  };
 
   const fetchUserProfile = async () => {
     const cacheKey = "sc_user_profile";
@@ -750,6 +786,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       await apiDeleteFolder(folder.id);
       setFolders((prev) => ({ ...prev, own: (prev.own || []).filter((f) => f.id !== folder.id) }));
       fetchRecycleBinData();
+      fetchFsrsFolders();
+      fetchFsrsStats();
       showToast(`"${folder.name}" moved to bin`, {
         icon: "trash",
         actLabel: "Undo",
@@ -758,6 +796,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             await apiRestoreFolder(folder.id);
             setFolders((prev) => ({ ...prev, own: [folder, ...(prev.own || [])] }));
             fetchRecycleBinData();
+            fetchFsrsFolders();
+            fetchFsrsStats();
           } catch {
             showToast("Failed to restore folder");
           }
@@ -768,11 +808,86 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   };
 
+  // ── Archive / rename / review / move for spaces ──────────────────────
+  const setSpaceArchived = async (folder, archived, undoable = true) => {
+    setFolders((prev) => {
+      const cur = prev.archivedIds || [];
+      return { ...prev, archivedIds: archived ? [...new Set([...cur, folder.id])] : cur.filter((i) => i !== folder.id) };
+    });
+    setSuggestions((prev) => prev.filter((x) => x.id !== folder.id));
+    try {
+      await (archived ? apiArchiveFolder(folder.id) : apiUnarchiveFolder(folder.id));
+      showToast(archived ? '"' + folder.name + '" archived' : '"' + folder.name + '" unarchived', {
+        icon: "check",
+        ...(undoable ? { actLabel: "Undo", actFn: () => setSpaceArchived(folder, !archived, false) } : {}),
+      });
+      fetchFolders();
+      fetchFsrsFolders();
+      fetchFsrsStats();
+    } catch (err) {
+      setFolders((prev) => {
+        const cur = prev.archivedIds || [];
+        return { ...prev, archivedIds: archived ? cur.filter((i) => i !== folder.id) : [...new Set([...cur, folder.id])] };
+      });
+      showToast(err.message || "Couldn't update archive");
+    }
+  };
+
+  const renameSpace = async (folder, name) => {
+    try {
+      const updated = await apiUpdateFolder(folder.id, { name });
+      setFolders((prev) => ({ ...prev, own: (prev.own || []).map((f) => f.id === folder.id ? { ...f, name: updated?.name || name } : f) }));
+      showToast("Space renamed", { icon: "check" });
+      return true;
+    } catch (err) {
+      showToast(err.message || "Failed to rename space");
+      return false;
+    }
+  };
+
+  const reviewSpace = (folder) => {
+    const ids = folderMaterials[folder.id];
+    if (!ids?.length) { showToast("No review cards in this space yet"); return; }
+    startSpacedReview(null, ids);
+  };
+
+  const archiveSuggested = async () => {
+    const picked = suggestions.filter((x) => suggestSel.includes(x.id));
+    setSuggestOpen(false);
+    for (const f of picked) await setSpaceArchived({ id: f.id, name: f.name }, true, false);
+    if (picked.length) showToast("Archived " + picked.length + " space" + (picked.length === 1 ? "" : "s"), { icon: "check" });
+  };
+
+  const dismissSuggestions = () => {
+    try { localStorage.setItem("sc_arch_sugg_until", String(Date.now() + 7 * 86400000)); } catch {}
+    setSuggestions([]);
+    setSuggestOpen(false);
+  };
+
+  const confirmMove = async (folderId) => {
+    const file = moveTarget;
+    setMoveTarget(null);
+    if (!file) return;
+    try {
+      await apiMoveResource(file.id, folderId);
+      showToast(folderId ? "Moved to space" : "Moved out of space", { icon: "check" });
+      if (activeFolder) fetchFolderDetail(activeFolder);
+      fetchResources();
+      fetchFolders();
+      fetchFsrsFolders();
+      fetchFsrsStats();
+    } catch (err) {
+      showToast(err.message || "Failed to move material");
+    }
+  };
+
   const handleRestoreTrash = async (item) => {
     setRecycleBinBusyId(item.id);
     try {
       const restored = await apiRestoreFolder(item.id);
       setFolders((prev) => ({ ...prev, own: [restored, ...(prev.own || [])] }));
+      fetchFsrsFolders();
+      fetchFsrsStats();
       setRecycleItems((prev) => prev.filter((t) => t.id !== item.id));
       showToast(`Restored "${item.name}"`, { icon: "check" });
     } catch {
@@ -2082,6 +2197,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onJoinLive={(code) => navigate(`/live/${code}`, { state: { returnTo: window.location.pathname } })}
         onDeleteResource={handleDeleteResource}
         onRenameResource={handleRenameResource}
+        onMoveResource={(file) => setMoveTarget(file)}
         canDeleteFile={canDeleteFile}
         onStartStudying={(topicCtx) => {
           const detail = {
@@ -2188,6 +2304,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           onOpenRecycleBin={openRecycleBin}
           recycleCount={recycleItems.length}
           onRequestDeleteSpace={requestSpaceDelete}
+          archivedIds={folders.archivedIds || []}
+          dueByFolder={dueByFolder}
+          suggestions={suggestions}
+          onReviewSuggestions={() => { setSuggestSel(suggestions.map((x) => x.id)); setSuggestOpen(true); }}
+          onDismissSuggestions={dismissSuggestions}
+          onReviewSpace={reviewSpace}
+          onRenameSpace={renameSpace}
+          onShareSpace={handleShareFolder}
+          onToggleArchiveSpace={(f) => setSpaceArchived(f, !(folders.archivedIds || []).includes(f.id))}
           search={librarySearch}
           fsrsStats={fsrsStats}
           onStudySubject={(subject) => startSpacedReview(subject)}
@@ -2526,6 +2651,48 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           <McIcon name="x" />
           <div><div className="mc-r-t">Cancel</div></div>
         </button>
+      </CircleSheet>
+
+      <CircleSheet open={suggestOpen} onClose={() => setSuggestOpen(false)} title="Archive unused spaces" kind="Suggestion">
+        <p className="mc-sheet-hint">These spaces had no reviews or edits for 30+ days. Archiving hides them from Home and Daily Review. Nothing is deleted.</p>
+        {suggestions.map((x) => (
+          <label key={x.id} className="mc-sugg-row">
+            <input
+              type="checkbox"
+              checked={suggestSel.includes(x.id)}
+              onChange={() => setSuggestSel((prev) => prev.includes(x.id) ? prev.filter((i) => i !== x.id) : [...prev, x.id])}
+            />
+            <span><b>{x.name}</b><small>{x.itemCount} item{x.itemCount === 1 ? "" : "s"} · idle {x.daysIdle} days</small></span>
+          </label>
+        ))}
+        <button className="mc-act-row" onClick={archiveSuggested} disabled={!suggestSel.length}>
+          <McIcon name="inbox" />
+          <div><div className="mc-r-t">Archive {suggestSel.length || ""} selected</div></div>
+        </button>
+        <button className="mc-act-row" onClick={dismissSuggestions}>
+          <McIcon name="x" />
+          <div><div className="mc-r-t">Not now</div><div className="mc-r-s">Don't suggest again for 7 days</div></div>
+        </button>
+      </CircleSheet>
+      <CircleSheet open={!!moveTarget} onClose={() => setMoveTarget(null)} title={moveTarget?.title} kind="Move to">
+        {moveTarget && (
+          <>
+            {(folders.own || []).filter((f) => f.id !== activeFolder).map((f) => (
+              <button key={f.id} className="mc-act-row" onClick={() => confirmMove(f.id)}>
+                <McIcon name="folder" />
+                <div><div className="mc-r-t">{f.name}</div></div>
+              </button>
+            ))}
+            <button className="mc-act-row" onClick={() => confirmMove(null)}>
+              <McIcon name="books" />
+              <div><div className="mc-r-t">No space (loose)</div><div className="mc-r-s">Keep it under Materials in My Space</div></div>
+            </button>
+            <button className="mc-act-row" onClick={() => setMoveTarget(null)}>
+              <McIcon name="x" />
+              <div><div className="mc-r-t">Cancel</div></div>
+            </button>
+          </>
+        )}
       </CircleSheet>
 
       {uploadWizard}

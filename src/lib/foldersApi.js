@@ -142,6 +142,45 @@ export async function updateFolderBookmark(folderId, courseCode) {
   return res.json();
 }
 
+// ─── Archive (own or saved folders — hides from review, keeps data) ──
+
+export async function archiveFolder(folderId) {
+  const res = await authFetch(`${API_BASE}/api/folders/${folderId}/archive`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to archive folder");
+  }
+  return res.json();
+}
+
+export async function unarchiveFolder(folderId) {
+  const res = await authFetch(`${API_BASE}/api/folders/${folderId}/archive`, { method: "DELETE" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to unarchive folder");
+  }
+  return res.json();
+}
+
+export async function getArchiveSuggestions() {
+  const res = await authFetch(`${API_BASE}/api/folders/archive-suggestions`);
+  if (!res.ok) return { suggestions: [] };
+  return res.json();
+}
+
+// Move a material into a space (or loose when folderId is null)
+export async function moveResource(resourceId, folderId) {
+  const res = await authFetch(`${API_BASE}/api/resources/${resourceId}/move`, {
+    method: "POST",
+    body: JSON.stringify({ folderId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to move material");
+  }
+  return res.json();
+}
+
 // ─── Pending Contributions (staff only) ──────────────────────────────
 
 export async function getPendingResources(folderId) {
