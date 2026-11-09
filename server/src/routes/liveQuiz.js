@@ -296,17 +296,15 @@ router.post("/join", requireAuth, async (req, res) => {
     if (room.kicked.has(uid)) {
       return res.status(403).json({ error: "You were removed from this session" });
     }
-    if (!already && room.phase !== "lobby" && room.phase !== "transition") {
-      return res.status(409).json({ error: "Session already in progress", phase: room.phase });
-    }
-    if (!already && room.participants.size >= MAX_PARTICIPANTS) {
-      return res.status(409).json({ error: "Room is full" });
-    }
+    // In-progress sessions accept late joiners as spectators — they watch the
+    // questions/reveals live and can flip into the game afterwards. Battle
+    // rooms stay lineup-only (registerParticipant enforces that).
+    const spectator = !already && room.phase !== "lobby" && room.phase !== "transition";
     const who = await identityFor(uid, req.user.username);
-    const reg = registerParticipant(room, uid, who.name, who.avatar);
+    const reg = registerParticipant(room, uid, who.name, who.avatar, { spectator });
     if (!reg.ok) return res.status(409).json({ error: reg.error });
     const ticket = generateTicket(room.id, uid);
-    res.json({ roomId: room.id, code: room.code, ticket, title: room.title });
+    res.json({ roomId: room.id, code: room.code, ticket, title: room.title, spectator: !!reg.participant.spectator });
   } catch (err) {
     console.error("Live quiz join error:", err);
     res.status(500).json({ error: "Failed to join session" });

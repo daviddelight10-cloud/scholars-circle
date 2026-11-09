@@ -28,6 +28,9 @@ export const IconStop = (p) => <S {...p}><rect x="6" y="6" width="12" height="12
 export const IconVolume = (p) => <S {...p}><path d="M11 5 6 9H2v6h4l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14" /></S>;
 export const IconVolumeOff = (p) => <S {...p}><path d="M11 5 6 9H2v6h4l5 4z" /><path d="M22 9l-6 6M16 9l6 6" /></S>;
 export const IconBroadcast = (p) => <S {...p}><circle cx="12" cy="12" r="2" /><path d="M4.9 19.1a10 10 0 0 1 0-14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2" /></S>;
+export const IconPresent = (p) => <S {...p}><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></S>;
+export const IconPause = (p) => <S {...p}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></S>;
+export const IconPlay = (p) => <S {...p}><path d="M6 4l14 8-14 8z" /></S>;
 export const IconZap = (p) => <S {...p}><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" /></S>;
 export const IconShare = (p) => <S {...p}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></S>;
 export const IconRefresh = (p) => <S {...p}><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></S>;

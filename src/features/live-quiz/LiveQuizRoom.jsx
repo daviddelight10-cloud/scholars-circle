@@ -7,7 +7,7 @@ import LobbyView from "./views/LobbyView.jsx";
 import VotingView from "./views/VotingView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import CompleteView from "./views/CompleteView.jsx";
-import { IconBroadcast, IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconSend, IconStop, IconVolume, IconVolumeOff, IconX } from "./icons.jsx";
+import { IconBroadcast, IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconPresent, IconSend, IconStop, IconVolume, IconVolumeOff, IconX } from "./icons.jsx";
 import AvatarMark from "../../components/AvatarMark.jsx";
 
 const EMOJIS = ["💡", "🔥", "👏", "❤️", "😂"];
@@ -160,7 +160,17 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
   };
 
   const handleLeave = () => {
-    room.actions.leave();
+    // The host leaving ends the session for everyone (their X is treated like
+    // End — a live session without its host has no driver). Battle rooms run
+    // host-less by design, so their host can simply step out.
+    if (room.isHost && !room.battle && room.phase !== "ended") {
+      const ok = window.confirm("Leave and end this session for everyone?");
+      if (!ok) return;
+      try { endLiveRoom(roomId); } catch {}
+      room.actions.end();
+    } else {
+      room.actions.leave();
+    }
     onExit?.();
   };
 
@@ -207,7 +217,9 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
             <span className="lq-live-badge"><span className="lq-live-dot" />LIVE</span>
           )}
           {inQuestion && (
-            <span className={`lq-timer-chip${room.timeLeft <= 5 ? " danger" : ""}`}>{room.timeLeft}s</span>
+            <span className={`lq-timer-chip${!room.paused && room.timeLeft <= 5 ? " danger" : ""}`}>
+              {room.paused ? "⏸" : `${room.timeLeft}s`}
+            </span>
           )}
           {room.isHost && room.phase !== "complete" && room.phase !== "ended" && (
             <button className="lq-icon-btn" onClick={handleEnd} title="End session for everyone" aria-label="End session for everyone"
@@ -254,7 +266,8 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
           <div className="lq-view"><div className="lq-center">
             <p className="lq-title" style={{ fontSize: 20 }}>Connection lost</p>
             <p className="lq-subtitle">{room.error || "Couldn't reach the session."}</p>
-            <button className="lq-btn-primary" style={{ maxWidth: 320 }} onClick={onExit}>Go back</button>
+            <button className="lq-btn-primary" style={{ maxWidth: 320 }} onClick={room.retry}>Reconnect</button>
+            <button className="lq-btn-secondary" style={{ maxWidth: 320 }} onClick={onExit}>Go back</button>
           </div></div>
         )}
         </div>
@@ -367,6 +380,17 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
           >
             {voice.muted ? <IconMicOff size={20} /> : <IconMic size={20} />}
           </button>
+          {room.isHost && !room.battle && (
+            <button
+              className={`lq-footer-btn${room.presenterMode ? " mic-open" : ""}`}
+              onClick={() => room.actions.setPresenter(!room.presenterMode)}
+              aria-pressed={room.presenterMode}
+              aria-label={room.presenterMode ? "Stop presenting and play" : "Present instead of playing"}
+              title={room.presenterMode ? "Presenting — tap to play along" : "Present — watch answers live without playing"}
+            >
+              <IconPresent size={20} />
+            </button>
+          )}
           {room.isHost && (
             <button
               className={`lq-footer-btn${room.micOpen ? " mic-open" : ""}`}

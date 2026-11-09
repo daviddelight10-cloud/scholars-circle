@@ -18,7 +18,6 @@ const READY_FALLBACK_MS = 25000;
 const TEACHBACK_MS = 45000;
 const GRACE_MS = 30000;
 const ROOM_TTL_MS = 5 * 60 * 1000; // keep finished rooms briefly for reconnects
-const HOST_TRANSFER_MS = 30000; // promote a new host if the host stays offline
 const XP_PER_CORRECT = 20;
 const XP_TEACHBACK = 50;
 const XP_WAGER = 30;
@@ -28,6 +27,9 @@ const XP_WAGER = 30;
 const PTS_CORRECT = 100;
 const PTS_SPEED_MAX = 50;
 const PTS_CONFIDENCE = 20;
+// Difficulty weighting (generated MCQs carry `difficulty`): the multiplier
+// scales only the correctness component — speed/confidence stay comparable.
+const DIFF_MULTIPLIERS = { easy: 0.8, medium: 1, hard: 1.25 };
 const CLUTCH_WINDOW_MS = 5000; // correct locks inside the final 5s count for "The Clutch"
 const MSG_RATE_LIMIT = 15;     // any message type
 const MSG_RATE_WINDOW_MS = 2000;
@@ -79,7 +81,23 @@ function broadcast(room, msg, exceptUserId = null) {
 }
 
 function connectedParticipants(room) {
-  return [...room.participants.values()].filter((p) => p.connected);
+  return [...room.participants.values()].filter((p) => p.connected && !p.left);
+}
+
+// Players who actually compete: connected, not spectating, and not the host
+// while they're presenting. Answers, ready checks, streaks and leaderboards
+// all use this — spectators and the presenting host are never counted.
+function activePlayers(room) {
+  return connectedParticipants(room).filter(
+    (p) => !p.spectator && !(p.userId === room.hostId && room.presenterMode)
+  );
+}
+
+// Difficulty multiplier for a question — generated MCQs carry easy/medium/hard;
+// anything else (or absent) plays at 1×.
+export function difficultyMultiplier(q) {
+  const d = String(q?.difficulty || "").toLowerCase();
+  return DIFF_MULTIPLIERS[d] || 1;
 }
 
 // Group battles: room.battle = { id, mode, a:{classroomId,name,lineup:[ids]},
@@ -120,15 +138,18 @@ function publicParticipant(p) {
     score: p.score,
     points: p.points || 0,
     team: p.team || null,
+    spectator: !!p.spectator,
     isHost: false, // filled by caller
   };
 }
 
 function publicParticipants(room) {
-  return [...room.participants.values()].map((p) => ({
-    ...publicParticipant(p),
-    isHost: p.userId === room.hostId,
-  }));
+  return [...room.participants.values()]
+    .filter((p) => !p.left) // deliberate leavers drop off the visible list; they reappear on rejoin
+    .map((p) => ({
+      ...publicParticipant(p),
+      isHost: p.userId === room.hostId,
+    }));
 }
 
 // ── Room lifecycle ───────────────────────────────────────────────────────────
@@ -162,10 +183,10 @@ export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title,
     pointsDelta: {}, // userId -> points earned this question (for reveal)
     kicked: new Set(), // userIds removed by the host — cannot rejoin
     micOpen: false, // false = mics auto-muted during question phase
+    presenterMode: false, // host presents instead of playing
     groupStreak: 0,
     talkedThrough: 0,
     timerId: null,
-    hostTimer: null, // pending host-transfer timeout
     phaseDeadline: null,
     chatLog: [],
     dbId: null,
@@ -182,7 +203,6 @@ export function deleteRoom(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
   if (room.timerId) clearTimeout(room.timerId);
-  if (room.hostTimer) clearTimeout(room.hostTimer);
   roomByCode.delete(room.code);
   rooms.delete(roomId);
 }
@@ -203,7 +223,7 @@ function currentQuestionPayload(room, forUserId) {
     serverNow: Date.now(),
     lockedCount: room.answers.size,
     lockedIds: [...room.answers.keys()],
-    totalCount: connectedParticipants(room).length,
+    totalCount: activePlayers(room).length,
     wagerEligible: room.wagerEligible.has(forUserId),
     wagerActive: room.wagers.get(forUserId) === true,
     lifelineUsed: room.lifelineUsed.has(forUserId),
@@ -211,6 +231,15 @@ function currentQuestionPayload(room, forUserId) {
       ? { option: room.answers.get(forUserId).option, confidence: room.answers.get(forUserId).confidence }
       : null,
   };
+}
+
+// Live answer distribution for the presenting host — per-option counts only,
+// never names, and never sent to anyone but the host socket.
+function hostTally(room) {
+  const tally = { A: 0, B: 0, C: 0, D: 0 };
+  for (const a of room.answers.values()) tally[a.option] = (tally[a.option] || 0) + 1;
+  const host = room.participants.get(room.hostId);
+  send(host?.ws, { type: "host_tally", tally, locked: room.answers.size, total: activePlayers(room).length });
 }
 
 function buildSnapshot(room, forUserId) {
@@ -221,6 +250,8 @@ function buildSnapshot(room, forUserId) {
     title: room.title,
     phase: room.phase,
     isHost: forUserId === room.hostId,
+    mySpectator: !!room.participants.get(forUserId)?.spectator,
+    presenterMode: room.presenterMode,
     settings: room.settings,
     maxQuestions: room.allQuestions.length,
     poolSize: room.allQuestions.length,
@@ -237,7 +268,7 @@ function buildSnapshot(room, forUserId) {
   }
   if (room.phase === "reveal" || room.phase === "teachback") {
     snap.reveal = buildRevealPayload(room);
-    snap.ready = { ready: [...room.readySet], needed: connectedParticipants(room).map((p) => p.userId) };
+    snap.ready = { ready: [...room.readySet], needed: activePlayers(room).map((p) => p.userId) };
   }
   if (room.phase === "teachback") {
     snap.teachBack = { teacherId: room.teachBack?.teacherId, text: room.teachBack?.text || null };
@@ -268,7 +299,7 @@ function freshStats() {
   };
 }
 
-export function registerParticipant(room, userId, username, avatar) {
+export function registerParticipant(room, userId, username, avatar, opts = {}) {
   if (room.kicked.has(userId)) return { ok: false, error: "You were removed from this session" };
   // Battle rooms are locked to the two lineups — no spectators, no ring-ins.
   let team = null;
@@ -280,9 +311,13 @@ export function registerParticipant(room, userId, username, avatar) {
   if (p) {
     if (username && p.username === "Scholar") p.username = username;
     if (avatar && avatar !== p.avatar) p.avatar = avatar;
+    p.left = false; // deliberate leaver coming back — seat and score restored
     return { ok: true, participant: p };
   }
-  if (room.participants.size >= MAX_PARTICIPANTS) return { ok: false, error: "Room is full" };
+  // Capacity counts players only — spectators don't consume a seat.
+  const seats = [...room.participants.values()].filter((x) => !x.left && !x.spectator).length;
+  const wantsSeat = !opts.spectator;
+  if (wantsSeat && seats >= MAX_PARTICIPANTS) return { ok: false, error: "Room is full" };
   p = {
     userId,
     username: username || "Scholar",
@@ -291,6 +326,8 @@ export function registerParticipant(room, userId, username, avatar) {
     ws: null,
     connected: false,
     connectedAt: 0,
+    spectator: !!opts.spectator && !room.battle,
+    left: false,
     lobbyReady: userId === room.hostId,
     score: 0,
     points: 0,
@@ -319,12 +356,8 @@ export function attachSocket(room, userId, username, ws) {
   p.ws = ws;
   p.connected = true;
   p.connectedAt = Date.now();
+  p.left = false;
   room.emptySince = null;
-  // Host came back before the transfer window closed — cancel the handover.
-  if (userId === room.hostId && room.hostTimer) {
-    clearTimeout(room.hostTimer);
-    room.hostTimer = null;
-  }
 
   send(ws, buildSnapshot(room, userId));
   broadcast(room, { type: "player_joined", participants: publicParticipants(room) }, userId);
@@ -344,35 +377,11 @@ export function detachSocket(room, userId) {
   if (connectedParticipants(room).length === 0) {
     room.emptySince = Date.now();
   }
-  // Host left mid-session: give them a grace window to reconnect, then hand
-  // the crown to the longest-connected participant so the room isn't stuck.
-  if (
-    userId === room.hostId &&
-    room.phase !== "ended" &&
-    room.phase !== "complete" &&
-    !room.hostTimer &&
-    connectedParticipants(room).length > 0
-  ) {
-    room.hostTimer = setTimeout(() => transferHost(room), HOST_TRANSFER_MS);
-  }
+  // No auto host-transfer: a disconnected host keeps the crown until they
+  // return or deliberately quit (which ends the room). The room simply waits.
   // Don't let a disconnect stall the room
   checkQuestionDone(room);
   checkReadyDone(room);
-}
-
-function transferHost(room) {
-  room.hostTimer = null;
-  if (room.phase === "ended" || room.phase === "complete") return;
-  const oldHost = room.participants.get(room.hostId);
-  if (oldHost?.connected) return; // came back already
-  const candidates = connectedParticipants(room).filter((p) => p.userId !== room.hostId);
-  if (candidates.length === 0) return;
-  candidates.sort((a, b) => a.connectedAt - b.connectedAt);
-  const next = candidates[0];
-  room.hostId = next.userId;
-  next.lobbyReady = true;
-  broadcast(room, { type: "host_changed", hostId: next.userId, name: next.username });
-  broadcast(room, { type: "lobby_state", participants: publicParticipants(room) });
 }
 
 // Token-bucket throttle per participant — chat is stricter because messages
@@ -397,7 +406,7 @@ export function handleMessage(room, userId, msg) {
       send(p.ws, { type: "pong", t: msg.t });
       return;
     case "lobby_ready":
-      if (room.phase !== "lobby") return;
+      if (room.phase !== "lobby" || p.spectator) return;
       p.lobbyReady = !!msg.ready;
       broadcast(room, { type: "lobby_state", participants: publicParticipants(room) });
       return;
@@ -407,6 +416,51 @@ export function handleMessage(room, userId, msg) {
       applySettings(room, msg);
       broadcast(room, { type: "lobby_state", participants: publicParticipants(room), settings: room.settings });
       return;
+    case "presenter": {
+      // Host presents instead of playing — toggling mid-run is allowed
+      // between questions (lobby/reveal), not while answers are live.
+      if (!isHost || room.battle) return;
+      if (room.phase !== "lobby" && room.phase !== "reveal") return;
+      room.presenterMode = !!msg.on;
+      broadcast(room, { type: "presenter_mode", on: room.presenterMode });
+      return;
+    }
+    case "force_advance":
+      // Host skips the ready wait (reveal lingers when someone idles).
+      if (!isHost || room.phase !== "reveal") return;
+      if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
+      advance(room);
+      return;
+    case "pause": {
+      if (!isHost || room.phase !== "question" || room.paused) return;
+      room.paused = true;
+      room.pausedRemainingMs = Math.max(0, room.phaseDeadline - Date.now());
+      if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
+      broadcast(room, { type: "question_paused", remainingMs: room.pausedRemainingMs });
+      return;
+    }
+    case "resume": {
+      if (!isHost || room.phase !== "question" || !room.paused) return;
+      room.paused = false;
+      room.phaseDeadline = Date.now() + (room.pausedRemainingMs || 0);
+      scheduleTimer(room, room.pausedRemainingMs || 0, () => revealQuestion(room));
+      broadcast(room, { type: "question_resumed", deadline: room.phaseDeadline });
+      return;
+    }
+    case "spectator_join": {
+      // Late joiner flips from watching to playing (not in battles).
+      if (!p.spectator || room.battle) return;
+      const seats = [...room.participants.values()].filter((x) => !x.left && !x.spectator).length;
+      if (seats >= MAX_PARTICIPANTS) {
+        send(p.ws, { type: "spectator_denied", reason: "Room is full" });
+        return;
+      }
+      p.spectator = false;
+      p.lobbyReady = false;
+      send(p.ws, buildSnapshot(room, userId));
+      broadcast(room, { type: "player_joined", participants: publicParticipants(room) }, userId);
+      return;
+    }
     case "start":
       // Battle rooms have no lobby host duties — any connected lineup member
       // can kick off once everyone's in.
@@ -491,6 +545,8 @@ export function handleMessage(room, userId, msg) {
       backToLobby(room);
       return;
     case "leave":
+      // Deliberate leave: free the seat (scores are kept — rejoin restores).
+      p.left = true;
       detachSocket(room, userId);
       return;
     case "end":
@@ -534,6 +590,8 @@ function openQuestion(room) {
   room.wagerEligible = new Set(room.prevCorrect); // correct on previous q → eligible to wager
   room.teachBack = null;
   room.pointsDelta = {};
+  room.paused = false;
+  room.pausedRemainingMs = 0;
   room.phaseDeadline = Date.now() + room.settings.timePerQuestion * 1000;
   room.talkedThrough = room.qIndex;
 
@@ -541,11 +599,14 @@ function openQuestion(room) {
     if (!p.connected) continue;
     send(p.ws, { type: "question", ...currentQuestionPayload(room, p.userId) });
   }
+  if (room.presenterMode) hostTally(room); // reset the host's distribution bars
   scheduleTimer(room, room.settings.timePerQuestion * 1000, () => revealQuestion(room));
 }
 
 function handleAnswer(room, p, msg) {
   if (room.phase !== "question" || room.answers.has(p.userId)) return;
+  // Spectators and the presenting host don't play.
+  if (p.spectator || (room.presenterMode && p.userId === room.hostId)) return;
   const option = String(msg.option || "").toUpperCase();
   if (!["A", "B", "C", "D"].includes(option)) return;
   const confidence = ["Low", "Medium", "High"].includes(msg.confidence) ? msg.confidence : null;
@@ -557,11 +618,13 @@ function handleAnswer(room, p, msg) {
   const correct = option === q.correct;
   room.answers.set(p.userId, { option, confidence, timeMs, correct });
 
-  // Leaderboard points: correctness + speed bonus + confidence calibration.
+  // Leaderboard points: correctness (difficulty-weighted) + speed bonus +
+  // confidence calibration.
   const speedFrac = Math.max(0, Math.min(1, 1 - timeMs / limitMs));
+  const mult = difficultyMultiplier(q);
   let delta = 0;
   if (correct) {
-    delta = PTS_CORRECT + Math.round(PTS_SPEED_MAX * speedFrac) + (confidence === "High" ? PTS_CONFIDENCE : 0);
+    delta = Math.round(PTS_CORRECT * mult) + Math.round(PTS_SPEED_MAX * speedFrac) + (confidence === "High" ? PTS_CONFIDENCE : 0);
   } else if (confidence === "High") {
     delta = -PTS_CONFIDENCE;
   }
@@ -588,16 +651,17 @@ function handleAnswer(room, p, msg) {
   broadcast(room, {
     type: "lock_update",
     locked: room.answers.size,
-    total: connectedParticipants(room).length,
+    total: activePlayers(room).length,
     ids: [...room.answers.keys()],
   });
+  if (room.presenterMode) hostTally(room);
   checkQuestionDone(room);
 }
 
 function checkQuestionDone(room) {
   if (room.phase !== "question") return;
-  const connected = connectedParticipants(room);
-  if (connected.length > 0 && room.answers.size >= connected.length) {
+  const players = activePlayers(room);
+  if (players.length > 0 && room.answers.size >= players.length) {
     if (room.timerId) clearTimeout(room.timerId);
     room.timerId = null;
     revealQuestion(room);
@@ -631,6 +695,7 @@ function buildRevealPayload(room) {
     total: room.questions.length,
     correct: q.correct,
     explanation: q.explanation || "",
+    difficultyMult: difficultyMultiplier(q),
     picks,
     scores,
     xpEarned,
@@ -646,10 +711,10 @@ function buildRevealPayload(room) {
 function revealQuestion(room) {
   if (room.phase !== "question") return;
   const q = room.questions[room.qIndex];
-  const connected = connectedParticipants(room);
+  const players = activePlayers(room);
   const allCorrect =
-    connected.length > 0 &&
-    connected.every((p) => room.answers.get(p.userId)?.correct === true);
+    players.length > 0 &&
+    players.every((p) => room.answers.get(p.userId)?.correct === true);
   room.groupStreak = allCorrect ? room.groupStreak + 1 : 0;
   room.prevCorrect = new Set(
     [...room.answers.entries()].filter(([, a]) => a.correct).map(([uid]) => uid)
@@ -718,7 +783,7 @@ function startReadyCheck(room) {
   broadcast(room, {
     type: "ready_update",
     ready: [],
-    needed: connectedParticipants(room).map((p) => p.userId),
+    needed: activePlayers(room).map((p) => p.userId),
     deadline: room.phaseDeadline,
   });
   scheduleTimer(room, READY_FALLBACK_MS, () => advance(room));
@@ -726,7 +791,7 @@ function startReadyCheck(room) {
 
 function checkReadyDone(room) {
   if (room.phase !== "reveal") return;
-  const needed = connectedParticipants(room);
+  const needed = activePlayers(room);
   if (needed.length === 0) return;
   if (needed.every((p) => room.readySet.has(p.userId))) {
     if (room.timerId) clearTimeout(room.timerId);
@@ -835,9 +900,9 @@ function computeAwards(room) {
 async function completeSession(room) {
   room.phase = "complete";
   if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
-  if (room.hostTimer) { clearTimeout(room.hostTimer); room.hostTimer = null; }
 
   const leaderboard = [...room.participants.values()]
+    .filter((p) => !p.spectator) // watchers don't clutter the board
     .map((p) => ({
       userId: p.userId,
       username: p.username,
@@ -885,6 +950,31 @@ async function completeSession(room) {
   persistSession(room, "complete").catch(() => {});
 
   const winner = leaderboard[0];
+
+  // Post-session buzz: a feed recap with the winner so the session echoes past
+  // the room (best-effort — never blocks completion). Battles already post
+  // their own outcome via finalizeBattle.
+  if (!room.battle && winner && leaderboard.length > 1) {
+    (async () => {
+      try {
+        const profile = await prisma.userProfile.findUnique({
+          where: { userId: room.hostId },
+          select: { universityId: true },
+        });
+        await prisma.feedPost.create({
+          data: {
+            authorId: room.hostId,
+            kind: "activity",
+            text: `wrapped a live quiz — ${room.title} ⚡ ${winner.username} took the crown with ${winner.points} pts · ${leaderboard.length} players`,
+            resourceId: room.resourceId || room.mcqResourceId || null,
+            universityId: profile?.universityId || null,
+          },
+        });
+      } catch (e) {
+        console.warn("[live] recap feed post failed:", e?.message);
+      }
+    })();
+  }
 
   // Per-participant side effects: XP, streak credit, live badges (fire-and-forget)
   for (const p of room.participants.values()) {
@@ -949,6 +1039,7 @@ function backToLobby(room) {
   }
   for (const p of room.participants.values()) {
     p.lobbyReady = p.userId === room.hostId;
+    p.spectator = false; // new game — watchers become players again
     p.score = 0;
     p.points = 0;
     p.stats = freshStats();
@@ -960,7 +1051,6 @@ export function endRoom(room, reason = "ended_by_host") {
   if (room.phase === "ended") return;
   room.phase = "ended";
   if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
-  if (room.hostTimer) { clearTimeout(room.hostTimer); room.hostTimer = null; }
   broadcast(room, { type: "session_ended", reason });
   persistSession(room, "ended").catch(() => {});
   if (room.battle) cancelBattle(room).catch(() => {});

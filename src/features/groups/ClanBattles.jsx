@@ -54,7 +54,7 @@ function BattleRow({ b, onAccept, onDecline, onJoin, onRing, ringState, busy }) 
           {b.status === "completed"
             ? `${b.a.size}v${b.b.size} · ${scoreline(b)} avg${winner ? ` — ${winner === b.a.id ? b.a.name : b.b.name} wins` : " — draw"}`
             : b.status === "pending" && b.needsLineup
-              ? `challenges your clan — they field ${b.a.size}, you pick your side · ${b.numQuestions} questions`
+              ? `challenges your clan — they field ${b.a.size}, you pick your side · ${b.numQuestions} questions · ${b.timePerQuestion || 20}s each`
               : b.status === "pending"
                 ? `waiting for ${b.b.name} to answer · your ${b.a.size} players`
                 : b.status === "active"
@@ -144,6 +144,9 @@ function LineupSheet({ title, hint, members, max = 15, busy, error, onConfirm, o
 }
 
 // Challenge setup: 2 steps — (1) opponent + mode + questions, (2) lineup + schedule.
+const BATTLE_TIMES = [15, 20, 30, 45, 60];
+const BATTLE_COUNTS = [5, 10, 15, 20, 25];
+
 function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   const [step, setStep] = useState(1);
   const [q, setQ] = useState("");
@@ -155,6 +158,8 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerCache, setPickerCache] = useState(null);
   const [scheduledFor, setScheduledFor] = useState("");
+  const [numQuestions, setNumQuestions] = useState(10);
+  const [timePerQuestion, setTimePerQuestion] = useState(20);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [searchError, setSearchError] = useState(null);
@@ -181,6 +186,8 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
     setLineup((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < 15 ? [...p, id] : p));
 
   const canAdvance = !!opponent && !!material;
+  const materialMax = material ? Math.min(25, mcqQuestionCount(material)) : 25;
+  const effCount = Math.min(numQuestions, materialMax);
 
   const submit = async () => {
     if (!opponent || !material || lineup.length < 1 || busy) return;
@@ -195,6 +202,8 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
         mcqResourceId: mcq.id,
         mode,
         lineupIds: lineup,
+        numQuestions: effCount,
+        timePerQuestion,
         scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
       });
       onCreated?.(battle);
@@ -265,6 +274,28 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
             {material ? `⚡ ${mcqVariant(material)?.title || material.title} — ${mcqQuestionCount(material)} questions` : "Pick the question set"}
           </button>
 
+          {/* Battle terms — agreed at challenge time, locked once sent */}
+          <div className="gv-sort-row" style={{ marginTop: 12 }}>
+            {BATTLE_TIMES.map((t) => (
+              <button key={t} className={`gv-sort${timePerQuestion === t ? " active" : ""}`} onClick={() => setTimePerQuestion(t)}>{t}s</button>
+            ))}
+          </div>
+          <div className="gv-sort-row" style={{ marginTop: 8 }}>
+            {BATTLE_COUNTS.map((n) => (
+              <button
+                key={n}
+                className={`gv-sort${effCount === n ? " active" : ""}`}
+                disabled={n > materialMax}
+                onClick={() => setNumQuestions(n)}
+              >
+                {n}q
+              </button>
+            ))}
+          </div>
+          <div className="fd-sheet-sub" style={{ marginTop: 6, marginBottom: 0 }}>
+            {material ? `${effCount} questions · ${timePerQuestion}s each · of ${mcqQuestionCount(material)} available` : "Pick a question set to set the count"}
+          </div>
+
           {error && <div className="fd-sheet-sub" style={{ color: "#FF5470", marginTop: 8 }}>{error}</div>}
           <button
             className="fd-go-btn"
@@ -320,7 +351,7 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
             disabled={lineup.length < 1 || busy}
             onClick={submit}
           >
-            {busy ? "Sending…" : `Send ${mode} challenge (${lineup.length} players)`}
+            {busy ? "Sending…" : `Send ${mode} challenge (${lineup.length} players · ${effCount}q · ${timePerQuestion}s)`}
           </button>
         </>
       )}

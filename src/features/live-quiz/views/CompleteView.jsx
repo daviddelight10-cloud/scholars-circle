@@ -136,7 +136,7 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
         </div>
       )}
 
-      <div className="lq-card">
+      <div className="lq-card lq-lb-scroll">
         <p className="lq-card-label">FINAL SCORES</p>
         {c.leaderboard.map((u, i) => (
           <div className="lq-leaderboard-item" key={u.userId}>

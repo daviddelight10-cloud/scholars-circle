@@ -78,6 +78,10 @@
 .lq-summary-item { font-size: 14px; color: var(--c-d1d5db); display: flex; align-items: center; gap: 12px; }
 .lq-summary-item svg { color: #F5C542; width: 20px; flex-shrink: 0; }
 .lq-invite-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+/* Big rooms scroll internally — settings and Start stay reachable */
+.lq-invite-scroll { max-height: 340px; overflow-y: auto; padding-right: 4px; }
+/* Final leaderboard scrolls inside its card instead of stretching the page */
+.lq-lb-scroll { max-height: 58vh; overflow-y: auto; }
 .lq-invite-card { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--c-15181e); border: 1px solid var(--app-tint-med); border-radius: 14px; }
 .lq-invite-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--app-text); font-size: 16px; flex-shrink: 0; }
 .lq-invite-name { font-size: 14px; color: var(--c-f3f4f6); font-weight: 600; }
@@ -146,9 +150,10 @@
 .lq-reveal-option.wrong .lq-option-chip { background: #FF6B5E; color: #0A0C10; }
 .lq-reveal-option.correct .lq-option-text { color: var(--app-text); font-weight: 600; }
 .lq-picks { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.lq-picks-avatars { display: flex; align-items: center; }
+.lq-picks-avatars { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .lq-pick-avatar { width: 24px; height: 24px; border-radius: 50%; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--c-15181e); position: relative; color: var(--app-text); }
 .lq-pick-avatar:not(:first-child) { margin-left: -8px; }
+.lq-pick-avatar.lq-pick-more { margin-left: 4px; background: var(--app-tint-med); color: var(--app-dim); font-size: 9px; border: none; }
 .lq-conf-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--c-15181e); position: absolute; bottom: -2px; right: -2px; }
 .lq-picks-label { font-size: 10px; color: var(--app-dim); font-weight: 600; margin: 0; }
 
@@ -163,7 +168,7 @@
 /* Ready check & teach back */
 .lq-ready-box { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; background: var(--app-tint-soft); border: 1px solid var(--app-tint-soft); border-radius: 14px; }
 .lq-ready-text { font-size: 12px; color: var(--app-dim); font-weight: 600; text-align: center; margin: 0; }
-.lq-ready-group { display: flex; gap: 14px; }
+.lq-ready-group { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 176px; overflow-y: auto; padding: 2px; }
 .lq-ready-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; opacity: 0.3; border: 2px solid transparent; transition: all 0.3s ease; color: var(--app-text); }
 .lq-ready-avatar.is-ready { opacity: 1; border-color: #3DD68C; box-shadow: 0 0 10px rgba(61,214,140,0.3); animation: lq-pop 0.3s ease; }
 .lq-teachback { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: rgba(61,214,140,0.05); border: 1px solid rgba(61,214,140,0.2); border-radius: 14px; margin-bottom: 12px; }
@@ -495,4 +500,47 @@
 .lq-battle-verdict {
   margin: 10px 0 0; text-align: center;
   font-size: 13px; font-weight: 700; color: #F5C542;
+}
+
+/* ── Host-offline note (lobby) ── */
+.lq-host-offline {
+  margin: 0 0 10px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(245,197,66,0.35); background: rgba(245,197,66,0.08);
+  color: #F5C542; font-size: 12px; line-height: 1.5;
+}
+
+/* ── Spectator / presenter banners ── */
+.lq-spec-banner, .lq-pres-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px; margin-bottom: 16px;
+}
+.lq-spec-banner { border: 1px solid rgba(123,140,255,0.35); background: rgba(123,140,255,0.08); }
+.lq-pres-banner { border: 1px solid rgba(245,197,66,0.35); background: rgba(245,197,66,0.08); }
+.lq-spec-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lq-spec-text b { font-size: 12.5px; color: var(--c-f3f4f6); }
+.lq-spec-text span { font-size: 11px; color: var(--app-dim); line-height: 1.4; }
+.lq-spec-join, .lq-pres-pause {
+  flex: none; border-radius: 10px; border: 1px solid rgba(245,197,66,0.4);
+  background: rgba(245,197,66,0.14); color: #F5C542; font-size: 12px; font-weight: 700;
+  padding: 9px 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  touch-action: manipulation;
+}
+.lq-spec-join:active, .lq-pres-pause:active { transform: scale(0.96); }
+.lq-pres-pause.on { background: rgba(61,214,140,0.14); border-color: rgba(61,214,140,0.4); color: #3DD68C; }
+
+/* ── Presenter tally bars (inside option buttons) ── */
+.lq-option { position: relative; overflow: hidden; }
+.lq-option-tally {
+  position: absolute; left: 0; right: 0; bottom: 0; top: 0;
+  display: flex; align-items: center; justify-content: flex-end;
+  pointer-events: none;
+}
+.lq-tally-bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: rgba(245,197,66,0.13); transition: width 0.35s ease;
+  border-radius: inherit;
+}
+.lq-tally-count {
+  position: relative; font-size: 11px; font-weight: 800; color: #F5C542;
+  padding: 0 12px; font-variant-numeric: tabular-nums; white-space: nowrap;
 }

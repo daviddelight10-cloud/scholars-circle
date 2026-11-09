@@ -46,11 +46,14 @@ export default function RevealView({ room, myId, actions }) {
   // picks grouped per option letter
   const letters = q ? Object.keys(q.options) : ["A", "B", "C", "D"];
   const optionText = (letter) => q?.options?.[letter] || "";
+  const MAX_PICK_AVATARS = 12; // cap the avatar stack at scale — "+N" carries the rest
+  const NAME_LIST_LIMIT = 8;  // beyond this, show a count instead of a name blob
 
   return (
     <div className="lq-view">
       <p className="lq-reveal-header">
-        QUESTION {r.index + 1} OF {r.total} · {r.numCorrect} OF {participants.filter((p) => p.connected).length} GOT IT
+        QUESTION {r.index + 1} OF {r.total} · {r.numCorrect} OF {participants.filter((p) => p.connected && !p.spectator).length} GOT IT
+        {r.difficultyMult > 1 ? ` · HARD ×${r.difficultyMult}` : r.difficultyMult < 1 ? ` · EASY ×${r.difficultyMult}` : ""}
       </p>
       {q && <p className="lq-q-text" style={{ fontSize: 16, marginBottom: 20 }}>{q.question}</p>}
 
@@ -75,7 +78,7 @@ export default function RevealView({ room, myId, actions }) {
               {whoPicked.length > 0 && (
                 <div className="lq-picks">
                   <div className="lq-picks-avatars">
-                    {whoPicked.map(([uid, a]) => {
+                    {whoPicked.slice(0, MAX_PICK_AVATARS).map(([uid, a]) => {
                       const p = byId[uid];
                       return (
                         <span key={uid} className="lq-pick-avatar" style={{ background: p?.avatar ? "transparent" : p?.color || "#555", border: p?.avatar ? "none" : undefined }}>
@@ -86,11 +89,16 @@ export default function RevealView({ room, myId, actions }) {
                         </span>
                       );
                     })}
+                    {whoPicked.length > MAX_PICK_AVATARS && (
+                      <span className="lq-pick-avatar lq-pick-more">+{whoPicked.length - MAX_PICK_AVATARS}</span>
+                    )}
                   </div>
                   <p className="lq-picks-label">
-                    {whoPicked
-                      .map(([uid, a]) => `${uid === myId ? "You" : byId[uid]?.username}${a.confidence ? `: ${a.confidence}` : ""}`)
-                      .join(" · ")}
+                    {whoPicked.length > NAME_LIST_LIMIT
+                      ? `${whoPicked.length} picked this`
+                      : whoPicked
+                          .map(([uid, a]) => `${uid === myId ? "You" : byId[uid]?.username}${a.confidence ? `: ${a.confidence}` : ""}`)
+                          .join(" · ")}
                   </p>
                 </div>
               )}
@@ -165,7 +173,7 @@ export default function RevealView({ room, myId, actions }) {
               {allReady ? "Everyone is ready!" : "Waiting for everyone to be ready…"}
             </p>
             <div className="lq-ready-group">
-              {participants.filter((p) => p.connected).map((p) => (
+              {participants.filter((p) => p.connected && !p.spectator).map((p) => (
                 <div
                   key={p.userId}
                   className={`lq-ready-avatar${readySet.has(p.userId) ? " is-ready" : ""}`}
@@ -177,12 +185,15 @@ export default function RevealView({ room, myId, actions }) {
               ))}
             </div>
           </div>
+          {room.isHost && !allReady && (
+            <button className="lq-btn-secondary" onClick={actions.forceAdvance}>Skip waiting →</button>
+          )}
           <button
             className={`lq-btn-primary${iAmReady ? " loading" : ""}`}
             onClick={markReady}
-            disabled={iAmReady}
+            disabled={iAmReady || !!room.mySpectator}
           >
-            {iAmReady ? "Waiting for others…" : isLast ? "Ready to view results" : "Ready for next question"}
+            {room.mySpectator ? "Spectating" : iAmReady ? "Waiting for others…" : isLast ? "Ready to view results" : "Ready for next question"}
           </button>
         </div>
       )}

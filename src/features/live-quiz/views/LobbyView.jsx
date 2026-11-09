@@ -90,6 +90,9 @@ export default function LobbyView({ room, myId, actions }) {
   };
 
   const me = participants.find((p) => p.userId === myId);
+  const hostOffline = participants.find((p) => p.isHost)?.connected === false;
+  const spectatorCount = participants.filter((p) => p.spectator).length;
+  const hasSpectators = spectatorCount > 0;
   const inviteUrl = `${window.location.origin}/live/${code}`;
   const inviteText = `Join my live quiz on Scholar's Circle — "${title}" ⚡\n${inviteUrl}`;
   const allReady = participants.every((p) => p.lobbyReady);
@@ -256,8 +259,14 @@ export default function LobbyView({ room, myId, actions }) {
       )}
 
       <div className="lq-section">
-        <p className="lq-label"><IconUsers size={12} style={{ verticalAlign: "-2px" }} /> Participants ({participants.length}/{room.maxParticipants || 50})</p>
-        <div className="lq-invite-grid">
+        <p className="lq-label"><IconUsers size={12} style={{ verticalAlign: "-2px" }} /> Participants ({participants.length}/{room.maxParticipants || 50}){hasSpectators ? ` · ${spectatorCount} watching` : ""}</p>
+        {hostOffline && (
+          <p className="lq-host-offline" role="status">
+            👑 Host is offline — waiting for them to reconnect. The session can't start without the host.
+          </p>
+        )}
+        <div className={participants.length > 12 ? "lq-invite-scroll" : undefined}>
+          <div className="lq-invite-grid">
           {participants.map((p) => {
             const ready = p.lobbyReady;
             return (
@@ -284,12 +293,13 @@ export default function LobbyView({ room, myId, actions }) {
                   </span>
                 ) : (
                   <span className={`lq-invite-status ${ready ? "lq-status-ready" : "lq-status-waiting"}`}>
-                    {ready ? <><IconCheck size={12} /> Ready</> : <><IconSpinner size={12} /> Waiting…</>}
+                    {p.spectator ? "👁 watching" : ready ? <><IconCheck size={12} /> Ready</> : <><IconSpinner size={12} /> Waiting…</>}
                   </span>
                 )}
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 

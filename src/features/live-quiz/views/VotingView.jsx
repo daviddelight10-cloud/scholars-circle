@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { IconCheck, IconDice, IconLock, IconPie } from "../icons.jsx";
+import { IconCheck, IconDice, IconLock, IconPause, IconPie, IconPlay } from "../icons.jsx";
 import { sounds } from "../sounds";
 import { addGems, loadSave, trySpendGems } from "../../streak-survival/survivalStore";
 
@@ -16,6 +16,9 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
   const [selected, setSelected] = useState(q?.answered?.option || null);
   const [gemNote, setGemNote] = useState(null);
   const locked = !!q.answered;
+  const isPresenter = room.isHost && room.presenterMode;
+  const isSpectator = !!room.mySpectator;
+  const observing = isPresenter || isSpectator; // non-interactive variants
   const lastTickRef = useRef(null);
   // A gem spend is in flight until the server answers — refund exactly once on denial.
   const pendingSpendRef = useRef(false);
@@ -66,7 +69,7 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
   if (!q) return null;
   const letters = Object.keys(q.options); // ["A","B","C","D"]
   const lockedIds = new Set(q.lockedIds || []);
-  const pending = room.participants.filter((p) => p.connected && !lockedIds.has(p.userId));
+  const pending = room.participants.filter((p) => p.connected && !p.spectator && !lockedIds.has(p.userId) && !(p.isHost && room.presenterMode));
   const pendingNames = pending.filter((p) => p.userId !== myId).map((p) => p.username).slice(0, 2);
   const waitingText = pending.length === 0
     ? "Everyone's in!"
@@ -106,11 +109,36 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
 
   return (
     <div className="lq-view">
+      {isSpectator && (
+        <div className="lq-spec-banner" role="status">
+          <div className="lq-spec-text">
+            <b>You're watching</b>
+            <span>Join the game from this moment — your score starts at 0.</span>
+          </div>
+          <button className="lq-spec-join" onClick={actions.spectatorJoin}>Join the game</button>
+        </div>
+      )}
+      {isPresenter && (
+        <div className="lq-pres-banner" role="status">
+          <div className="lq-spec-text">
+            <b>Presenting</b>
+            <span>{room.paused ? "Timer paused — resume when you're ready." : "You see the room's answers as they lock in. You're not playing."}</span>
+          </div>
+          <button
+            className={`lq-pres-pause${room.paused ? " on" : ""}`}
+            onClick={() => (room.paused ? actions.resume() : actions.pause())}
+          >
+            {room.paused ? <><IconPlay size={14} /> Resume</> : <><IconPause size={14} /> Pause</>}
+          </button>
+        </div>
+      )}
       <div className="lq-vote-info">
         <IconLock size={12} />
-        <p style={{ fontSize: 11, color: "var(--app-dim)", fontWeight: 600, margin: 0 }}>Votes hidden until everyone locks in</p>
+        <p style={{ fontSize: 11, color: "var(--app-dim)", fontWeight: 600, margin: 0 }}>
+          {isPresenter ? "Answers are hidden from players until everyone locks in" : isSpectator ? "You're spectating this question" : "Votes hidden until everyone locks in"}
+        </p>
       </div>
-      <p className="lq-vote-status">{q.lockedCount} of {q.totalCount} locked · {waitingText}</p>
+      <p className="lq-vote-status">{q.lockedCount} of {q.totalCount} locked · {isPresenter || isSpectator ? `${pending.length} still voting` : waitingText}</p>
 
       <p className="lq-q-label">{q.qLabel}</p>
       <p className="lq-q-text">{q.question}</p>
@@ -119,21 +147,30 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
         {letters.map((letter) => {
           const isSel = selected === letter;
           const mineLocked = locked && q.answered?.option === letter;
+          const tallyCount = room.hostTally?.tally?.[letter] || 0;
+          const tallyTotal = room.hostTally?.locked || 0;
+          const tallyPct = tallyTotal > 0 ? Math.round((tallyCount / tallyTotal) * 100) : 0;
           return (
             <div key={letter} className="lq-option-wrap">
               <button
                 type="button"
                 className={`lq-option${isSel ? " selected" : ""}${locked ? (mineLocked ? " locked" : " dimmed") : ""}`}
                 onClick={() => pick(letter)}
-                disabled={locked}
+                disabled={locked || observing}
                 aria-pressed={isSel}
               >
                 <span className="lq-option-chip">{letter}</span>
                 <p className="lq-option-text" style={{ margin: 0 }}>{q.options[letter]}</p>
                 {mineLocked && <IconCheck size={15} style={{ color: "#3DD68C" }} />}
                 {isSel && !locked && <IconCheck size={15} style={{ color: "#3B82F6" }} />}
+                {isPresenter && (
+                  <span className="lq-option-tally">
+                    <span className="lq-tally-bar" style={{ width: `${tallyPct}%` }} />
+                    <span className="lq-tally-count">{tallyCount > 0 ? `${tallyCount} · ${tallyPct}%` : ""}</span>
+                  </span>
+                )}
               </button>
-              {isSel && !locked && (
+              {isSel && !locked && !observing && (
                 <div className="lq-conf-inline" role="group" aria-label="Confidence — tap to lock your answer">
                   <span className="lq-conf-inline-label">Sure?</span>
                   {["Low", "Medium", "High"].map((lvl) => (
@@ -153,17 +190,21 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
         })}
       </div>
 
-      <p className="lq-kbd-hint">Pick an answer, then tap a confidence to lock — keys 1-4, then L·M·H</p>
+      <p className="lq-kbd-hint">
+        {observing
+          ? isPresenter ? "Answers lock in live — pause any time to discuss" : "Spectators can chat and react while watching"
+          : "Pick an answer, then tap a confidence to lock — keys 1-4, then L·M·H"}
+      </p>
 
       <div className="lq-action-group">
-        {q.wagerEligible && !locked && (
+        {!observing && q.wagerEligible && !locked && (
           <button className={`lq-wager-btn${q.wagerActive ? " active" : ""}`} onClick={toggleWager}>
             <IconDice size={14} />
             {q.wagerActive ? "Wager active — +30 / −30 XP on this one" : "Double or Nothing — wager 30 XP"}
           </button>
         )}
 
-        {!locked && (
+        {!observing && !locked && (
           <button
             className="lq-lifeline-btn"
             onClick={useLifeline}
@@ -175,7 +216,7 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
         )}
         {gemNote && <p className="lq-gem-note">{gemNote}</p>}
 
-        {room.isHost && !locked && (
+        {isPresenter && (
           <button className="lq-reveal-now" onClick={actions.forceReveal}>
             Reveal now
           </button>

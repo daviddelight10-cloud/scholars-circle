@@ -12,6 +12,8 @@ const initialState = {
   code: null,
   title: "",
   isHost: false,
+  mySpectator: false,
+  presenterMode: false,
   settings: { timePerQuestion: 30, numQuestions: 5 },
   maxQuestions: 20,
   maxParticipants: 50,
@@ -31,6 +33,9 @@ const initialState = {
   nextIndex: 0,
   endReason: null,
   micOpen: false,
+  hostTally: null, // presenting host only: {tally:{A..D}, locked, total}
+  paused: false,
+  pausedRemainingMs: null,
   error: null,
   serverOffset: 0, // serverNow - clientNow, for deadline countdowns
 };
@@ -72,6 +77,8 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           code: msg.code,
           title: msg.title,
           isHost: msg.isHost,
+          mySpectator: !!msg.mySpectator,
+          presenterMode: !!msg.presenterMode,
           settings: msg.settings,
           maxQuestions: msg.maxQuestions,
           poolSize: msg.poolSize,
@@ -88,6 +95,8 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           battle: msg.battle || null,
           micOpen: !!msg.micOpen,
           poll: null,
+          hostTally: null,
+          paused: false,
           serverOffset: offset,
         }));
         break;
@@ -108,6 +117,23 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
         break;
       case "mic_mode":
         patch({ micOpen: !!msg.open });
+        break;
+      case "presenter_mode":
+        patch({ presenterMode: !!msg.on });
+        break;
+      case "host_tally":
+        patch({ hostTally: { tally: msg.tally, locked: msg.locked, total: msg.total } });
+        break;
+      case "question_paused":
+        patch({ paused: true, pausedRemainingMs: msg.remainingMs });
+        break;
+      case "question_resumed":
+        setState((s) => s.question
+          ? { ...s, paused: false, pausedRemainingMs: null, question: { ...s.question, deadline: msg.deadline } }
+          : { ...s, paused: false, pausedRemainingMs: null });
+        break;
+      case "spectator_denied":
+        patch({ error: msg.reason });
         break;
       case "phase":
         if (msg.phase === "transition") {
@@ -246,16 +272,27 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
     return () => clearInterval(iv);
   }, [state.phase]);
 
-  const timeLeft = state.question?.deadline
-    ? Math.max(0, Math.ceil((state.question.deadline - (now + state.serverOffset)) / 1000))
-    : null;
+  const timeLeft = state.paused
+    ? Math.max(0, Math.ceil((state.pausedRemainingMs ?? 0) / 1000))
+    : state.question?.deadline
+      ? Math.max(0, Math.ceil((state.question.deadline - (now + state.serverOffset)) / 1000))
+      : null;
 
   const setUnread = useCallback((n) => setState((s) => ({ ...s, unread: typeof n === "function" ? n(s.unread) : n })), []);
+
+  // Manual reconnect from the error screen — resets the attempt budget and
+  // tries again immediately (bad networks shouldn't dead-end a session).
+  const retry = useCallback(() => {
+    reconnectsRef.current = 0;
+    setState((s) => ({ ...s, phase: "connecting", error: null }));
+    connectRef.current?.();
+  }, []);
 
   return {
     ...state,
     timeLeft,
     setUnread,
+    retry,
     actions: {
       lobbyReady: (ready) => send({ type: "lobby_ready", ready }),
       updateSettings: (timePerQuestion, numQuestions) => {
@@ -263,6 +300,14 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
         setState((s) => ({ ...s, settings: { ...s.settings, timePerQuestion, numQuestions } }));
         send({ type: "settings", timePerQuestion, numQuestions });
       },
+      setPresenter: (on) => {
+        patch({ presenterMode: !!on });
+        send({ type: "presenter", on: !!on });
+      },
+      spectatorJoin: () => send({ type: "spectator_join" }),
+      forceAdvance: () => send({ type: "force_advance" }),
+      pause: () => send({ type: "pause" }),
+      resume: () => send({ type: "resume" }),
       start: () => send({ type: "start" }),
       answer: (option, confidence) => {
         send({ type: "answer", option, confidence });
