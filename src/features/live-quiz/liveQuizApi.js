@@ -19,6 +19,12 @@ export function getLiveRoom(code) {
   return request(`/api/live-quiz/${encodeURIComponent(code)}`);
 }
 
+// Live sessions on a material (source-material id or derived MCQ id — the
+// server resolves generated variants back to the shared source).
+export function getMaterialLives(id) {
+  return request(`/api/live-quiz/for-material/${encodeURIComponent(id)}`);
+}
+
 export function getLiveHistory() {
   return request("/api/live-quiz/history");
 }

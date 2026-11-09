@@ -256,6 +256,55 @@ router.get("/history", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/live-quiz/for-material/:id — live sessions on a material. Accepts a
+// source-material id or a derived MCQ-resource id (generated sets are resolved
+// back to their source, so a live hosted off someone's own generated variant
+// still shows for everyone viewing the same material). Powers the "join or
+// host" choice on the Go live button — hosting your own stays independent.
+// NOTE: registered before /:code so the path isn't treated as a room code.
+router.get("/for-material/:id", requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const matchKeys = new Set([id]);
+    try {
+      const r = await prisma.resource.findUnique({
+        where: { id },
+        select: { sourceResourceId: true },
+      });
+      if (r?.sourceResourceId) matchKeys.add(r.sourceResourceId);
+    } catch { /* id isn't a resource row — match it directly */ }
+
+    const uid = userId(req);
+    const out = [];
+    for (const room of listRooms()) {
+      if (room.phase === "ended" || room.battle) continue;
+      if (!matchKeys.has(room.mcqResourceId) && !matchKeys.has(room.resourceId)) continue;
+      const host = room.participants.get(room.hostId);
+      const lobby = room.phase === "lobby" || room.phase === "transition";
+      const players = [...room.participants.values()].filter((p) => !p.spectator).length;
+      out.push({
+        code: room.code,
+        title: room.title,
+        host: host?.username || "Host",
+        hostConnected: !!host?.connected,
+        lobby,
+        players,
+        connected: [...room.participants.values()].filter((p) => p.connected).length,
+        maxPlayers: MAX_PARTICIPANTS,
+        isMember: room.participants.has(uid),
+        joinable: lobby ? (players < MAX_PARTICIPANTS ? "player" : "full") : "spectator",
+        createdAt: room.createdAt,
+      });
+    }
+    // Lobbies first (join as a player), then in-progress (join as spectator).
+    out.sort((a, b) => (a.lobby === b.lobby ? b.createdAt - a.createdAt : a.lobby ? -1 : 1));
+    res.json(out);
+  } catch (err) {
+    console.error("Live quiz for-material error:", err);
+    res.status(500).json({ error: "Failed to load live sessions" });
+  }
+});
+
 // GET /api/live-quiz/:code — room preview for the invite landing. Public so an
 // invitee without an account can see what they're joining before signing up.
 router.get("/:code", optionalAuth, async (req, res) => {

@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
+import { LiveJoinSheet, useMaterialLives } from "../live-quiz/LiveJoinSheet.jsx";
 import { masteryDots, topicStats, buildSession, sessionMinutes, topicKey } from "./fsrsBridge.js";
 import QuestionMeta from "./QuestionMeta.jsx";
 import "./streakSurvival.css";
@@ -84,8 +85,12 @@ function DeckView({
   const navigate = useNavigate();
   const [liveBusy, setLiveBusy] = useState(false);
   const [liveErr, setLiveErr] = useState("");
+  const [liveSheet, setLiveSheet] = useState(false);
   const [scope, setScope] = useState(null); // { label, topics: [name] } | null
   const list = useMemo(() => rows || [], [rows]);
+  // Sessions already running on this material (anyone's) — shown on the
+  // Live button; hosting your own always stays possible from the sheet.
+  const { lives: materialLives, refresh: refreshLives } = useMaterialLives(liveResourceId);
 
   const goLive = async () => {
     if (!liveResourceId || liveBusy) return;
@@ -229,14 +234,30 @@ function DeckView({
             </button>
           )}
           {liveResourceId && (
-            <button className="deck-live" onClick={goLive} disabled={liveBusy} title="Quiz together in real time">
-              <span className="deck-live-dot" />{liveBusy ? "Opening…" : "Live"}
+            <button
+              className="deck-live"
+              onClick={async () => {
+                const rows = await refreshLives(); // freshest state before deciding
+                if (rows.length === 0) { goLive(); return; }
+                setLiveSheet(true);
+              }}
+              disabled={liveBusy}
+              title="Quiz together in real time"
+            >
+              <span className="deck-live-dot" />{liveBusy ? "Opening…" : materialLives.length ? `Live · ${materialLives.length}` : "Live"}
             </button>
           )}
         </div>
       </div>
       {startNote && <div className="deck-note">{startNote}</div>}
       {liveErr && <div className="deck-note err">{liveErr}</div>}
+      {liveSheet && (
+        <LiveJoinSheet
+          rooms={materialLives}
+          onClose={() => setLiveSheet(false)}
+          onHost={async () => { setLiveSheet(false); await goLive(); }}
+        />
+      )}
     </div>
   );
 }

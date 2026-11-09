@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../../lib/authToken.js";
-import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
+import { createLiveRoom, getMaterialLives } from "../live-quiz/liveQuizApi.js";
+import { LiveJoinSheet } from "../live-quiz/LiveJoinSheet.jsx";
 
 import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, restoreFolder as apiRestoreFolder, purgeFolder as apiPurgeFolder, getRecycleBin, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark, archiveFolder as apiArchiveFolder, unarchiveFolder as apiUnarchiveFolder, getArchiveSuggestions, moveResource as apiMoveResource } from "../../lib/foldersApi";
 import { submitReport } from "../../lib/reportsApi.js";
@@ -1667,28 +1668,37 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }, [preparingStudy]);
 
   const [goingLive, setGoingLive] = useState(false);
+  const [livePicker, setLivePicker] = useState(null); // { rooms, mcq } — join-or-host choice
+
+  const enterLive = useCallback(async (mcq) => {
+    // Warm the /live route chunk in parallel: React Router v7 commits navigations
+    // inside startTransition, so a cold lazy route keeps the old UI mounted until
+    // the chunk loads. Awaiting it here makes the navigation commit immediately.
+    const [res] = await Promise.all([
+      createLiveRoom(mcq.id),
+      import("../live-quiz/LiveQuizPage"),
+    ]);
+    navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId, returnTo: window.location.pathname } });
+  }, [navigate]);
 
   const handleGoLive = useCallback(async (file) => {
     const mcq = file?.variants?.mcq;
     if (goingLive) return;
     if (!mcq) { showToast("Generate Rapid Recall on this material first"); return; }
     setGoingLive(true);
-    showToast("Creating live session…");
     try {
-      // Warm the /live route chunk in parallel: React Router v7 commits navigations
-      // inside startTransition, so a cold lazy route keeps the old UI mounted until
-      // the chunk loads. Awaiting it here makes the navigation commit immediately.
-      const [res] = await Promise.all([
-        createLiveRoom(mcq.id),
-        import("../live-quiz/LiveQuizPage"),
-      ]);
-      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId, returnTo: window.location.pathname } });
+      // Someone already live on this material? Offer the join — hosting your
+      // own stays available from the sheet either way.
+      const rooms = await getMaterialLives(mcq.id).catch(() => []);
+      if (rooms.length > 0) { setLivePicker({ rooms, mcq }); return; }
+      showToast("Creating live session…");
+      await enterLive(mcq);
     } catch (err) {
       showToast(err.message || "Couldn't start live session");
     } finally {
       setGoingLive(false);
     }
-  }, [goingLive, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [goingLive, enterLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGenerateFromMaterial = useCallback((resource, kind) => {
     const feature = kind === "summary" ? "summary" : "mcqGen";
@@ -2157,6 +2167,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         isPaid={canCustomiseMcq()}
         remainingFree={isFreeTier() ? usageRemaining("mcqGen") : null}
       />
+      {livePicker && (
+        <LiveJoinSheet
+          rooms={livePicker.rooms}
+          onClose={() => setLivePicker(null)}
+          onHost={async () => { const mcq = livePicker.mcq; setLivePicker(null); await enterLive(mcq); }}
+        />
+      )}
       <CircleSheet open={!!moveTarget} onClose={() => setMoveTarget(null)} title={moveTarget?.title} kind="Move to">
         {moveTarget && (
           <>
