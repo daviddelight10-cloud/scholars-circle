@@ -9,6 +9,7 @@ import RevealView from "./views/RevealView.jsx";
 import CompleteView from "./views/CompleteView.jsx";
 import { IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconMore, IconSend, IconVolume, IconVolumeOff, IconX } from "./icons.jsx";
 import { ConfirmSheet, HostSheet } from "./Sheets.jsx";
+import { ScoreStrip } from "./LiveBoard.jsx";
 import AvatarMark from "../../components/AvatarMark.jsx";
 
 const EMOJIS = ["💡", "🔥", "👏", "❤️", "😂"];
@@ -23,6 +24,9 @@ function initials(name) {
 const RAIL_PHASES = ["transition", "question", "reveal", "teachback"];
 function ParticipantRail({ room, myId, voice }) {
   if (!RAIL_PHASES.includes(room.phase)) return null;
+  // A per-person avatar rail is unreadable past ~12 players — show the
+  // top 3 + your rank and let people open the full board instead.
+  if (room.participants.filter((p) => !p.spectator).length > 12) return <ScoreStrip room={room} myId={myId} />;
   return (
     <div className="lq-rail" aria-label="Participants">
       {room.participants.map((p) => {

@@ -132,16 +132,19 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
           </button>
         </div>
       )}
-      <div className="lq-vote-info">
-        <IconLock size={12} />
-        <p style={{ fontSize: 11, color: "var(--app-dim)", fontWeight: 600, margin: 0 }}>
-          {isPresenter ? "Answers are hidden from players until everyone locks in" : isSpectator ? "You're spectating this question" : "Votes hidden until everyone locks in"}
+      <div className="lq-lockstrip" role="status">
+        <div className="lq-lockstrip-bar"><span style={{ width: `${q.totalCount ? Math.round((q.lockedCount / q.totalCount) * 100) : 0}%` }} /></div>
+        <p className="lq-lockstrip-text">
+          <IconLock size={11} /> {q.lockedCount}/{q.totalCount} locked · {isPresenter || isSpectator ? `${pending.length} still voting` : waitingText}
         </p>
       </div>
-      <p className="lq-vote-status">{q.lockedCount} of {q.totalCount} locked · {isPresenter || isSpectator ? `${pending.length} still voting` : waitingText}</p>
 
       <p className="lq-q-label">{q.qLabel}</p>
       <p className="lq-q-text">{q.question}</p>
+
+      {!observing && !locked && room.talkedThrough === 0 && (
+        <p className="lq-first-hint">Pick an answer, then tap how sure you are — that locks it in.</p>
+      )}
 
       <div className="lq-options">
         {letters.map((letter) => {
@@ -197,22 +200,23 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
       </p>
 
       <div className="lq-action-group">
-        {!observing && q.wagerEligible && !locked && (
-          <button className={`lq-wager-btn${q.wagerActive ? " active" : ""}`} onClick={toggleWager}>
-            <IconDice size={14} />
-            {q.wagerActive ? "Wager active — +30 / −30 XP on this one" : "Double or Nothing — wager 30 XP"}
-          </button>
-        )}
-
         {!observing && !locked && (
-          <button
-            className="lq-lifeline-btn"
-            onClick={useLifeline}
-            disabled={q.lifelineUsed || (q.lockedCount || 0) === 0}
-            title={(q.lockedCount || 0) === 0 ? "Unlocks once someone locks an answer" : undefined}
-          >
-            <IconPie size={14} /> {q.lifelineUsed ? "Lifeline used" : `Ask the Group · −${LIFELINE_GEMS} 💎`}
-          </button>
+          <div className="lq-powerups" role="group" aria-label="Power-ups">
+            {q.wagerEligible && (
+              <button className={`lq-wager-btn${q.wagerActive ? " active" : ""}`} onClick={toggleWager} title="Wager 30 XP: +30 if right, −30 if wrong">
+                <IconDice size={14} />
+                {q.wagerActive ? "Wager on · ±30 XP" : "Double or nothing"}
+              </button>
+            )}
+            <button
+              className="lq-lifeline-btn"
+              onClick={useLifeline}
+              disabled={q.lifelineUsed || (q.lockedCount || 0) === 0}
+              title={(q.lockedCount || 0) === 0 ? "Unlocks once someone locks an answer" : "See how the group voted"}
+            >
+              <IconPie size={14} /> {q.lifelineUsed ? "Lifeline used" : `Ask group · ${LIFELINE_GEMS} 💎`}
+            </button>
+          </div>
         )}
         {gemNote && <p className="lq-gem-note">{gemNote}</p>}
 

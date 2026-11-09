@@ -14,7 +14,7 @@ const initialState = {
   isHost: false,
   mySpectator: false,
   presenterMode: false,
-  settings: { timePerQuestion: 30, numQuestions: 5 },
+  settings: { timePerQuestion: 30, numQuestions: 5, revealSeconds: 10 },
   maxQuestions: 20,
   maxParticipants: 50,
   poolSize: 0,
@@ -22,6 +22,7 @@ const initialState = {
   question: null,
   reveal: null,
   ready: { ready: [], needed: [] },
+  readyDeadline: null, // server-time ms when the reveal auto-advances
   teachBack: null,
   poll: null,
   chat: [],
@@ -90,6 +91,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           question: msg.question || null,
           reveal: msg.reveal || null,
           ready: msg.ready || s.ready,
+          readyDeadline: msg.readyDeadline || null,
           teachBack: msg.teachBack || null,
           complete: msg.complete || null,
           battle: msg.battle || null,
@@ -137,11 +139,11 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
         break;
       case "phase":
         if (msg.phase === "transition") {
-          patch({ phase: "transition", nextIndex: msg.nextIndex, reveal: null, ready: { ready: [], needed: [] }, teachBack: null, poll: null });
+          patch({ phase: "transition", nextIndex: msg.nextIndex, reveal: null, ready: { ready: [], needed: [] }, readyDeadline: null, teachBack: null, poll: null });
         }
         break;
       case "question":
-        patch({ phase: "question", question: msg, reveal: null, poll: null, teachBack: null, ready: { ready: [], needed: [] } });
+        patch({ phase: "question", question: msg, reveal: null, poll: null, teachBack: null, ready: { ready: [], needed: [] }, readyDeadline: null });
         break;
       case "lock_update":
         setState((s) => s.question
@@ -175,7 +177,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
         setState((s) => ({ ...s, phase: "reveal", teachBack: { ...(s.teachBack || {}), teacherId: msg.userId, skipped: true } }));
         break;
       case "ready_update":
-        patch({ ready: { ready: msg.ready, needed: msg.needed } });
+        patch({ ready: { ready: msg.ready, needed: msg.needed }, ...(msg.deadline ? { readyDeadline: msg.deadline } : {}) });
         break;
       case "poll":
         setState((s) => ({
@@ -267,7 +269,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
   // Timer tick for countdown UIs — derived from question deadline
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (state.phase !== "question" && state.phase !== "teachback") return;
+    if (state.phase !== "question" && state.phase !== "teachback" && state.phase !== "reveal") return;
     const iv = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(iv);
   }, [state.phase]);
@@ -277,6 +279,10 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
     : state.question?.deadline
       ? Math.max(0, Math.ceil((state.question.deadline - (now + state.serverOffset)) / 1000))
       : null;
+
+  const revealLeftMs = state.phase === "reveal" && state.readyDeadline
+    ? Math.max(0, state.readyDeadline - (now + state.serverOffset))
+    : null;
 
   const setUnread = useCallback((n) => setState((s) => ({ ...s, unread: typeof n === "function" ? n(s.unread) : n })), []);
 
@@ -291,14 +297,16 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
   return {
     ...state,
     timeLeft,
+    revealLeftMs,
     setUnread,
     retry,
     actions: {
       lobbyReady: (ready) => send({ type: "lobby_ready", ready }),
-      updateSettings: (timePerQuestion, numQuestions) => {
+      updateSettings: (timePerQuestion, numQuestions, revealSeconds) => {
         // Optimistic — the lobby_state broadcast confirms/corrects (server clamps).
-        setState((s) => ({ ...s, settings: { ...s.settings, timePerQuestion, numQuestions } }));
-        send({ type: "settings", timePerQuestion, numQuestions });
+        const rv = revealSeconds ?? stateRef.current.settings.revealSeconds ?? 10;
+        setState((s) => ({ ...s, settings: { ...s.settings, timePerQuestion, numQuestions, revealSeconds: rv } }));
+        send({ type: "settings", timePerQuestion, numQuestions, revealSeconds: rv });
       },
       setPresenter: (on) => {
         patch({ presenterMode: !!on });

@@ -5,6 +5,7 @@ import AvatarMark from "../../../components/AvatarMark.jsx";
 import { ConfirmSheet } from "../Sheets.jsx";
 
 const TIMES = [15, 20, 30, 45, 60];
+const REVEALS = [5, 10, 20, 30];
 const HOLD_DELAY_MS = 350;   // pause before press-and-hold starts repeating
 const HOLD_REPEAT_MS = 120;  // repeat cadence while held
 const SEND_THROTTLE_MS = 250; // coalesce WS sends — stays under the server rate limit
@@ -172,12 +173,15 @@ export default function LobbyView({ room, myId, actions }) {
             <IconShare size={13} /> Share link
           </button>
           <button className="lq-invite-btn" onClick={shareWhatsApp}>💬 WhatsApp</button>
-          <button className={`lq-invite-btn${inviteOpen ? " on" : ""}`} onClick={() => setInviteOpen((v) => !v)}>
+          <button className={`lq-invite-btn${inviteOpen ? " on" : ""}`} onClick={() => setInviteOpen(true)}>
             <IconUsers size={13} /> Invite friends
           </button>
         </div>
         {inviteOpen && (
-          <div className="lq-invite-panel">
+          <div className="lq-sheet-backdrop" onClick={() => setInviteOpen(false)} role="dialog" aria-modal="true" aria-label="Invite friends">
+          <div className="lq-sheet lq-board-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="lq-sheet-grab" />
+            <p className="lq-sheet-title">Invite friends</p>
             <input
               className="lq-invite-search"
               placeholder="Search people…"
@@ -197,6 +201,8 @@ export default function LobbyView({ room, myId, actions }) {
                 </button>
               ))}
             </div>
+            <button className="lq-btn-secondary" onClick={() => setInviteOpen(false)}>Done</button>
+          </div>
           </div>
         )}
       </div>
@@ -248,6 +254,20 @@ export default function LobbyView({ room, myId, actions }) {
               >+</button>
             </div>
           </div>
+          <div className="lq-section">
+            <p className="lq-label">Time to review each answer</p>
+            <div className="lq-time-chips">
+              {REVEALS.map((t) => (
+                <button
+                  key={t}
+                  className={`lq-time-chip${(settings.revealSeconds || 10) === t ? " selected" : ""}`}
+                  onClick={() => actions.updateSettings(settings.timePerQuestion, settings.numQuestions, t)}
+                >
+                  {t}s
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="lq-section">
@@ -255,6 +275,7 @@ export default function LobbyView({ room, myId, actions }) {
           <div className="lq-settings-summary">
             <div className="lq-summary-item"><IconClock size={16} /> {settings.timePerQuestion} seconds per question</div>
             <div className="lq-summary-item"><IconList size={16} /> {settings.numQuestions} questions in total</div>
+            <div className="lq-summary-item"><IconClock size={16} /> {settings.revealSeconds || 10}s to review each answer</div>
             {battle && <div className="lq-summary-item">⚔️ {battle.a?.name} vs {battle.b?.name}{battle.mode === "ranked" ? " · ranked" : ""}</div>}
           </div>
         </div>
@@ -305,7 +326,7 @@ export default function LobbyView({ room, myId, actions }) {
         </div>
       </div>
 
-      <div className="lq-action-group">
+      <div className="lq-action-group lq-sticky-cta">
         {isHost || (battle && me?.lobbyReady) ? (
           <>
             <button className="lq-btn-primary" onClick={actions.start}>

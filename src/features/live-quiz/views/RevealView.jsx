@@ -30,6 +30,13 @@ export default function RevealView({ room, myId, actions }) {
   const iAmReady = readySet.has(myId);
   const allReady = needed.length > 0 && needed.every((id) => readySet.has(id));
   const isLast = r.index + 1 >= r.total;
+  const iGotIt = myPick?.option === r.correct;
+  const delta = r.pointsDelta?.[myId] || 0;
+  const activeN = needed.length;
+  const readyN = needed.filter((id) => readySet.has(id)).length;
+  const revealTotalMs = (room.settings.revealSeconds || 10) * 1000;
+  const leftMs = room.revealLeftMs;
+  const leftPct = leftMs != null ? Math.max(0, Math.min(100, (leftMs / revealTotalMs) * 100)) : 0;
 
   const submitTeachBack = (withText) => {
     if (tbSent) return;
@@ -57,11 +64,15 @@ export default function RevealView({ room, myId, actions }) {
       </p>
       {q && <p className="lq-q-text" style={{ fontSize: 16, marginBottom: 20 }}>{q.question}</p>}
 
-      {r.pointsDelta?.[myId] != null && r.pointsDelta[myId] !== 0 && (
-        <p className={`lq-delta-line${r.pointsDelta[myId] > 0 ? " up" : " down"}`}>
-          {r.pointsDelta[myId] > 0 ? `+${r.pointsDelta[myId]}` : r.pointsDelta[myId]} pts this round
-          {r.points?.[myId] != null ? ` · ${r.points[myId]} total` : ""}
-        </p>
+      {!room.mySpectator && !(room.isHost && room.presenterMode) && (
+        <div className={`lq-result-banner ${myPick ? (iGotIt ? "ok" : "bad") : "late"}`} role="status">
+          <b>{myPick ? (iGotIt ? "✓ Correct" : "✗ Not this one") : "⏱ Time's up"}</b>
+          <span>
+            {delta ? `${delta > 0 ? "+" : ""}${delta} pts` : "0 pts"}
+            {r.points?.[myId] != null ? ` · ${r.points[myId]} total` : ""}
+            {room.groupStreak > 1 ? ` · 🔥 group streak ${room.groupStreak}` : ""}
+          </span>
+        </div>
       )}
 
       <div className="lq-reveal-options">
@@ -165,36 +176,30 @@ export default function RevealView({ room, myId, actions }) {
         </div>
       )}
 
-      {/* Ready check — visible once reveal is settled (not while I'm composing teach-back) */}
+      {/* Auto-advance bar — sticky so "Next" is always on screen */}
       {(room.phase === "reveal" || teacherWaiting || tbSent || room.teachBack?.skipped) && (
-        <div className="lq-action-group">
-          <div className="lq-ready-box">
-            <p className="lq-ready-text">
-              {allReady ? "Everyone is ready!" : "Waiting for everyone to be ready…"}
-            </p>
-            <div className="lq-ready-group">
-              {participants.filter((p) => p.connected && !p.spectator).map((p) => (
-                <div
-                  key={p.userId}
-                  className={`lq-ready-avatar${readySet.has(p.userId) ? " is-ready" : ""}`}
-                  style={{ background: p.avatar ? "transparent" : p.color }}
-                  title={p.username}
-                >
-                  {p.avatar ? <AvatarMark avatar={p.avatar} name={p.username} size={34} /> : initials(p.username)}
-                </div>
-              ))}
-            </div>
-          </div>
-          {room.isHost && !allReady && (
-            <button className="lq-btn-secondary" onClick={actions.forceAdvance}>Skip waiting →</button>
+        <div className="lq-nextbar">
+          {leftMs != null && room.phase === "reveal" && (
+            <div className="lq-nextbar-timer" aria-hidden="true"><span style={{ width: `${leftPct}%` }} /></div>
           )}
-          <button
-            className={`lq-btn-primary${iAmReady ? " loading" : ""}`}
-            onClick={markReady}
-            disabled={iAmReady || !!room.mySpectator}
-          >
-            {room.mySpectator ? "Spectating" : iAmReady ? "Waiting for others…" : isLast ? "Ready to view results" : "Ready for next question"}
-          </button>
+          <div className="lq-nextbar-row">
+            <p className="lq-nextbar-text">
+              {leftMs != null && room.phase === "reveal"
+                ? `${isLast ? "Results" : "Next question"} in ${Math.ceil(leftMs / 1000)}s`
+                : "Up next…"}
+              <i>{readyN}/{activeN} ready</i>
+            </p>
+            {room.isHost && !allReady && (
+              <button className="lq-nextbar-secondary" onClick={actions.forceAdvance}>Next now</button>
+            )}
+            <button
+              className="lq-nextbar-btn"
+              onClick={markReady}
+              disabled={iAmReady || !!room.mySpectator}
+            >
+              {room.mySpectator ? "Watching" : iAmReady ? "Waiting…" : "Continue"}
+            </button>
+          </div>
         </div>
       )}
     </div>

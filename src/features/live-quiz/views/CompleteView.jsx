@@ -38,6 +38,7 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
   const cardRef = useRef(null);
   const [sharing, setSharing] = useState(false);
   const [history, setHistory] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     getLiveHistory().then(setHistory).catch(() => setHistory([]));
@@ -47,6 +48,12 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
   const myXp = c.xpEarned?.[myId] || 0;
   const verdict = calibrationVerdict(c.calibration?.[myId]);
   const winner = c.leaderboard?.[0];
+  const myIdx = (c.leaderboard || []).findIndex((u) => u.userId === myId);
+  const me = myIdx >= 0 ? c.leaderboard[myIdx] : null;
+  const podium = (c.leaderboard || []).slice(0, 3);
+  // Visual order 2 · 1 · 3 so the winner stands in the middle.
+  const podiumOrder = [1, 0, 2].filter((i) => podium[i]);
+  const podiumCls = ["first", "second", "third"];
 
   const shareResults = async () => {
     if (sharing || !cardRef.current) return;
@@ -88,6 +95,33 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
           <p className={`lq-cal-line ${verdict.tone}`}>{verdict.text}</p>
         )}
       </div>
+
+      {podium.length > 0 && (
+        <div className="lq-podium" aria-label="Top three">
+          {podiumOrder.map((i) => {
+            const u = podium[i];
+            return (
+              <div key={u.userId} className={`lq-podium-slot ${podiumCls[i]}`}>
+                <span className="lq-podium-medal">{MEDALS[i]}</span>
+                {u.avatar
+                  ? <AvatarMark avatar={u.avatar} name={u.username} size={i === 0 ? 52 : 42} className="lq-board-ava" />
+                  : <span className="lq-board-ava" style={{ width: i === 0 ? 52 : 42, height: i === 0 ? 52 : 42, background: u.color, fontSize: 14 }}>{initials(u.username)}</span>}
+                <span className="lq-podium-name">{u.userId === myId ? "You" : u.username}</span>
+                <span className="lq-podium-pts">{u.points ?? u.score} pts</span>
+                <div className="lq-podium-block" />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {me && (
+        <div className="lq-myresult">
+          <div><b>#{myIdx + 1}</b><span>Your rank</span></div>
+          <div><b>{me.points ?? me.score}</b><span>Points</span></div>
+          <div><b>{me.score}/{c.totalQuestions}</b><span>Correct</span></div>
+        </div>
+      )}
 
       {c.battle && (
         <div className="lq-card lq-battle-result">
@@ -136,9 +170,10 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
         </div>
       )}
 
+      {c.leaderboard.length > 3 && (
       <div className="lq-card lq-lb-scroll">
-        <p className="lq-card-label">FINAL SCORES</p>
-        {c.leaderboard.map((u, i) => (
+        <p className="lq-card-label">EVERYONE ELSE</p>
+        {c.leaderboard.slice(3).map((u, k) => { const i = k + 3; return (
           <div className="lq-leaderboard-item" key={u.userId}>
             <span className="lq-lb-medal">{MEDALS[i] || `#${i + 1}`}</span>
             {u.avatar
@@ -147,10 +182,14 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
             <p className="lq-lb-name">{u.username}{u.userId === myId ? " (You)" : ""}</p>
             <p className="lq-lb-score">{u.points ?? u.score}<span className="lq-lb-score-sub"> pts · {u.score}/{c.totalQuestions}</span></p>
           </div>
-        ))}
+        ); })}
       </div>
+      )}
 
-      {history && history.length > 0 && (
+      {history && history.length > 0 && !showHistory && (
+        <button className="lq-linkbtn" onClick={() => setShowHistory(true)}>Show my recent live sessions</button>
+      )}
+      {history && history.length > 0 && showHistory && (
         <div className="lq-card">
           <p className="lq-card-label">YOUR RECENT LIVE SESSIONS</p>
           {history.slice(0, 5).map((h) => (

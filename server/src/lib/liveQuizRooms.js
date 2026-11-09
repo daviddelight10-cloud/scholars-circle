@@ -14,7 +14,8 @@ const roomByCode = new Map(); // code -> roomId
 
 export const MAX_PARTICIPANTS = 50;
 const TRANSITION_MS = 2500;
-const READY_FALLBACK_MS = 25000;
+const REVEAL_SECONDS = [5, 10, 20, 30]; // host-selectable auto-advance after each reveal
+const DEFAULT_REVEAL_SECONDS = 10;
 const TEACHBACK_MS = 45000;
 // An abandoned room survives this long with zero connected participants
 // (host included) before the sweep ends it. Kept generous — brief network
@@ -171,6 +172,7 @@ export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title,
     settings: {
       timePerQuestion: settings?.timePerQuestion || 30,
       numQuestions: Math.min(settings?.numQuestions || 5, questions.length),
+      revealSeconds: REVEAL_SECONDS.includes(settings?.revealSeconds) ? settings.revealSeconds : DEFAULT_REVEAL_SECONDS,
     },
     phase: "lobby",
     participants: new Map(),
@@ -273,6 +275,7 @@ function buildSnapshot(room, forUserId) {
   if (room.phase === "reveal" || room.phase === "teachback") {
     snap.reveal = buildRevealPayload(room);
     snap.ready = { ready: [...room.readySet], needed: activePlayers(room).map((p) => p.userId) };
+    if (room.phase === "reveal") snap.readyDeadline = room.phaseDeadline;
   }
   if (room.phase === "teachback") {
     snap.teachBack = { teacherId: room.teachBack?.teacherId, text: room.teachBack?.text || null };
@@ -569,6 +572,8 @@ function applySettings(room, msg) {
   if (n >= 1 && n <= room.allQuestions.length) {
     room.settings.numQuestions = n;
   }
+  const rv = parseInt(msg.revealSeconds, 10);
+  if (REVEAL_SECONDS.includes(rv)) room.settings.revealSeconds = rv;
 }
 
 // ── Session flow ─────────────────────────────────────────────────────────────
@@ -783,14 +788,15 @@ function resolveTeachBack(room, text) {
 function startReadyCheck(room) {
   room.phase = "reveal";
   room.readySet = new Set();
-  room.phaseDeadline = Date.now() + READY_FALLBACK_MS;
+  const revealMs = (room.settings.revealSeconds || DEFAULT_REVEAL_SECONDS) * 1000;
+  room.phaseDeadline = Date.now() + revealMs;
   broadcast(room, {
     type: "ready_update",
     ready: [],
     needed: activePlayers(room).map((p) => p.userId),
     deadline: room.phaseDeadline,
   });
-  scheduleTimer(room, READY_FALLBACK_MS, () => advance(room));
+  scheduleTimer(room, revealMs, () => advance(room));
 }
 
 function checkReadyDone(room) {
