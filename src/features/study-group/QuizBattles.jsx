@@ -5,12 +5,13 @@ import { groupsApi } from "../groups/groupsApi";
 import { Avatar } from "../feed/feedUi";
 import { MaterialPicker } from "../feed/Composer.jsx";
 import { createLiveRoom, mcqVariant, mcqQuestionCount } from "../live-quiz/liveQuizApi.js";
+import { toast } from "../../components/Toast.jsx";
 
 const POLL_MS = 10000;
 
 // Real quiz battles: host picks an MCQ material → a live-quiz room opens and
 // an invite card lands in the group chat. Members join from here or the card.
-export default function QuizBattles({ classroomId, token, currentUser, onJoinQuiz }) {
+export default function QuizBattles({ classroomId, token, currentUser, onJoinQuiz, hideHero = false, startSignal = 0 }) {
   const navigate = useNavigate();
   const [battles, setBattles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,9 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
   const [pickerCache, setPickerCache] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  // Parent (Play tab) opens the material picker through this counter.
+  useEffect(() => { if (startSignal) setPickerOpen(true); }, [startSignal]);
 
   const authHeaders = { Authorization: `Bearer ${token}` };
   const myName = currentUser?.fullName || currentUser?.username || "Someone";
@@ -58,14 +62,14 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
-          text: `${myName} started a quiz battle — ${mcqQuestionCount(material)} questions`,
+          text: `${myName} started a live quiz — ${mcqQuestionCount(material)} questions`,
           resourceId: material.id,
           liveCode: room.code,
         }),
       });
       openBattle(room.code);
     } catch (e) {
-      alert(e.message || "Couldn't start the battle");
+      toast.error(e.message || "Couldn't start the live quiz");
       setBusy(false);
     }
   };
@@ -88,15 +92,17 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
 
   return (
     <div className="gv-battles">
+      {!hideHero && (
       <div className="gv-battles-hero">
         <div className="gv-battles-hero-text">
-          <b>Quiz battles</b>
+          <b>Live quiz</b>
           <span>Same questions, same clock — highest score wins. Everyone in the group can join from the chat card.</span>
         </div>
         <button className="fd-go-btn" onClick={() => setPickerOpen(true)} disabled={busy}>
-          {busy ? "Creating…" : "⚔️ Start a battle"}
+          {busy ? "Creating…" : "⚡ Start a live quiz"}
         </button>
       </div>
+      )}
 
       {loading && (
         <div className="fd-skeletons">
@@ -136,17 +142,17 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
 
       {!loading && battles.length === 0 && (
         <div className="fd-empty">
-          <div className="fd-empty-icon">⚔️</div>
-          <div className="fd-empty-title">No battles yet</div>
+          <div className="fd-empty-icon">⚡</div>
+          <div className="fd-empty-title">No live quizzes yet</div>
           <div className="fd-empty-sub">
-            Start a battle from any Rapid Recall set — an invite card lands in the chat for everyone to join.
+            Start a live quiz from any Rapid Recall set — an invite card lands in the chat for everyone to join.
           </div>
         </div>
       )}
 
       {past.length > 0 && (
         <div className="gv-battle-section">
-          <div className="gv-battle-section-title">Recent battles</div>
+          <div className="gv-battle-section-title">Recent live quizzes</div>
           {past.map((b) => (
             <div key={b.id} className="gv-battle-row ended">
               <Avatar user={b.host} size={38} />

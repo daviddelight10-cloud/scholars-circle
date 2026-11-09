@@ -4,17 +4,11 @@ import { groupsApi } from "./groupsApi";
 import { FdSheet, Avatar } from "../feed/feedUi.jsx";
 import { MaterialPicker } from "../feed/Composer.jsx";
 import { mcqVariant, mcqQuestionCount } from "../live-quiz/liveQuizApi.js";
+import { initials, groupGradient } from "./groupUi.js";
+import { toast } from "../../components/Toast.jsx";
 
 const POLL_MS = 15000;
 
-function initials(name) {
-  return (name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-}
-function groupGradient(name = "") {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return `linear-gradient(135deg, hsl(${h} 65% 45%), hsl(${(h + 40) % 360} 70% 32%))`;
-}
 function TeamAvatar({ name }) {
   return <span className="gv-avatar" style={{ background: groupGradient(name) }}>{initials(name)}</span>;
 }
@@ -149,6 +143,7 @@ const BATTLE_MAX_QUESTIONS = 25; // server clamps challenge counts to this
 
 function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   const [step, setStep] = useState(1);
+  const [customise, setCustomise] = useState(false);
   const [q, setQ] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [opponent, setOpponent] = useState(null);
@@ -185,7 +180,6 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   const toggleLineup = (id) =>
     setLineup((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < 15 ? [...p, id] : p));
 
-  const canAdvance = !!opponent && !!material;
   const materialMax = material ? Math.min(BATTLE_MAX_QUESTIONS, mcqQuestionCount(material)) : BATTLE_MAX_QUESTIONS;
   const effCount = Math.min(numQuestions, materialMax);
 
@@ -240,7 +234,9 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
         <span className={`gv-step ${step >= 1 ? "active" : ""}`}>1</span>
         <span className="gv-step-line" />
         <span className={`gv-step ${step >= 2 ? "active" : ""}`}>2</span>
-        <span className="gv-step-label">{step === 1 ? "Opponent & questions" : "Lineup & schedule"}</span>
+        <span className="gv-step-line" />
+        <span className={`gv-step ${step >= 3 ? "active" : ""}`}>3</span>
+        <span className="gv-step-label">{step === 1 ? "Who to challenge" : step === 2 ? "What to play" : "Lineup & schedule"}</span>
       </div>
 
       {step === 1 && (
@@ -289,11 +285,30 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
             ))}
           </div>
 
-          <button className="fd-pill" style={{ width: "100%", marginTop: 12 }} onClick={() => setPickerOpen(true)}>
+          <button
+            className="fd-go-btn"
+            style={{ width: "100%", marginTop: 12 }}
+            disabled={!opponent}
+            onClick={() => setStep(2)}
+          >
+            Next: pick the questions →
+          </button>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <button className="fd-link" style={{ marginBottom: 8 }} onClick={() => setStep(1)}>← Back</button>
+          <button className="fd-pill" style={{ width: "100%", marginTop: 4 }} onClick={() => setPickerOpen(true)}>
             {material ? `⚡ ${mcqVariant(material)?.title || material.title} — ${mcqQuestionCount(material)} questions` : "Pick the question set"}
           </button>
 
           {/* Battle terms — agreed at challenge time, locked once sent */}
+          <div className="fd-sheet-sub" style={{ marginTop: 10, marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{material ? `${effCount} questions · ${timePerQuestion}s each · of ${mcqQuestionCount(material)} available` : "Pick a question set first"}</span>
+            {material && <button className="fd-link" onClick={() => setCustomise((v) => !v)}>{customise ? "Done" : "Customise"}</button>}
+          </div>
+          {customise && material && (<>
           <div className="gv-sort-row" style={{ marginTop: 12 }}>
             {BATTLE_TIMES.map((t) => (
               <button key={t} className={`gv-sort${timePerQuestion === t ? " active" : ""}`} onClick={() => setTimePerQuestion(t)}>{t}s</button>
@@ -326,25 +341,23 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
               aria-label="More questions"
             >+</button>
           </div>
-          <div className="fd-sheet-sub" style={{ marginTop: 6, marginBottom: 0 }}>
-            {material ? `${effCount} questions · ${timePerQuestion}s each · of ${mcqQuestionCount(material)} available` : "Pick a question set to set the count"}
-          </div>
+          </>)}
 
           {error && <div className="fd-sheet-sub" style={{ color: "#FF5470", marginTop: 8 }}>{error}</div>}
           <button
             className="fd-go-btn"
             style={{ width: "100%", marginTop: 12 }}
-            disabled={!canAdvance || busy}
-            onClick={() => setStep(2)}
+            disabled={!material || busy}
+            onClick={() => setStep(3)}
           >
             Next: pick your lineup →
           </button>
         </>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <>
-          <button className="fd-link" style={{ marginBottom: 8 }} onClick={() => setStep(1)}>← Back</button>
+          <button className="fd-link" style={{ marginBottom: 8 }} onClick={() => setStep(2)}>← Back</button>
 
           <div className="fd-sheet-sub">Your lineup ({lineup.length}/15)</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, maxHeight: 200, overflowY: "auto" }}>
@@ -447,7 +460,7 @@ export function ClanBattles({ token, me, onJoinQuiz }) {
       await groupsApi.ring({ token, id: groupId, code: b.liveCode });
       setRung((r) => ({ ...r, [b.id]: true }));
     } catch (e) {
-      alert(e.message || "Couldn't ring the group");
+      toast.error(e.message || "Couldn't ring the group");
     }
     setTimeout(() => setRung((r) => ({ ...r, [b.id]: null })), 4000);
   }, [token]);
@@ -475,7 +488,7 @@ export function ClanBattles({ token, me, onJoinQuiz }) {
       await groupsApi.declineBattle({ token, id: b.id });
       reload();
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     } finally {
       setBusy(false);
     }
@@ -568,13 +581,14 @@ export function ClanBattles({ token, me, onJoinQuiz }) {
 
 // One group's battles + the "Challenge a group" entry point — the clan-war hub
 // inside GroupView's Play tab.
-export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQuiz }) {
+export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQuiz, hideHero = false, challengeSignal = 0 }) {
   const navigate = useNavigate();
   const { battles, error, reload } = useBattleLoader(
     () => groupsApi.groupBattles({ token, id: group.id }),
     [token, group.id]
   );
   const [challengeOpen, setChallengeOpen] = useState(false);
+  useEffect(() => { if (challengeSignal && isCaptain) setChallengeOpen(true); }, [challengeSignal, isCaptain]);
   const [accepting, setAccepting] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -591,7 +605,7 @@ export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQ
       await groupsApi.ring({ token, id: group.id, code: b.liveCode });
       setRung((r) => ({ ...r, [b.id]: true }));
     } catch (e) {
-      alert(e.message || "Couldn't ring the group");
+      toast.error(e.message || "Couldn't ring the group");
     }
     setTimeout(() => setRung((r) => ({ ...r, [b.id]: null })), 4000);
   }, [token, group.id]);
@@ -612,7 +626,7 @@ export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQ
       await groupsApi.declineBattle({ token, id: b.id });
       reload();
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     } finally {
       setBusy(false);
     }
@@ -636,6 +650,7 @@ export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQ
 
   return (
     <div className="gv-battles">
+      {!hideHero && (
       <div className="gv-battles-hero">
         <div className="gv-battles-hero-text">
           <b>Clan battles</b>
@@ -645,6 +660,7 @@ export function GroupClanBattles({ token, group, me, members, isCaptain, onJoinQ
           <button className="fd-go-btn" onClick={() => setChallengeOpen(true)}>⚔️ Challenge</button>
         )}
       </div>
+      )}
 
       {open.length > 0 && (
         <div className="gv-battle-section">

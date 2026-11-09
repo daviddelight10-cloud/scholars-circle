@@ -249,7 +249,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
   return (
     <>
       <FdSheet
-        title={mode === "quiz" ? "⚡ Go live — quiz battle" : "🟢 Quiet study room"}
+        title={mode === "quiz" ? "⚡ Go live — live quiz" : "🟢 Quiet study room"}
         onClose={onClose}
         footer={mode === "quiz" ? (
           <button className="fd-go-btn" style={{ width: "100%", padding: 12, fontSize: 14 }} disabled={!mcq || busy} onClick={goQuiz}>
@@ -266,7 +266,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
             className={`fd-mode-tab ${mode === "quiz" ? "active" : ""}`}
             onClick={() => setMode("quiz")}
           >
-            ⚡ Quiz battle
+            ⚡ Live quiz
           </button>
           <button
             className={`fd-mode-tab ${mode === "quiet" ? "active" : ""}`}
@@ -359,7 +359,7 @@ function GoLiveCard({ me, subjects, token, open, setOpen, onRoomsChanged }) {
         <Avatar user={me} size={42} />
         <div className="fd-golive-text">
           <div className="fd-golive-title">Go live with friends</div>
-          <div className="fd-golive-sub">Quiz battle on a material — or a quiet study room.</div>
+          <div className="fd-golive-sub">Live quiz on a material — or a quiet study room.</div>
         </div>
         <button className="fd-go-btn" onClick={() => setOpen(true)}>Go live</button>
       </div>

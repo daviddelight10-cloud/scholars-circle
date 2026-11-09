@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { getRoomByCode } from "../lib/liveQuizRooms.js";
 
 const router = express.Router();
 
@@ -243,6 +244,29 @@ router.get("/groups/my", requireAuth, async (req, res) => {
     );
     const unreadById = new Map(ids.map((cid, i) => [cid, unreadCounts[i] || 0]));
 
+    // Live sessions currently running per group (invite cards in recent chat
+    // whose room is still open) — drives the Live chip on the group list.
+    const liveById = new Map();
+    try {
+      const recent = await prisma.classroomMessage.findMany({
+        where: { classroomId: { in: ids }, liveCode: { not: null }, createdAt: { gt: new Date(Date.now() - 6 * 60 * 60 * 1000) } },
+        select: { classroomId: true, liveCode: true },
+        take: 200,
+      });
+      const seen = new Set();
+      for (const m of recent) {
+        const key = m.classroomId + ":" + m.liveCode;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const room = getRoomByCode(m.liveCode);
+        if (room && room.phase !== "complete" && room.phase !== "ended") {
+          liveById.set(m.classroomId, (liveById.get(m.classroomId) || 0) + 1);
+        }
+      }
+    } catch (e) {
+      console.warn("[groups] live lookup failed:", e?.message);
+    }
+
     const groups = [...byId.values()]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .map((g) => {
@@ -258,6 +282,7 @@ router.get("/groups/my", requireAuth, async (req, res) => {
             : null,
           memberAvatars: avatarsById.get(g.id) || [],
           unread: unreadById.get(g.id) || 0,
+          liveNow: liveById.get(g.id) || 0,
           muted: mutedById.get(g.id) || false,
         };
       });

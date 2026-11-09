@@ -771,7 +771,7 @@ function LiveTab({ token, me, rooms, quizzes = [], sessions, subjects, onJoinRoo
 
       {quizzes.length > 0 && (
         <div className="fd-section">
-          <DividerBlock label="⚡ Live quiz battles" />
+          <DividerBlock label="⚡ Live quizzes" />
           {quizzes.map((q) => (
             <div key={q.code} className="fd-card fd-quiz">
               <div className="fd-room-top">
@@ -838,7 +838,7 @@ function LiveTab({ token, me, rooms, quizzes = [], sessions, subjects, onJoinRoo
       {quizzes.length === 0 && rooms.length === 0 && sessions.live.length === 0 && sessions.upcoming.length === 0 && (
         <div className="fd-empty">
           <div className="fd-empty-title">Nobody's live right now</div>
-          <div className="fd-empty-sub">Go live with a quiz battle or a quiet study room — your circle can join.</div>
+          <div className="fd-empty-sub">Go live with a live quiz or a quiet study room — your circle can join.</div>
         </div>
       )}
     </div>

@@ -355,7 +355,7 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
           <div className="fd-empty" style={{ paddingTop: 40 }}>
             <div className="fd-empty-icon">💬</div>
             <div className="fd-empty-title">No messages yet</div>
-            <div className="fd-empty-sub">Say hi, share a material, or start a quiz battle — this is your group's home base.</div>
+            <div className="fd-empty-sub">Say hi, share a material, or start a live quiz — this is your group's home base.</div>
             <div className="fd-quick-chips">
               <button className="fd-quick-chip" onClick={() => setPickerOpen(true)}>📎 Share a material</button>
               {onStartBattle && <button className="fd-quick-chip" onClick={onStartBattle}>⚔️ Start a battle</button>}

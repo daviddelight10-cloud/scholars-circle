@@ -3,19 +3,8 @@ import { groupsApi } from "./groupsApi";
 import { GroupView } from "./GroupView";
 import { ClanBattles } from "./ClanBattles.jsx";
 import { SectionHeader, FdSheet } from "../feed/feedUi";
-
-function initials(name) {
-  if (!name) return "?";
-  const p = name.trim().split(/\s+/);
-  return ((p[0]?.[0] || "?") + (p[1]?.[0] || "")).toUpperCase();
-}
-
-// Deterministic gradient from the group name — matches GroupView's avatar.
-function groupGradient(name = "") {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return `linear-gradient(135deg, hsl(${h} 65% 45%), hsl(${(h + 40) % 360} 70% 32%))`;
-}
+import { initials, groupGradient } from "./groupUi.js";
+import { toast } from "../../components/Toast.jsx";
 
 function relShort(ts) {
   const m = Math.max(0, Math.round((Date.now() - new Date(ts)) / 60000));
@@ -39,7 +28,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
   const [discoverQ, setDiscoverQ] = useState("");
   const [discoverSubject, setDiscoverSubject] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [section, setSection] = useState("groups"); // "groups" | "compete" | "discover"
+  const [section, setSection] = useState("groups"); // "groups" | "compete" | "ranks" | "discover"
   const [board, setBoard] = useState(null);
   const [boardError, setBoardError] = useState(null);
   const [boardScope, setBoardScope] = useState("all");
@@ -71,7 +60,11 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
       .catch((e) => setBoardError(e.message || "Couldn't load the board"));
   }, [token, boardScope, boardSort]);
 
-  useEffect(() => { loadMine(); }, [loadMine]);
+  useEffect(() => {
+    loadMine();
+    const iv = setInterval(loadMine, 30000); // keeps unread + Live chips fresh
+    return () => clearInterval(iv);
+  }, [loadMine]);
   useEffect(() => { if (section === "discover") loadDiscover(); }, [section, loadDiscover]);
 
   // Weekly groups leaderboard — polling, consistent with the existing boards
@@ -131,7 +124,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
 
       {/* Underline sub-tabs: Mine / Compete / Discover */}
       <div className="gv-utabs">
-        {[["groups", "Mine"], ["compete", "Compete"], ["discover", "Discover"]].map(([v, l]) => (
+        {[["groups", "Mine"], ["compete", "Battles"], ["ranks", "Ranks"], ["discover", "Discover"]].map(([v, l]) => (
           <button
             key={v}
             className={`gv-utab ${section === v ? "active" : ""}`}
@@ -165,7 +158,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
           <div className="fd-empty-icon">👥</div>
           <div className="fd-empty-title">No study groups yet</div>
           <div className="fd-empty-sub">
-            Create a group for your course or cohort — chat, set goals, run quiz battles and climb the leaderboard together.
+            Create a group for your course or cohort — chat, set goals, run live quizzes and climb the leaderboard together.
           </div>
         </div>
       )}
@@ -182,6 +175,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
               <span className="fd-group-info">
                 <span className="fd-group-card-name">
                   <span className="gv-card-nametext">{g.name}</span>
+                  {g.liveNow > 0 && <span className="gv-live-chip">LIVE</span>}
                   {g.isCreator && <span className="gv-role-badge">Creator</span>}
                   {!g.isPublic && (
                     <svg className="gv-lock" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Private group"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
@@ -205,12 +199,19 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
 
       {section === "compete" && (mine || []).length > 0 && (
         <>
-          <SectionHeader title="⚔️ Clan battles" hint="challenge rival groups" />
+          <SectionHeader title="⚔️ Clan battles" hint="your group vs another group" />
           <ClanBattles token={token} me={me} onJoinQuiz={onJoinQuiz} />
         </>
       )}
+      {section === "compete" && mine !== null && mine.length === 0 && (
+        <div className="fd-empty">
+          <div className="fd-empty-icon">⚔️</div>
+          <div className="fd-empty-title">Join a group to take part in clan battles</div>
+          <div className="fd-empty-sub">Clan battles pit your group against another group. Create or join one first.</div>
+        </div>
+      )}
 
-      {section === "compete" && (
+      {section === "ranks" && (
       <div className="fd-groups-board">
         <SectionHeader title={boardSort === "rating" ? "Hall of fame" : "Top groups this week"}>
           <div className="gv-sort-row" style={{ margin: 0 }}>
@@ -364,7 +365,7 @@ function JoinButton({ token, group, onJoined }) {
       const res = await groupsApi.join({ token, groupId: group.id });
       onJoined?.(res.group);
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
       setBusy(false);
     }
   };
@@ -389,7 +390,7 @@ function CreateGroupSheet({ token, subjects, onClose, onCreated }) {
       const g = await groupsApi.create({ token, name, subject, description, isPublic });
       onCreated?.(g);
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
       setBusy(false);
     }
   };
@@ -406,7 +407,7 @@ function CreateGroupSheet({ token, subjects, onClose, onCreated }) {
     >
       <>
         <div className="fd-sheet-sub">
-          Your group gets a chat, leaderboard, shared goals and quiz battles.
+          Your group gets a chat, leaderboard, shared goals and live quizzes.
         </div>
         <label className="fd-label">Group name</label>
         <input

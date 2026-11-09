@@ -7,26 +7,14 @@ import GroupGoals from "../study-group/GroupGoals.jsx";
 import GroupPlay from "../study-group/GroupPlay.jsx";
 import GroupBoard from "../study-group/GroupBoard.jsx";
 import { FdScreen, FdSheet } from "../feed/feedUi.jsx";
+import { initials, groupGradient } from "./groupUi.js";
+import { toast } from "../../components/Toast.jsx";
 
 const SUB_TABS = [
   { id: "chat", icon: "💬", label: "Chat" },
-  { id: "arena", icon: "⚔️", label: "Arena" },
+  { id: "play", icon: "⚔️", label: "Play" },
   { id: "board", icon: "📊", label: "Board" },
-  { id: "members", icon: "👥", label: "Members" },
 ];
-
-function initials(name) {
-  if (!name) return "?";
-  const p = name.trim().split(/\s+/);
-  return ((p[0]?.[0] || "?") + (p[1]?.[0] || "")).toUpperCase();
-}
-
-// Deterministic gradient from the group name — every group gets its own hue.
-function groupGradient(name = "") {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return `linear-gradient(135deg, hsl(${h} 65% 45%), hsl(${(h + 40) % 360} 70% 32%))`;
-}
 
 // Shared hub for a study group (kind="group" classroom). Also reusable for
 // faculty classrooms — invite/management UI hides automatically when the
@@ -39,6 +27,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
 
   const isCreator = !!group?.isCreator;
   const isGroup = group?.kind !== "classroom";
@@ -91,7 +80,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
       await groupsApi.leave({ token, id: group.id });
       onLeft?.(group);
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
       setBusy(false);
     }
   };
@@ -103,7 +92,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
       await groupsApi.remove({ token, id: group.id });
       onLeft?.(group);
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
       setBusy(false);
     }
   };
@@ -113,7 +102,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
       const g = await groupsApi.update({ token, id: group.id, isPublic: !group.isPublic });
       onChanged?.(g);
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 
@@ -122,7 +111,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
       const g = await groupsApi.update({ token, id: group.id, regenerateCode: true });
       onChanged?.(g);
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 
@@ -132,7 +121,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
       await groupsApi.setMuted({ token, id: group.id, muted: next });
       onChanged?.({ ...group, muted: next });
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 
@@ -171,6 +160,7 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
 
       {/* One compact status line — invite/link copying lives in the ⋯ menu */}
       <div className="gv-status">
+        <button className="gv-status-item gv-status-btn" onClick={() => setMembersOpen(true)} aria-label="View members">👥 {memberCount}</button>
         <span className="gv-status-item">🔥 {pulse?.streak ?? "…"}d</span>
         <span className={`gv-status-item ${pulse?.activeNow > 0 ? "live" : ""}`}>🟢 {pulse?.activeNow ?? "…"} studying</span>
         {pulse?.liveBattles > 0 && (
@@ -198,12 +188,12 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
             currentUser={currentUser}
             onOpenResource={onOpenResource}
             onJoinQuiz={onJoinQuiz}
-            onStartBattle={() => setSub("arena")}
+            onStartBattle={() => setSub("play")}
             onAddGoal={canManage ? () => setSub("board") : undefined}
             canModerate={canManage || isCaptain}
           />
         )}
-        {sub === "arena" && (
+        {sub === "play" && (
           <div className="fd-group-scroll">
             <GroupPlay
               classroomId={group.id}
@@ -222,12 +212,13 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
             <GroupGoals classroomId={group.id} token={token} isTeacher={canManage || isCaptain} />
           </div>
         )}
-        {sub === "members" && (
-          <div className="fd-group-scroll">
-            <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} members={members} onOpenProfile={onOpenProfile} onRefresh={fetchMembers} />
-          </div>
-        )}
       </div>
+
+      {membersOpen && (
+        <FdSheet title={`👥 Members (${memberCount})`} onClose={() => setMembersOpen(false)}>
+          <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} members={members} onOpenProfile={(u) => { setMembersOpen(false); onOpenProfile?.(u); }} onRefresh={fetchMembers} />
+        </FdSheet>
+      )}
 
       {confirmDelete && (
         <FdSheet title={`Delete “${group.name}”?`} onClose={() => setConfirmDelete(false)}>
