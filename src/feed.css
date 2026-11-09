@@ -1859,6 +1859,24 @@ button.fd-group-card:hover { background: var(--app-tint-med); border-color: var(
 }
 .gv-sort.active { background: rgba(108, 158, 255, 0.22); color: var(--app-text); }
 
+/* Question-count stepper — same UX as the normal-live lobby stepper. */
+.gv-stepper {
+  display: flex; align-items: center; gap: 14px; padding: 6px 10px;
+  border-radius: 12px; background: var(--app-tint-soft);
+  border: 1px solid var(--fd-card-border); align-self: flex-start;
+}
+.gv-step-btn {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--app-tint-soft); border: 1px solid var(--fd-card-border);
+  color: #6C9EFF; font-size: 17px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none; transition: transform .12s, background .12s;
+}
+.gv-step-btn:active { transform: scale(0.88); background: rgba(108, 158, 255, 0.18); border-color: rgba(108, 158, 255, 0.4); }
+.gv-step-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+.gv-step-value { font-size: 15px; font-weight: 800; color: var(--app-text); min-width: 34px; text-align: center; }
+
 .gv-podium { display: flex; align-items: flex-end; gap: 8px; justify-content: center; }
 .gv-podium-card {
   flex: 1; max-width: 120px;

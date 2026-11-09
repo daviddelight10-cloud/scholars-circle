@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { groupsApi } from "./groupsApi";
 import { FdSheet, Avatar } from "../feed/feedUi.jsx";
@@ -145,7 +145,7 @@ function LineupSheet({ title, hint, members, max = 15, busy, error, onConfirm, o
 
 // Challenge setup: 2 steps — (1) opponent + mode + questions, (2) lineup + schedule.
 const BATTLE_TIMES = [15, 20, 30, 45, 60];
-const BATTLE_COUNTS = [5, 10, 15, 20, 25];
+const BATTLE_MAX_QUESTIONS = 25; // server clamps challenge counts to this
 
 function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
   const [step, setStep] = useState(1);
@@ -186,8 +186,27 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
     setLineup((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < 15 ? [...p, id] : p));
 
   const canAdvance = !!opponent && !!material;
-  const materialMax = material ? Math.min(25, mcqQuestionCount(material)) : 25;
+  const materialMax = material ? Math.min(BATTLE_MAX_QUESTIONS, mcqQuestionCount(material)) : BATTLE_MAX_QUESTIONS;
   const effCount = Math.min(numQuestions, materialMax);
+
+  // Free question count — same −/+ stepper (with hold-to-repeat) as a normal
+  // live lobby. Local form state only; the server clamps to the material's
+  // size and the battle cap when the challenge is sent.
+  const countHoldRef = useRef(null);
+  const stepCount = (d) => setNumQuestions((cur) => Math.min(Math.max(cur + d, 1), materialMax));
+  const startCountHold = (e, d) => {
+    e.preventDefault();
+    stepCount(d);
+    countHoldRef.current = setTimeout(() => {
+      countHoldRef.current = setInterval(() => stepCount(d), 90);
+    }, 400);
+  };
+  const stopCountHold = () => {
+    clearTimeout(countHoldRef.current);
+    clearInterval(countHoldRef.current);
+    countHoldRef.current = null;
+  };
+  useEffect(() => stopCountHold, []);
 
   const submit = async () => {
     if (!opponent || !material || lineup.length < 1 || busy) return;
@@ -280,17 +299,32 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
               <button key={t} className={`gv-sort${timePerQuestion === t ? " active" : ""}`} onClick={() => setTimePerQuestion(t)}>{t}s</button>
             ))}
           </div>
-          <div className="gv-sort-row" style={{ marginTop: 8 }}>
-            {BATTLE_COUNTS.map((n) => (
-              <button
-                key={n}
-                className={`gv-sort${effCount === n ? " active" : ""}`}
-                disabled={n > materialMax}
-                onClick={() => setNumQuestions(n)}
-              >
-                {n}q
-              </button>
-            ))}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+            <span className="gv-step-label" style={{ marginLeft: 0 }}>Questions</span>
+            <span className="fd-sheet-sub" style={{ margin: 0 }}>1–{materialMax}</span>
+          </div>
+          <div className="gv-stepper" style={{ marginTop: 6 }}>
+            <button
+              className="gv-step-btn"
+              disabled={effCount <= 1 || !material}
+              onPointerDown={(e) => startCountHold(e, -1)}
+              onPointerUp={stopCountHold}
+              onPointerLeave={stopCountHold}
+              onPointerCancel={stopCountHold}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-label="Fewer questions"
+            >−</button>
+            <span className="gv-step-value">{effCount}</span>
+            <button
+              className="gv-step-btn"
+              disabled={effCount >= materialMax || !material}
+              onPointerDown={(e) => startCountHold(e, 1)}
+              onPointerUp={stopCountHold}
+              onPointerLeave={stopCountHold}
+              onPointerCancel={stopCountHold}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-label="More questions"
+            >+</button>
           </div>
           <div className="fd-sheet-sub" style={{ marginTop: 6, marginBottom: 0 }}>
             {material ? `${effCount} questions · ${timePerQuestion}s each · of ${mcqQuestionCount(material)} available` : "Pick a question set to set the count"}

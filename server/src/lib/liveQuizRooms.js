@@ -16,7 +16,11 @@ export const MAX_PARTICIPANTS = 50;
 const TRANSITION_MS = 2500;
 const READY_FALLBACK_MS = 25000;
 const TEACHBACK_MS = 45000;
-const GRACE_MS = 30000;
+// An abandoned room survives this long with zero connected participants
+// (host included) before the sweep ends it. Kept generous — brief network
+// drops and backgrounded phones shouldn't kill a session people are
+// rejoining.
+const GRACE_MS = 2 * 60 * 1000;
 const ROOM_TTL_MS = 5 * 60 * 1000; // keep finished rooms briefly for reconnects
 const XP_PER_CORRECT = 20;
 const XP_TEACHBACK = 50;
