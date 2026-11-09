@@ -73,7 +73,7 @@ export default function LiveQuizPage() {
   // here and drops straight into the lobby without a second tap.
   useEffect(() => {
     if (!wantJoin || autoJoinRef.current || !isAuthed || !preview || joined || joining) return;
-    if (!preview.joinable && !preview.isMember) return;
+    if (!preview.joinable && !preview.spectatable && !preview.isMember) return;
     autoJoinRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     join();
@@ -86,7 +86,7 @@ export default function LiveQuizPage() {
 
   if (joined) {
     return (
-      <div className="dark" style={{ height: "100dvh", background: "#05070a" }}>
+      <div style={{ height: "100dvh", background: "var(--c-0a0c10)" }}>
         <LiveQuizRoom roomId={joined.roomId} ticket={joined.ticket} myId={myId} onExit={exit} />
       </div>
     );
@@ -96,7 +96,7 @@ export default function LiveQuizPage() {
   const loginRedirect = `/login?redirect=${encodeURIComponent(`/live/${code}?join=1`)}`;
 
   return (
-    <div className="dark" style={{ minHeight: "100dvh", background: "#05070a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div style={{ minHeight: "100dvh", background: "var(--c-0a0c10)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div className="lq-app" style={{ height: "auto", minHeight: 0, maxWidth: 420, borderRadius: 24, padding: 28 }}>
         {error && !preview ? (
           <div style={{ textAlign: "center" }}>
@@ -147,19 +147,22 @@ export default function LiveQuizPage() {
                 </p>
               </>
               )
-            ) : preview.joinable || preview.isMember ? (
-              <button className="lq-btn-primary" onClick={join} disabled={joining}>
-                {joining ? "Joining…" : preview.isMember ? "Rejoin Session" : "Join Session"}
-              </button>
+            ) : preview.joinable || preview.isMember || preview.spectatable ? (
+              <>
+                <button className="lq-btn-primary" onClick={join} disabled={joining}>
+                  {joining ? "Joining…" : preview.isMember ? "Rejoin Session" : preview.joinable ? "Join Session" : "Watch live"}
+                </button>
+                {!preview.joinable && !preview.isMember && (
+                  <p style={{ fontSize: 11, color: "var(--app-dim)", textAlign: "center", marginTop: 8 }}>
+                    This quiz already started — you can watch now and play from a later question.
+                  </p>
+                )}
+              </>
             ) : (
               <>
-                <button className="lq-btn-primary" disabled>
-                  {preview.phase === "complete" ? "Session has finished" : "Session already in progress"}
-                </button>
+                <button className="lq-btn-primary" disabled>Session has finished</button>
                 <p style={{ fontSize: 11, color: "var(--app-dim)", textAlign: "center", marginTop: 8 }}>
-                  {preview.phase === "complete"
-                    ? "This live quiz wrapped up — ask the host for a rematch."
-                    : "This live quiz already started — ask the host to start a new one."}
+                  This live quiz wrapped up — ask the host for a rematch.
                 </p>
               </>
             )}

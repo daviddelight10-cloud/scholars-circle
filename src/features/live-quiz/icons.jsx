@@ -18,6 +18,7 @@ export const IconTrophy = (p) => <S {...p}><path d="M8 21h8M12 17v4M7 4h10v6a5 5
 export const IconBolt = (p) => <S {...p}><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" /></S>;
 export const IconBrain = (p) => <S {...p}><path d="M12 4a3 3 0 0 0-3-3 3.5 3.5 0 0 0-4 4.5A3.5 3.5 0 0 0 3 12a3.5 3.5 0 0 0 2 5.5A3.5 3.5 0 0 0 9 21a3 3 0 0 0 3-3z" /><path d="M12 4a3 3 0 0 1 3-3 3.5 3.5 0 0 1 4 4.5A3.5 3.5 0 0 1 21 12a3.5 3.5 0 0 1-2 5.5A3.5 3.5 0 0 1 15 21a3 3 0 0 1-3-3z" /></S>;
 export const IconClover = (p) => <S {...p}><circle cx="8" cy="8" r="3" /><circle cx="16" cy="8" r="3" /><circle cx="8" cy="16" r="3" /><circle cx="16" cy="16" r="3" /><path d="M12 12v9" /></S>;
+export const IconMore = (p) => <S {...p}><circle cx="5" cy="12" r="1.5" fill="currentColor" /><circle cx="12" cy="12" r="1.5" fill="currentColor" /><circle cx="19" cy="12" r="1.5" fill="currentColor" /></S>;
 export const IconPlus = (p) => <S {...p}><path d="M12 5v14M5 12h14" /></S>;
 export const IconClock = (p) => <S {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></S>;
 export const IconList = (p) => <S {...p}><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" /></S>;

@@ -321,6 +321,8 @@ router.get("/:code", optionalAuth, async (req, res) => {
       host: host?.username || "Host",
       phase: room.phase,
       joinable: room.phase === "lobby" || room.phase === "transition",
+      // Late joiners can watch a session in progress (battles stay lineup-only).
+      spectatable: !room.battle && room.phase !== "lobby" && room.phase !== "transition" && room.phase !== "complete",
       participantCount: [...room.participants.values()].filter((p) => p.connected).length,
       maxParticipants: MAX_PARTICIPANTS,
       settings: room.settings,

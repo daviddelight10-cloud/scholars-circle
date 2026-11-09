@@ -7,7 +7,8 @@ import LobbyView from "./views/LobbyView.jsx";
 import VotingView from "./views/VotingView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import CompleteView from "./views/CompleteView.jsx";
-import { IconBroadcast, IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconPresent, IconSend, IconStop, IconVolume, IconVolumeOff, IconX } from "./icons.jsx";
+import { IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconMore, IconSend, IconVolume, IconVolumeOff, IconX } from "./icons.jsx";
+import { ConfirmSheet, HostSheet } from "./Sheets.jsx";
 import AvatarMark from "../../components/AvatarMark.jsx";
 
 const EMOJIS = ["💡", "🔥", "👏", "❤️", "😂"];
@@ -159,13 +160,14 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
     setChatText("");
   };
 
-  const handleLeave = () => {
+  const [confirm, setConfirm] = useState(null); // "leave" | "end" | null
+  const [hostOpen, setHostOpen] = useState(false);
+
+  const doLeave = () => {
     // The host leaving ends the session for everyone (their X is treated like
     // End — a live session without its host has no driver). Battle rooms run
     // host-less by design, so their host can simply step out.
     if (room.isHost && !room.battle && room.phase !== "ended") {
-      const ok = window.confirm("Leave and end this session for everyone?");
-      if (!ok) return;
       try { endLiveRoom(roomId); } catch {}
       room.actions.end();
     } else {
@@ -174,18 +176,23 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
     onExit?.();
   };
 
-  const handleEnd = async () => {
-    if (!window.confirm("End this live session for everyone?")) return;
+  const handleLeave = () => {
+    const hostEnds = room.isHost && !room.battle && room.phase !== "ended" && room.phase !== "complete";
+    if (hostEnds) setConfirm("leave");
+    else doLeave();
+  };
+
+  const doEnd = async () => {
     try { await endLiveRoom(roomId); } catch {}
     room.actions.end();
     onExit?.();
   };
 
   const headerLabel =
-    room.phase === "lobby" ? "PRE-SESSION LOBBY" :
-    room.phase === "complete" ? "SESSION COMPLETE" :
-    room.phase === "ended" ? "SESSION ENDED" :
-    `LIVE · ${room.code || ""}`;
+    room.phase === "lobby" ? "LOBBY" :
+    room.phase === "complete" ? "COMPLETE" :
+    room.phase === "ended" ? "ENDED" :
+    "LIVE";
 
   const meConnected = room.participants.find((p) => p.userId === myId)?.connected !== false;
 
@@ -209,23 +216,14 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
             <IconX size={18} />
           </button>
           <div className="lq-header-title">
-            <p className="label">{headerLabel}</p>
+            <p className="label">{room.phase !== "lobby" && room.phase !== "complete" && room.phase !== "ended" && <span className="lq-live-dot" style={{ display: "inline-block", marginRight: 5, verticalAlign: "middle" }} />}{headerLabel}</p>
             <p className="title">{room.title || "Live Quiz"}</p>
           </div>
           {showQChip && <span className="lq-q-count">Q{qNow}/{qTotal}</span>}
-          {room.phase !== "lobby" && room.phase !== "complete" && room.phase !== "ended" && (
-            <span className="lq-live-badge"><span className="lq-live-dot" />LIVE</span>
-          )}
           {inQuestion && (
             <span className={`lq-timer-chip${!room.paused && room.timeLeft <= 5 ? " danger" : ""}`}>
               {room.paused ? "⏸" : `${room.timeLeft}s`}
             </span>
-          )}
-          {room.isHost && room.phase !== "complete" && room.phase !== "ended" && (
-            <button className="lq-icon-btn" onClick={handleEnd} title="End session for everyone" aria-label="End session for everyone"
-              style={{ color: "#FF6B5E" }}>
-              <IconStop size={14} />
-            </button>
           )}
         </div>
         {inQuestion && (
@@ -360,65 +358,81 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
 
       <div className="lq-footer">
         <p className="lq-footer-text">
-          {room.groupStreak > 0 ? `🔥 Group streak: ${room.groupStreak} · ` : ""}
-          {room.phase === "lobby" ? "Waiting to start…" :
-           room.phase === "complete" ? "Session complete" :
-           room.phase === "ended" ? "Session ended" :
-           `Question ${Math.min(room.talkedThrough + 1, room.question?.total || room.settings.numQuestions)}/${room.question?.total || room.settings.numQuestions}`}
-          {!meConnected && " · reconnecting…"}
+          {room.groupStreak > 0 ? `🔥 Group streak ${room.groupStreak}` : ""}
+          {!meConnected && `${room.groupStreak > 0 ? " · " : ""}reconnecting…`}
         </p>
         <div className="lq-footer-btns">
-          <button className="lq-footer-btn" onClick={() => setEmojiOpen((o) => !o)} aria-label="Send reaction">
-            <IconBulb size={20} />
+          <button className="lq-footer-btn labelled" onClick={() => setEmojiOpen((o) => !o)} aria-label="Send reaction">
+            <IconBulb size={19} /><span>React</span>
           </button>
           <button
-            className={`lq-footer-btn${!voice.muted ? " mic-on" : " active-mic"}`}
+            className={`lq-footer-btn labelled${!voice.muted ? " mic-on" : " active-mic"}`}
             onClick={voice.toggleMic}
             disabled={!voice.voiceAvailable || !voice.connected || micLocked}
             aria-label="Toggle microphone"
             title={micLocked ? "Mic opens when answers reveal" : voice.voiceAvailable ? (voice.muted ? "Unmute mic" : "Mute mic") : "Voice not configured"}
           >
-            {voice.muted ? <IconMicOff size={20} /> : <IconMic size={20} />}
+            {voice.muted ? <IconMicOff size={19} /> : <IconMic size={19} />}<span>{voice.muted ? "Muted" : "Mic on"}</span>
           </button>
-          {room.isHost && !room.battle && (
-            <button
-              className={`lq-footer-btn${room.presenterMode ? " mic-open" : ""}`}
-              onClick={() => room.actions.setPresenter(!room.presenterMode)}
-              aria-pressed={room.presenterMode}
-              aria-label={room.presenterMode ? "Stop presenting and play" : "Present instead of playing"}
-              title={room.presenterMode ? "Presenting — tap to play along" : "Present — watch answers live without playing"}
-            >
-              <IconPresent size={20} />
-            </button>
-          )}
-          {room.isHost && (
-            <button
-              className={`lq-footer-btn${room.micOpen ? " mic-open" : ""}`}
-              onClick={() => room.actions.setMicMode(!room.micOpen)}
-              aria-label={room.micOpen ? "Restrict mics during questions" : "Open mics during questions"}
-              title={room.micOpen ? "Open floor — mics stay on during questions" : "Mics auto-mute while voting (tap to keep them open)"}
-            >
-              <IconBroadcast size={20} />
-            </button>
-          )}
           <button
-            className="lq-footer-btn"
+            className="lq-footer-btn labelled"
             onClick={() => { sounds.setMuted(soundOn); setSoundOn(!soundOn); }}
             aria-label={soundOn ? "Mute sounds" : "Unmute sounds"}
-            title={soundOn ? "Mute sounds" : "Unmute sounds"}
           >
-            {soundOn ? <IconVolume size={20} /> : <IconVolumeOff size={20} />}
+            {soundOn ? <IconVolume size={19} /> : <IconVolumeOff size={19} />}<span>Sound</span>
           </button>
           <button
-            className={`lq-footer-btn${chatOpen ? " active-chat" : ""}${room.unread > 0 ? " has-unread" : ""}`}
+            className={`lq-footer-btn labelled${chatOpen ? " active-chat" : ""}${room.unread > 0 ? " has-unread" : ""}`}
             onClick={toggleChat}
             aria-label="Toggle chat"
           >
-            <IconChat size={20} />
+            <IconChat size={19} /><span>Chat</span>
             {room.unread > 0 && <span className="lq-chat-badge">{room.unread}</span>}
           </button>
+          {room.isHost && room.phase !== "complete" && room.phase !== "ended" && (
+            <button
+              className={`lq-footer-btn labelled${room.presenterMode || room.micOpen ? " mic-open" : ""}`}
+              onClick={() => setHostOpen(true)}
+              aria-label="Host tools"
+            >
+              <IconMore size={19} /><span>Host</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {confirm === "leave" && (
+        <ConfirmSheet
+          title="Leave and end this session?"
+          body="You're the host, so leaving ends the live quiz for everyone."
+          confirmLabel="End for everyone"
+          danger
+          onConfirm={() => { setConfirm(null); doLeave(); }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {confirm === "end" && (
+        <ConfirmSheet
+          title="End this live session?"
+          body="Everyone is taken out of the room. This can't be undone."
+          confirmLabel="End for everyone"
+          danger
+          onConfirm={() => { setConfirm(null); doEnd(); }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {hostOpen && (
+        <HostSheet
+          presenterMode={room.presenterMode}
+          micOpen={room.micOpen}
+          canPresent={!room.battle}
+          onPresenter={() => room.actions.setPresenter(!room.presenterMode)}
+          onMic={() => room.actions.setMicMode(!room.micOpen)}
+          onEnd={() => { setHostOpen(false); setConfirm("end"); }}
+          onClose={() => setHostOpen(false)}
+        />
+      )}
     </div>
   );
 }
+

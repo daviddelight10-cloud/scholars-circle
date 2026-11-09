@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconClock, IconCopy, IconCrown, IconList, IconShare, IconSpinner, IconUserMinus, IconUsers } from "../icons.jsx";
 import { messagesApi } from "../../messages/messagesApi.js";
 import AvatarMark from "../../../components/AvatarMark.jsx";
+import { ConfirmSheet } from "../Sheets.jsx";
 
 const TIMES = [15, 20, 30, 45, 60];
 const HOLD_DELAY_MS = 350;   // pause before press-and-hold starts repeating
@@ -143,16 +144,17 @@ export default function LobbyView({ room, myId, actions }) {
     } catch { /* best-effort */ }
   };
 
-  const kick = (p) => {
-    if (window.confirm(`Remove ${p.username} from the session?`)) actions.kick(p.userId);
-  };
+  const [kickTarget, setKickTarget] = useState(null);
+  const kick = (p) => setKickTarget(p);
 
   return (
     <div className="lq-view">
-      <p className="lq-label">Create live session</p>
+      <p className="lq-label">{isHost ? "Set up your live session" : "Live session"}</p>
       <h2 className="lq-title">{title}</h2>
       <p className="lq-subtitle">
-        Share the invite link — everyone answers the same questions, at the same time.
+        {isHost
+          ? "Share the invite link — everyone answers the same questions, at the same time."
+          : "Everyone answers the same questions at the same time. Tap Ready Up and wait for the host to start."}
       </p>
 
       <div className="lq-section">
@@ -310,7 +312,7 @@ export default function LobbyView({ room, myId, actions }) {
               {battle ? (allReady ? "Start Battle" : "Start Battle Anyway") : allReady ? "Start Session" : "Start Session Anyway"}
             </button>
             <p style={{ fontSize: 11, color: "var(--app-dim)", textAlign: "center", margin: 0 }}>
-              {battle ? "Lineup members can join until the first question starts." : "Friends can only join before the first question starts."}
+              {battle ? "Lineup members can join until the first question starts." : "Anyone can still join after you start — latecomers watch first, then play from a later question."}
             </p>
           </>
         ) : me?.lobbyReady ? (
@@ -319,6 +321,16 @@ export default function LobbyView({ room, myId, actions }) {
           <button className="lq-btn-primary" onClick={() => actions.lobbyReady(true)}>Ready Up!</button>
         )}
       </div>
+      {kickTarget && (
+        <ConfirmSheet
+          title={`Remove ${kickTarget.username}?`}
+          body="They'll be taken out of this session and can't rejoin."
+          confirmLabel="Remove"
+          danger
+          onConfirm={() => { actions.kick(kickTarget.userId); setKickTarget(null); }}
+          onCancel={() => setKickTarget(null)}
+        />
+      )}
     </div>
   );
 }
