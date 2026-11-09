@@ -77,7 +77,7 @@ export const BADGES = [
   { id: "streak_100", group: "streak", icon: "💠", label: "Centurion", desc: "Keep a 100-day streak", rarity: "legendary",
     progress: (c) => p(bestStreak(c.fsrsStats), 100) },
 
-  /* ── Practice (Rapid Recall / survival) ──────────────────────────── */
+  /* ── Practice (Practice Questions / survival) ──────────────────────────── */
   { id: "answered_100", group: "practice", icon: "🎯", label: "Sharpshooter", desc: "Answer 100 practice questions",
     progress: (c) => p(c.save?.stats?.answered || 0, 100) },
   { id: "answered_500", group: "practice", icon: "🎖️", label: "Veteran", desc: "Answer 500 practice questions",

@@ -187,7 +187,7 @@ function DocPracticeSheet({ match, variants, topic, onOpenResource, onStartStudy
         <div style={{ fontSize: 15, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display, marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {r.title || "Untitled"}
         </div>
-        {variants?.mcq && btn("✎", "Rapid Recall", "Practice questions", () => onOpenResource?.(variants.mcq.shareToken))}
+        {variants?.mcq && btn("✎", "Practice questions", "Quiz made from this material", () => onOpenResource?.(variants.mcq.shareToken))}
         {variants?.summary && btn("📝", "Summary", "Read the AI summary", () => onOpenResource?.(variants.summary.shareToken))}
         {r.shareToken && btn("📄", "View material", "Open the original document", () => onOpenResource?.(r.shareToken))}
         {onStartStudying && btn("⚡", "Practice this topic", "AI Tutor with topic context", () => onStartStudying(topic), true)}

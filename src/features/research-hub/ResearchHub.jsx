@@ -307,7 +307,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }, [viewerToken, sessionMode, activeFolder, setMobileNavHidden]);
 
   const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate: generateFromMaterial, analyze: analyzeMaterial, retry: retryMaterialGenerate, cancel: cancelMaterialGenerate, closeStream, closeDraft, clearError: clearMaterialGenError } = useMaterialGenerate();
-  // Streaming Rapid Recall deck: saved resource + active preview run
+  // Streaming Practice Questions deck: saved resource + active preview run
   const [savedMcqDeck, setSavedMcqDeck] = useState(null);
   const [genSheetTarget, setGenSheetTarget] = useState(null); // material awaiting Auto/Customise choice
   const [previewRun, setPreviewRun] = useState(null); // { title, rows }
@@ -1545,7 +1545,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         else { fetchResources(); fetchFolders(); }
         setUploading(false);
         setShowUploadWizard(false);
-        const toastMsg = data.contentType === "mcq" ? "Rapid Recall saved to space ✓"
+        const toastMsg = data.contentType === "mcq" ? "Practice Questions saved to space ✓"
           : data.contentType === "flashcard_deck" ? "Flashcards saved to space ✓"
           : data.contentType === "pdf" ? "Summary saved to space ✓"
           : "Saved to space ✓";
@@ -1684,7 +1684,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const handleGoLive = useCallback(async (file) => {
     const mcq = file?.variants?.mcq;
     if (goingLive) return;
-    if (!mcq) { showToast("Generate Rapid Recall on this material first"); return; }
+    if (!mcq) { showToast("Generate Practice Questions on this material first"); return; }
     setGoingLive(true);
     try {
       // Someone already live on this material? Offer the join — hosting your
@@ -1703,7 +1703,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const handleGenerateFromMaterial = useCallback((resource, kind) => {
     const feature = kind === "summary" ? "summary" : "mcqGen";
     if (!canUse(feature)) {
-      const label = kind === "summary" ? "AI Summaries" : "Rapid Recall";
+      const label = kind === "summary" ? "AI Summaries" : "Practice Questions";
       const left = FREE_TIER_LIMITS[feature === "summary" ? "summariesTotal" : "mcqGensTotal"];
       showToast(`Free plan: ${label} limited to ${left} total — upgrade for unlimited`, { icon: "lock", actLabel: "Upgrade", actFn: () => window.dispatchEvent(new CustomEvent("sc-open-premium")) });
       return;
@@ -1966,7 +1966,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     />
   );
 
-  // Streaming Rapid Recall draft cards — normalized once; must run before the
+  // Streaming Practice Questions draft cards — normalized once; must run before the
   // sessionMode early-returns below (hook order).
   const draftCards = useMemo(
     () => (draftRows ? draftRows.map((r, i) => normalizeQuestion(r, i, null)) : null),
@@ -2029,14 +2029,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   }
 
-  // Streaming Rapid Recall deck — mounts above whichever view is active while
+  // Streaming Practice Questions deck — mounts above whichever view is active while
   // an MCQ run is generating. Cards appear as the AI writes them; Start recall
   // runs a snapshot of the arrived rows (no FSRS credit until the deck saves).
   const deckOverlay = (draftRows !== null || previewRun) && (
     <>
       {draftRows !== null && !previewRun && (
         <DeckView
-          title={draftTitle || "Rapid Recall"}
+          title={draftTitle || "Practice Questions"}
           meta=""
           rows={draftCards}
           generating={!draftDone}

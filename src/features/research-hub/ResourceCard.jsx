@@ -36,7 +36,7 @@ function McqProgressRing({ practiced, pct, progress }) {
 const GENERATABLE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note"];
 
 const FAB_ACTIONS = [
-  { id: "mcqs", icon: "✎", label: "Generate Rapid Recall" },
+  { id: "mcqs", icon: "✎", label: "Generate Practice Questions" },
   { id: "summary", icon: "📝", label: "Summarize" },
   { id: "voice", icon: "🎙️", label: "Study with Voice Tutor" },
 ];

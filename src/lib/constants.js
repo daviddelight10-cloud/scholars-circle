@@ -48,7 +48,7 @@ export const FREE_TIER_LIMITS = {
   trialDays: 2,                      // full-access trial window
   aiTutorDaily: 5,                   // AI Tutor messages per day (post-trial)
   summariesTotal: 5,                 // lifetime AI summaries (post-trial)
-  mcqGensTotal: 5,                   // lifetime Rapid Recall generations (post-trial)
+  mcqGensTotal: 5,                   // lifetime Practice Questions generations (post-trial)
   guidedStudiesTotal: 2,             // lifetime guided study sessions (post-trial)
   survivalHeartsBeforeCooldown: 6,   // hearts lost before the cooldown kicks in
   survivalCooldownMinutes: 10,       // wait before new practice/survival sessions

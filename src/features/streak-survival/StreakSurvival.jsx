@@ -1679,10 +1679,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
           </div>
         )}
 
-        {/* ═══ DECK (material Rapid Recall — cards + floating bar) ═══ */}
+        {/* ═══ DECK (material Practice Questions — cards + floating bar) ═══ */}
         {screen === 'deck' && (
           <DeckView
-            title={resource?.title || 'Rapid Recall'}
+            title={resource?.title || 'Practice Questions'}
             meta={`${bank.length} QUESTIONS · ${dueHere} DUE · BEST ${best}`}
             rows={bank}
             states={cardStates}
@@ -2192,7 +2192,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
             ))}
             <div className="section-lbl">Extras</div>
             <div className="setting-row">
-              <span>Recall first<div className="shop-desc">choices stay hidden until you tap</div></span>
+              <span>Hide choices until I tap<div className="shop-desc">choices stay hidden until you tap</div></span>
               <button className={`setting-btn${prefs.recallFirst ? ' on' : ''}`}
                 onClick={() => { setPref('recallFirst', !prefs.recallFirst); sound.click(); }}>
                 {prefs.recallFirst ? 'ON' : 'OFF'}

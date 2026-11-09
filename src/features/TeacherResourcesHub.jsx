@@ -595,7 +595,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
     const folderSubTabs = [
       ["materials", "📄 Materials", folderCategorized.materials.length],
       ["summary", "📝 Summary", folderCategorized.summaries.length],
-      ["mcqs", "✎ Rapid Recall", folderCategorized.mcqs.length],
+      ["mcqs", "✎ Practice Questions", folderCategorized.mcqs.length],
     ];
     const currentList = folderCategorized[activeFolderTab] || [];
     const tabBtnStyle = (active) => ({
@@ -668,7 +668,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
             <div style={{ fontSize: 14, color: "#7b82b8" }}>
               {activeFolderTab === "materials" && "No materials in this folder yet."}
               {activeFolderTab === "summary" && "No AI-generated summaries yet."}
-              {activeFolderTab === "mcqs" && "No Rapid Recall sets in this folder yet."}
+              {activeFolderTab === "mcqs" && "No practice sets in this folder yet."}
             </div>
           </div>
         )}

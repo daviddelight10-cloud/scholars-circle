@@ -6,7 +6,7 @@ import EmptyState from "./EmptyState";
 const TYPE_FILTERS = [
   { key: "all", label: "All", icon: "📚" },
   { key: "pdf", label: "PDFs", icon: "📄" },
-  { key: "mcq", label: "Rapid Recall", icon: "❓" },
+  { key: "mcq", label: "Practice Questions", icon: "❓" },
   { key: "note", label: "Notes", icon: "📝" },
 ];
 

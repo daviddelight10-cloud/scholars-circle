@@ -24,7 +24,7 @@ function defaults() {
     active: false,            // user opted into the free experience
     trialStartDate: null,     // epoch ms — set on first activation
     summaries: 0,             // lifetime AI summaries generated
-    mcqGens: 0,               // lifetime Rapid Recall generations
+    mcqGens: 0,               // lifetime Practice Questions generations
     guidedStudies: 0,         // lifetime guided study sessions
     aiMsgsDate: "",           // AI Tutor daily counter
     aiMsgs: 0,
@@ -98,7 +98,7 @@ export function isActivatedUser() {
   }
 }
 
-// Custom Rapid Recall sets (count, clinical style, difficulty, focus) are a
+// Custom practice sets (count, clinical style, difficulty, focus) are a
 // paid feature — the free trial does not unlock them.
 export function canCustomiseMcq() {
   return isActivatedUser();

@@ -9,7 +9,7 @@ import "./streakSurvival.css";
 // Gizmo-style deck screen: every question as a tap-to-reveal card, a topics
 // strip with mastery, and a floating bar with the auto-sized session, the
 // Survival | Practice choice, Start recall and Live.
-// Rendered for saved Rapid Recall decks (from StreakSurvival's 'deck' screen)
+// Rendered for saved Practice Questions decks (from StreakSurvival's 'deck' screen)
 // and for streaming drafts (from ResearchHub's generation overlay).
 
 function DeckCard({ q, state, delay }) {

@@ -1797,6 +1797,15 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setChatOpen(true);
   };
 
+  // Practice sheet "Ask AI" entry — arm circle mode or open chat once on mount.
+  useEffect(() => {
+    let intro = null;
+    try { intro = sessionStorage.getItem("sc_reader_intro"); sessionStorage.removeItem("sc_reader_intro"); } catch { /* storage unavailable */ }
+    if (intro === "circle") setTool("circle");
+    else if (intro === "chat") openChatDirect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Chat MCQ answers feed the same weakspot store, FSRS scheduler, streak,
   // XP pool and quest counters as a Streak Survival run — one progress record.
   const QUIZ_LETTERS = ["A", "B", "C", "D", "E", "F"];

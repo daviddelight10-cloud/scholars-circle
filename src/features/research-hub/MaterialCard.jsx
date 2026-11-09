@@ -3,7 +3,7 @@ import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
 import { formatRelativeDate } from "./constants";
 
 const VARIANT_TYPES = [
-  { key: "mcq", label: "Rapid Recall", chipLabel: "Rapid Recall", color: "#F5A623", genKind: "mcqs" },
+  { key: "mcq", label: "Practice Questions", chipLabel: "Practice Questions", color: "#F5A623", genKind: "mcqs" },
   { key: "summary", label: "Summary", chipLabel: "Summary", color: "#F5A623", genKind: "summary" },
 ];
 

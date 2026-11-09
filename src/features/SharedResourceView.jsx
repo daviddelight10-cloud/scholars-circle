@@ -437,7 +437,7 @@ export default function SharedResourceView() {
           <EmptyState
             icon="💡"
             title="Tap the card to practice"
-            message="Rapid recall, guided study, summaries and live quizzes open from the practice menu."
+            message="Practice questions, guided study, summaries and live quizzes open from the practice menu."
           />
         </div>
 

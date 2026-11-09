@@ -17,7 +17,7 @@ const STYLE_OPTIONS = [
   ["mixed", "Variety mix", "a bit of everything"],
 ];
 const EXTRA_OPTIONS = [
-  ["recallFirst", "Recall first", "choices stay hidden until you tap"],
+  ["recallFirst", "Hide choices until I tap", "choices stay hidden until you tap"],
   ["speedRound", "Speed round", "7s per question — out of time counts as a miss"],
 ];
 
@@ -109,6 +109,8 @@ const IcoSliders = (p) => (
     <path d="M4 16h10" /><path d="M18 16h2" /><circle cx="16" cy="16" r="2" />
   </I>
 );
+const IcoCircle = (p) => <I {...p}><ellipse cx="12" cy="12" rx="8" ry="5.5" strokeDasharray="3 3" /><path d="M12 12l5 5" /></I>;
+const IcoChat = (p) => <I {...p}><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.3A8 8 0 1 1 21 12z" /></I>;
 const IcoChevron = (p) => <I {...p}><path d="M9 6l6 6-6 6" /></I>;
 const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></I>;
 const IcoBookmark = (p) => <I {...p}><path d="M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z" /></I>;
@@ -379,8 +381,8 @@ export default function PracticeSheet({
       ? mcqPct != null
         ? `${mcqCount} questions · ${mcqPct}% learned`
         : `best ${prog.bestScore}/${prog.bestTotal ?? prog.total ?? "?"}${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
-      : (mcqCount ? `${mcqCount} questions queued and ready to go` : "Ready to practice")
-    : "Generate questions from this material";
+      : (mcqCount ? `${mcqCount} questions ready to go` : "Ready to practice")
+    : "Turn this material into a quiz you can practise";
 
   const gsDone = gsProg && gsProg.done >= gsProg.total;
   const gsSub = preparingStudy
@@ -418,6 +420,27 @@ export default function PracticeSheet({
     : file.contentType === "note" || file.contentType === "pdf" ? <IcoFileText size={11} />
     : file.contentType === "flashcard_deck" ? <IcoClipboard size={11} />
     : <IcoFile size={11} />;
+
+  const isPdf = file.contentType === "pdf" || /\.pdf$/i.test(file.fileName || "");
+  const pageCount = file.pageCount || file.pages || null;
+  const mastered = mcqPct != null && mcqPct >= 90;
+  const askAi = (mode) => act(() => {
+    try { sessionStorage.setItem("sc_reader_intro", mode); } catch { /* storage unavailable */ }
+    onOpen(file.shareToken);
+  });
+
+  // One smart "next step" — changes with how far along this material is
+  let hero;
+  if (!mcq) {
+    const fresh = canExtract && !gsProg && lastStudiedTs === 0;
+    hero = fresh
+      ? { name: "Study with AI", badge: "Start here", sub: "Walks you through the file section by section", cta: "Start studying", icon: <IcoBrain size={21} />, run: () => onGuidedStudy?.(file), disabled: preparingStudy, alt: canExtract ? { label: "Or make practice questions", run: () => onGenerate?.(file, "mcqs") } : null }
+      : { name: "Make practice questions", badge: "Setup", sub: heroSub, cta: generating ? "Generating…" : "Make practice questions", icon: <IcoBolt size={21} />, run: () => onGenerate?.(file, "mcqs"), disabled: generating };
+  } else if (mastered && canExtract) {
+    hero = { name: "Take an exam", badge: "Ready", sub: `${mcqPct}% learned — test yourself under exam conditions`, cta: "Start exam", icon: <IcoClipboard size={21} />, run: () => onExamSimulation?.(exam || file), alt: { label: "Keep practising", run: () => onOpen(mcq.shareToken) } };
+  } else {
+    hero = { name: "Practice questions", badge: "Ready", sub: heroSub, cta: prog ? "Continue practice" : "Start practice", icon: <IcoBolt size={21} />, run: () => onOpen(mcq.shareToken), showMeta: true };
+  }
 
   const shownPeople = livePeople.slice(0, 3);
   const extraPeople = livePeople.length - shownPeople.length;
@@ -458,23 +481,23 @@ export default function PracticeSheet({
         </div>
 
         <div className="pm-scroll">
-          {/* Hero — Rapid Recall */}
-          <section className="pm-hero pm-hero-enter" aria-label="Rapid recall session">
+          {/* Smart next step — changes with how far along this material is */}
+          <section className="pm-hero pm-hero-enter" aria-label="Next step">
             <div className="pm-hero-shimmer" aria-hidden="true" />
             <div className="pm-hero-row">
-              <div className="pm-hero-icon"><IcoBolt size={21} /></div>
+              <div className="pm-hero-icon">{hero.icon}</div>
               <div className="pm-hero-info">
                 <div className="pm-hero-name-row">
-                  <span className="pm-hero-name">Rapid recall</span>
-                  <span className={`pm-badge-ready${mcq ? "" : " pm-badge-setup"}`}>{mcq ? "Ready" : "Setup"}</span>
+                  <span className="pm-hero-name">{hero.name}</span>
+                  <span className={`pm-badge-ready${hero.badge === "Setup" || hero.badge === "Start here" ? " pm-badge-setup" : ""}`}>{hero.badge}</span>
                 </div>
-                <div className="pm-hero-sub">{heroSub}</div>
-                {mcq && mcqPct != null && (
+                <div className="pm-hero-sub">{hero.sub}</div>
+                {hero.showMeta && mcqPct != null && (
                   <div className="pm-progress" role="progressbar" aria-valuenow={mcqPct} aria-valuemin={0} aria-valuemax={100}>
                     <div className="pm-progress-bar" style={{ width: `${mcqPct}%` }} />
                   </div>
                 )}
-                {mcq && (
+                {mcq && hero.showMeta && (
                   <div className="pm-hero-meta">
                     {mcqCount > 0 && <span className="pm-chip"><IcoClock size={12} />~{estMin} min</span>}
                     <button
@@ -485,96 +508,121 @@ export default function PracticeSheet({
                       aria-expanded={!!settingsPos}
                       aria-haspopup="menu"
                     >
-                      <IcoSliders size={12} />{styleLabel}
+                      <IcoSliders size={12} />Asked as: {styleLabel}
                     </button>
                     {prog?.mastered != null && prog.total > 0 && (
                       <span className="pm-chip pm-chip-good">🌟 {prog.mastered}/{prog.total} mastered</span>
                     )}
                     {bestPct != null && <span className="pm-chip pm-chip-best">Best {bestPct}%</span>}
-                    {prog?.attempts > 0 && <span className="pm-chip">{prog.attempts} attempt{prog.attempts > 1 ? "s" : ""}</span>}
                     {lastStudiedTs > 0 && <span className="pm-chip pm-chip-ice"><IcoClock size={11} />{relTime(lastStudiedTs)}</span>}
                   </div>
                 )}
               </div>
             </div>
-            <button
-              className="pm-hero-btn"
-              disabled={generating}
-              onClick={act(() => (mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs")))}
-            >
-              {mcq ? (prog ? "Continue recall" : "Start recall") : generating ? "Generating…" : "Generate questions"} <IcoArrowRight size={15} />
+            <button className="pm-hero-btn" disabled={hero.disabled} onClick={act(hero.run)}>
+              {hero.cta} <IcoArrowRight size={15} />
             </button>
+            {hero.alt && (
+              <button type="button" className="pm-hero-alt" onClick={act(hero.alt.run)}>{hero.alt.label}</button>
+            )}
           </section>
 
-          <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to practice</div>
-
+          <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>Learn</div>
           <div className="pm-grid">
             <PmTile
               delay={90}
               tint="tint-violet" badge={gsBadge}
               icon={<IcoBrain size={17} />}
-              name="Guided study"
+              name="Study with AI"
               sub={gsSub}
               disabled={!canExtract || generating || preparingStudy}
               onClick={act(() => onGuidedStudy?.(file))}
             />
-            <PmTile
-              delay={130}
-              tint="tint-blue"
-              icon={<IcoFileText size={17} />}
-              name="Summary"
-              sub={summary ? "AI recap" : "Tap to create"}
-              disabled={generating}
-              onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
-            />
+            {isPdf ? (
+              <PmTile
+                delay={110}
+                tint="tint-blue"
+                icon={<IcoCircle size={17} />}
+                name="Circle to Ask"
+                sub="Circle anything in the file for an instant answer"
+                onClick={askAi("circle")}
+              />
+            ) : (
+              <PmTile
+                delay={110}
+                tint="tint-blue"
+                icon={<IcoFileText size={17} />}
+                name="Summary"
+                sub={summary ? "AI recap" : "Tap to create"}
+                disabled={generating}
+                onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
+              />
+            )}
+          </div>
+          {isPdf && (
+            <button type="button" className="pm-ask-row pm-anim" style={{ animationDelay: "130ms" }} onClick={askAi("chat")}>
+              <span className="pm-tile-icon"><IcoChat size={16} /></span>
+              <span className="pm-live-body">
+                <span className="pm-tile-name">Ask AI about this file</span>
+                <span className="pm-live-sub">Chat, then tap ＋ Add to deck to save questions</span>
+              </span>
+              <span className="pm-chev"><IcoChevron size={16} /></span>
+            </button>
+          )}
+
+          <div className="pm-section pm-anim" style={{ animationDelay: "150ms" }}>Test yourself</div>
+          <div className="pm-grid">
             <PmTile
               delay={170}
+              tint="tint-amber"
+              icon={<IcoBolt size={17} />}
+              name="Practice questions"
+              badge={mcq && mcqCount ? `${mcqCount}` : null}
+              sub={mcq ? (prog ? "Continue where you stopped" : "Quiz made from this file") : "Tap to make them"}
+              disabled={generating}
+              onClick={act(() => (mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs")))}
+            />
+            <PmTile
+              delay={190}
               tint="tint-green"
               icon={<IcoClipboard size={17} />}
-              name="Exam sim"
+              name="Exam"
               badge={exam ? (examAttemptsCount > 0 ? `${examAttemptsCount}` : null) : null}
               sub={
                 exam
                   ? `${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}`
                   : canExtract
-                    ? "AI builds a custom exam"
+                    ? "Timed, exam-style paper"
                     : "No extractable text"
               }
               disabled={!canExtract || generating}
               onClick={act(() => onExamSimulation?.(exam || file))}
             />
-            <PmTile
-              delay={210}
-              tint="tint-rose"
-              icon={<IcoFile size={17} />}
-              name="Material"
-              sub={file.fileName || "Source document"}
-              onClick={act(() => onOpen(file.shareToken))}
-            />
-            {onSaveMaterial && (
+            {isPdf && (
               <PmTile
-                delay={250}
-                tint="tint-amber"
-                icon={<IcoBookmark size={17} />}
-                name="Save to My Space"
-                sub="Pick a space for this material"
-                onClick={act(() => onSaveMaterial(file))}
+                delay={210}
+                tint="tint-blue"
+                icon={<IcoFileText size={17} />}
+                name="Summary"
+                sub={summary ? "AI recap" : "Tap to create"}
+                disabled={generating}
+                onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
               />
             )}
           </div>
 
-          {/* Live */}
+          <div className="pm-section pm-anim" style={{ animationDelay: "230ms" }}>With friends</div>
           <button
             className="pm-live pm-anim"
             style={{ animationDelay: "250ms" }}
-            disabled={liveMatch ? false : (!mcq || generating || goingLive)}
-            onClick={act(() => (liveMatch ? onJoinLive?.(liveMatch.code) : onGoLive?.(file)))}
+            disabled={liveMatch ? false : (generating || goingLive)}
+            onClick={act(() => (liveMatch ? onJoinLive?.(liveMatch.code) : mcq ? onGoLive?.(file) : onGenerate?.(file, "mcqs")))}
             aria-label={liveMatch ? `Join live quiz — ${liveMatch.players} in lobby` : "Go live with friends — quiz together in real time"}
           >
             <span className="pm-tile-icon"><IcoUsers size={17} /></span>
             <span className="pm-live-body">
-              <span className="pm-live-name"><span className="pm-live-dot" />{liveMatch ? "Join live quiz" : goingLive ? "Opening lobby…" : "Go live with friends"}</span>
-              <span className="pm-live-sub">{liveMatch ? `${liveMatch.host} · ${liveMatch.players}/${liveMatch.maxPlayers || 50} in lobby` : mcq ? "Quiz together in real time" : "Generate Rapid Recall first"}</span>
+              <span className="pm-live-name"><span className="pm-live-dot" />{liveMatch ? "Join live quiz" : goingLive ? "Opening lobby…" : "Live quiz with friends"}</span>
+              <span className="pm-live-sub">{liveMatch ? `${liveMatch.host} · ${liveMatch.players}/${liveMatch.maxPlayers || 50} in lobby` : mcq ? "Everyone answers the same questions live" : "Makes practice questions first"}</span>
             </span>
             {shownPeople.length > 0 && (
               <span className="pm-avatars" aria-hidden="true">
@@ -588,6 +636,17 @@ export default function PracticeSheet({
             )}
             <span className="pm-chev"><IcoChevron size={16} /></span>
           </button>
+
+          <div className="pm-footer-row">
+            <button type="button" className="pm-footer-btn" onClick={act(() => onOpen(file.shareToken))}>
+              <IcoFile size={14} />Open file
+            </button>
+            {onSaveMaterial && (
+              <button type="button" className="pm-footer-btn" onClick={act(() => onSaveMaterial(file))}>
+                <IcoBookmark size={14} />Save to My Space
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Session settings — anchored popover, survives the hero's overflow:clip */}
@@ -597,10 +656,10 @@ export default function PracticeSheet({
             <div
               className="pm-menu"
               role="menu"
-              aria-label="Recall session settings"
+              aria-label="How questions are asked"
               style={{ top: settingsPos.top, right: settingsPos.right }}
             >
-              <div className="pm-menu-label">Answer style</div>
+              <div className="pm-menu-label">How you'll be asked</div>
               {STYLE_OPTIONS.map(([id, name, desc]) => (
                 <button
                   key={id}

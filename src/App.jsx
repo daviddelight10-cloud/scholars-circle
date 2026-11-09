@@ -7979,7 +7979,7 @@ function App() {
             </p>
             <ul style={{ fontSize: 13, lineHeight: 1.8, paddingLeft: 20, margin: "0 0 12px 0" }}>
               <li>Survival Streak practice (paced by hearts)</li>
-              <li>{FREE_TIER_LIMITS.summariesTotal} AI Summaries & {FREE_TIER_LIMITS.mcqGensTotal} Rapid Recalls</li>
+              <li>{FREE_TIER_LIMITS.summariesTotal} AI Summaries & {FREE_TIER_LIMITS.mcqGensTotal} Practice Sets</li>
               <li>{FREE_TIER_LIMITS.guidedStudiesTotal} Guided Study sessions</li>
               <li>{FREE_TIER_LIMITS.aiTutorDaily} AI Tutor messages daily</li>
             </ul>

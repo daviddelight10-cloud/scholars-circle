@@ -145,7 +145,7 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
           <div className="fd-empty-icon">⚡</div>
           <div className="fd-empty-title">No live quizzes yet</div>
           <div className="fd-empty-sub">
-            Start a live quiz from any Rapid Recall set — an invite card lands in the chat for everyone to join.
+            Start a live quiz from any practice set — an invite card lands in the chat for everyone to join.
           </div>
         </div>
       )}

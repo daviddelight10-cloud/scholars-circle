@@ -498,7 +498,7 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
   }
 
   const typeIcon = { mcq: "❓", legacy_mcq: "❓" }[currentItem?.itemType] || "📚";
-  const typeLabel = { mcq: "Rapid Recall", legacy_mcq: "Rapid Recall" }[currentItem?.itemType] || "Review";
+  const typeLabel = { mcq: "Practice Questions", legacy_mcq: "Practice Questions" }[currentItem?.itemType] || "Review";
 
   const progressPct = sessionStats.total > 0 ? Math.round((sessionStats.reviewed / sessionStats.total) * 100) : 0;
 

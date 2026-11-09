@@ -91,7 +91,7 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
   const ready = state.status === "ready";
 
   return (
-    <CircleSheet open={open} onClose={onClose} title={resource?.title} kind="Rapid Recall">
+    <CircleSheet open={open} onClose={onClose} title={resource?.title} kind="Practice Questions">
       {open && (
         <div className="gm">
           {state.status === "loading" && (

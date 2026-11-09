@@ -105,7 +105,7 @@ export function useMaterialGenerate() {
   const [streamText, setStreamText] = useState(null);
   const [streamTitle, setStreamTitle] = useState("");
   const [streamDone, setStreamDone] = useState(false);
-  // Live-streamed MCQ draft rows (null = no Rapid Recall run in flight)
+  // Live-streamed MCQ draft rows (null = no Practice Questions run in flight)
   const [draftRows, setDraftRows] = useState(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDone, setDraftDone] = useState(false); // generation finished, final set
@@ -163,7 +163,7 @@ export function useMaterialGenerate() {
         } else {
           // Open the draft deck instantly — question cards stream in as the AI
           // writes them, and the user can preview-run the partial bank.
-          setDraftTitle(`${baseTitle} — Rapid Recall`);
+          setDraftTitle(`${baseTitle} — Practice Questions`);
           setDraftRows([]);
           setGenProgress("Extracting text from material…");
           const analysis = genOptions ? await analyze(resource) : null;
@@ -178,7 +178,7 @@ export function useMaterialGenerate() {
             if (sliced.trim().length > 200) text = sliced;
           }
           ensureNotAbortedLocal(abortRef.current?.signal);
-          setGenProgress("Generating Rapid Recall…");
+          setGenProgress("Generating Practice Questions…");
           const { rows, warnings } = await generateMcqs(text, images, setGenProgress, {
             signal: abortRef.current?.signal,
             onRows: (rows) => setDraftRows((prev) => (prev == null ? prev : [...prev, ...rows])),
@@ -200,7 +200,7 @@ export function useMaterialGenerate() {
 
         if (abortRef.current?.signal.aborted) return;
         onSave({
-          title: `${baseTitle} — Rapid Recall`,
+          title: `${baseTitle} — Practice Questions`,
           subject: baseSubject,
           contentType: "mcq",
           mcqData: JSON.stringify(mcqRows),
@@ -271,7 +271,7 @@ export function useMaterialGenerate() {
     setStreamDone(false);
   }, []);
 
-  // Dismiss the finished Rapid Recall draft deck (stop mid-run uses cancel()).
+  // Dismiss the finished Practice Questions draft deck (stop mid-run uses cancel()).
   const closeDraft = useCallback(() => {
     setDraftRows(null);
     setDraftDone(false);

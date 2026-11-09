@@ -459,7 +459,7 @@ export default function TeacherHub({ token, auth }) {
             {/* Sub tabs + filter */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:12 }}>
               <div style={{ display:"flex", background:"var(--app-tint-soft)", borderRadius:10, padding:3, gap:2 }}>
-                {[{id:"mcq",label:"⚡ Rapid Recall"},{id:"notes",label:"📄 Study Notes"}].map(t => (
+                {[{id:"mcq",label:"⚡ Practice Questions"},{id:"notes",label:"📄 Study Notes"}].map(t => (
                   <button key={t.id} onClick={() => setResTab(t.id)} style={{
                     background:resTab===t.id?"linear-gradient(135deg,#FFD700,#6C63FF)":"transparent",
                     color:resTab===t.id?"var(--app-text)":"var(--app-faint)",

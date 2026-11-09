@@ -12,7 +12,7 @@ function authToken() {
 }
 
 // Loads the user's saved questions for this document: the deck they build
-// from AI chat ("＋ Add to deck") plus the Rapid Recall set generated from it.
+// from AI chat ("＋ Add to deck") plus the practice set generated from it.
 // Cache-first, refreshed whenever the panel opens or a question is added.
 export function usePdfDeck(resourceId, active) {
   const [data, setData] = useState(() => (resourceId ? readJson(cacheKey(resourceId), null) : null));
@@ -132,7 +132,7 @@ export default function PdfDeckTab({ resourceId, T, deck, onJump }) {
           <>
             <div style={{ fontSize: 28, marginBottom: 6 }}>🗂️</div>
             <b style={{ color: T.text, fontSize: 14 }}>No saved questions yet</b>
-            <div style={{ marginTop: 4 }}>Ask the AI to quiz you on this document, then tap <b>＋ Add to deck</b> on any question. Generated Rapid Recall sets for this material also appear here.</div>
+            <div style={{ marginTop: 4 }}>Ask the AI to quiz you on this document, then tap <b>＋ Add to deck</b> on any question. Generated practice sets for this material also appear here.</div>
           </>
         )}
       </div>
