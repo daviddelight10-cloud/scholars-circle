@@ -114,20 +114,19 @@ const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6
 const IcoBookmark = (p) => <I {...p}><path d="M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z" /></I>;
 
 
-function PmRow({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000 }) {
+function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000 }) {
   return (
     <button
-      className={`pm-row${tint ? ` ${tint}` : ""}`}
+      className={`pm-tile${tint ? ` ${tint}` : ""}`}
       style={{ "--d": `${delay}ms`, "--wd": `${wdelay}ms` }}
       disabled={disabled}
       onClick={onClick}
     >
+      {badge && <span className="pm-tile-badge">{badge}</span>}
       <span className="pm-tile-icon">{icon}</span>
-      <span className="pm-live-body">
-        <span className="pm-tile-name">{name}{badge && <span className="pm-row-badge">{badge}</span>}</span>
-        <span className="pm-live-sub">{sub}</span>
-      </span>
-      <span className="pm-chev"><IcoChevron size={16} /></span>
+      <span className="pm-tile-name">{name}</span>
+      <span className="pm-tile-sub">{sub}</span>
+      <span className="pm-tile-arrow"><IcoChevron size={14} /></span>
     </button>
   );
 }
@@ -556,50 +555,52 @@ export default function PracticeSheet({
           </section>
 
           <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to study</div>
-          <PmRow
-            delay={90} wdelay={2000}
-            tint="tint-violet" badge={gsBadge}
-            icon={<IcoBrain size={17} />}
-            name="Study with AI"
-            sub={gsSub}
-            disabled={!canExtract || generating || preparingStudy}
-            onClick={act(() => onGuidedStudy?.(file))}
-          />
-          {hero.key !== "exam" && (
-            <PmRow
-              delay={130} wdelay={3200}
-              tint="tint-green"
-              icon={<IcoClipboard size={17} />}
-              name="Exam"
-              badge={exam ? (examAttemptsCount > 0 ? `${examAttemptsCount}` : null) : null}
-              sub={
-                exam
-                  ? `${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}`
-                  : canExtract
-                    ? "Timed, exam-style paper"
-                    : "No extractable text"
-              }
-              disabled={!canExtract || generating}
-              onClick={act(() => onExamSimulation?.(exam || file))}
+          <div className="pm-grid">
+            <PmTile
+              delay={90} wdelay={2000}
+              tint="tint-violet" badge={gsBadge}
+              icon={<IcoBrain size={17} />}
+              name="Study with AI"
+              sub={gsSub}
+              disabled={!canExtract || generating || preparingStudy}
+              onClick={act(() => onGuidedStudy?.(file))}
             />
-          )}
-          <PmRow
-            delay={150} wdelay={4400}
-            tint="tint-blue"
-            icon={<IcoFileText size={17} />}
-            name="Summary"
-            sub={summary ? "AI recap" : "Tap to create"}
-            disabled={generating}
-            onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
-          />
-          <PmRow
-            delay={170} wdelay={5600}
-            tint="tint-rose"
-            icon={<IcoFile size={17} />}
-            name={isPdf ? "Read & ask AI" : "Open file"}
-            sub={isPdf ? "Circle anything for an instant answer" : (file.fileName || "Source document")}
-            onClick={isPdf ? askAi("circle") : act(() => onOpen(file.shareToken))}
-          />
+            {hero.key !== "exam" && (
+              <PmTile
+                delay={130} wdelay={3200}
+                tint="tint-green"
+                icon={<IcoClipboard size={17} />}
+                name="Exam"
+                badge={exam ? (examAttemptsCount > 0 ? `${examAttemptsCount}` : null) : null}
+                sub={
+                  exam
+                    ? `${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}`
+                    : canExtract
+                      ? "Timed, exam-style paper"
+                      : "No extractable text"
+                }
+                disabled={!canExtract || generating}
+                onClick={act(() => onExamSimulation?.(exam || file))}
+              />
+            )}
+            <PmTile
+              delay={150} wdelay={4400}
+              tint="tint-blue"
+              icon={<IcoFileText size={17} />}
+              name="Summary"
+              sub={summary ? "AI recap" : "Tap to create"}
+              disabled={generating}
+              onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
+            />
+            <PmTile
+              delay={170} wdelay={5600}
+              tint="tint-rose"
+              icon={<IcoFile size={17} />}
+              name={isPdf ? "Read & ask AI" : "Open file"}
+              sub={isPdf ? "Circle anything for an instant answer" : (file.fileName || "Source document")}
+              onClick={isPdf ? askAi("circle") : act(() => onOpen(file.shareToken))}
+            />
+          </div>
 
           <button
             className="pm-live"

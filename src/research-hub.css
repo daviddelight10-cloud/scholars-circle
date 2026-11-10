@@ -1573,57 +1573,65 @@
 .pm-tile {
   --tint: #9AA0B0;
   --tint-bg: rgba(154,160,176,0.14);
+  --tint-bg2: rgba(154,160,176,0.07);
   --tint-border: rgba(154,160,176,0.32);
   position: relative;
   display: flex; flex-direction: column; align-items: flex-start;
   text-align: left;
-  background: linear-gradient(180deg, var(--app-tint-soft), var(--app-tint-soft)), var(--app-card);
-  border: 1px solid var(--c-2a2a2c);
+  background: linear-gradient(160deg, var(--tint-bg2) 0%, var(--app-card) 70%);
+  border: 1px solid var(--tint-border);
   border-radius: 16px;
   padding: 14px;
   cursor: pointer;
   font-family: inherit;
   user-select: none;
-  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  overflow: hidden;
+  transition: transform .15s ease, box-shadow .2s ease;
+  animation: pm-slide .55s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both;
 }
 .pm-tile:hover:not(:disabled) {
-  border-color: var(--tint-border);
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px -18px rgba(0,0,0,0.9);
+  box-shadow: 0 10px 22px -16px var(--tint);
 }
 .pm-tile:active:not(:disabled) { transform: scale(0.98); }
+.pm-tile:active:not(:disabled) .pm-tile-arrow { transform: translateX(5px); }
 .pm-tile:disabled { opacity: 0.5; cursor: default; }
-.pm-tile.tint-violet { --tint: #8B6CFF; --tint-bg: rgba(139,108,255,0.15); --tint-border: rgba(139,108,255,0.38); }
-.pm-tile.tint-blue { --tint: #6C9EFF; --tint-bg: rgba(108,158,255,0.13); --tint-border: rgba(108,158,255,0.38); }
-.pm-tile.tint-green { --tint: #4ADE80; --tint-bg: rgba(74,222,128,0.13); --tint-border: rgba(74,222,128,0.35); }
-.pm-tile.tint-rose { --tint: #F472B6; --tint-bg: rgba(244,114,182,0.13); --tint-border: rgba(244,114,182,0.35); }
-.pm-tile.tint-amber { --tint: #F5A623; --tint-bg: rgba(245,166,35,0.13); --tint-border: rgba(245,166,35,0.38); }
+.pm-grid > .pm-tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+/* dark-theme tints (brighter inks, rgba washes) */
+.pm-tile.tint-violet { --tint:#A78BFA; --tint-bg:rgba(167,139,250,.16); --tint-bg2:rgba(167,139,250,.09); --tint-border:rgba(167,139,250,.30); }
+.pm-tile.tint-blue   { --tint:#7FB0FF; --tint-bg:rgba(127,176,255,.15); --tint-bg2:rgba(127,176,255,.08); --tint-border:rgba(127,176,255,.30); }
+.pm-tile.tint-green  { --tint:#4ADE80; --tint-bg:rgba(74,222,128,.14);  --tint-bg2:rgba(74,222,128,.07);  --tint-border:rgba(74,222,128,.28); }
+.pm-tile.tint-rose   { --tint:#F57FB8; --tint-bg:rgba(245,127,184,.14); --tint-bg2:rgba(245,127,184,.08); --tint-border:rgba(245,127,184,.30); }
+.pm-tile.tint-amber  { --tint:#F5B84A; --tint-bg:rgba(245,184,74,.15);  --tint-bg2:rgba(245,184,74,.08); --tint-border:rgba(245,184,74,.30); }
+/* light-theme tints — the prototype's pastel palette */
+html[data-theme="light"] .pm-tile.tint-violet { --tint:#6D48F0; --tint-bg:#E6DEFF; --tint-bg2:#F1ECFF; --tint-border:#D6CAFF; }
+html[data-theme="light"] .pm-tile.tint-blue   { --tint:#2569E0; --tint-bg:#D3E5FF; --tint-bg2:#E6F0FF; --tint-border:#BCD5FA; }
+html[data-theme="light"] .pm-tile.tint-green  { --tint:#12994A; --tint-bg:#CDF1DA; --tint-bg2:#E3F7EA; --tint-border:#B4E5C6; }
+html[data-theme="light"] .pm-tile.tint-rose   { --tint:#D63384; --tint-bg:#FFD6E8; --tint-bg2:#FFE9F3; --tint-border:#F8BCD7; }
+html[data-theme="light"] .pm-tile.tint-amber  { --tint:#B8760A; --tint-bg:#FDE9C8; --tint-bg2:#FDF3DF; --tint-border:#F3D9A0; }
 .pm-tile-badge {
   position: absolute; top: 11px; right: 11px;
   font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em;
-  color: #F5A623;
-  background: rgba(245,166,35,0.16);
+  color: var(--tint);
+  background: var(--tint-bg);
   padding: 3px 6px; border-radius: 6px;
-  border: 1px solid rgba(245,166,35,0.22);
+  border: 1px solid var(--tint-border);
 }
 .pm-tile-icon {
-  width: 34px; height: 34px; border-radius: 12px;
+  width: 40px; height: 40px; border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 12px;
   background: var(--tint-bg); color: var(--tint);
-  transition: transform .15s ease;
+  animation: pm-wiggle 6s ease-in-out var(--wd, 2s) infinite;
 }
-.pm-tile:hover:not(:disabled) .pm-tile-icon { transform: scale(1.06); }
 .pm-tile-name { font-size: 13px; font-weight: 600; color: var(--c-f2f4f8); }
 .pm-tile-sub { font-size: 11px; color: var(--c-949cac); margin-top: 2px; }
 .pm-tile-arrow {
   position: absolute; right: 12px; bottom: 12px;
   color: var(--tint);
-  opacity: 0; transform: translateX(-4px);
-  transition: opacity .18s ease, transform .18s ease;
+  transition: transform .18s ease;
   display: flex;
 }
-.pm-tile:hover:not(:disabled) .pm-tile-arrow { opacity: 1; transform: none; }
 
 .pm-live {
   --tint: #4ED9C3; --tint-bg: rgba(78,217,195,.15);
@@ -1661,55 +1669,12 @@ html[data-theme="light"] .pm-live {
   background: none; border: 0; cursor: pointer; font-family: inherit;
   font-size: 12px; font-weight: 600; color: #c9a267; text-decoration: underline;
 }
-/* Colorful study rows (prototype port) — pastel wash fading into the card,
-   tinted edge, wiggling icon tile, staggered slide-in from the right. */
-.pm-row {
-  --tint: #9AA0B0; --tint-bg: rgba(154,160,176,0.14);
-  --tint-bg2: rgba(154,160,176,0.07); --tint-border: rgba(154,160,176,0.32);
-  position: relative;
-  display: flex; align-items: center; gap: 12px;
-  width: 100%; text-align: left;
-  background: linear-gradient(90deg, var(--tint-bg2) 0%, var(--app-card) 60%);
-  border: 1px solid var(--tint-border);
-  border-radius: 16px;
-  padding: 11px 14px; margin-top: 8px;
-  cursor: pointer; font-family: inherit;
-  user-select: none; overflow: hidden;
-  transition: transform .15s ease, box-shadow .2s ease;
-  animation: pm-slide .55s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both;
-}
+/* Colorful tiles + rows (prototype port) — pastel wash, tinted edge,
+   wiggling icon tiles, staggered slide-in from the right. */
 @keyframes pm-slide { 0%{opacity:0;transform:translateX(34px)} 100%{opacity:1;transform:translateX(0)} }
-.pm-row:hover:not(:disabled) { box-shadow: 0 8px 20px -14px var(--tint); }
-.pm-row:active:not(:disabled) { transform: scale(0.985); }
-.pm-row:active:not(:disabled) .pm-chev { transform: translateX(5px); }
-.pm-row:disabled { opacity: 0.5; cursor: default; }
-.pm-row .pm-tile-icon {
-  margin-bottom: 0; flex-shrink: 0;
-  width: 40px; height: 40px; border-radius: 13px;
-  animation: pm-wiggle 6s ease-in-out var(--wd, 2s) infinite;
-}
 @keyframes pm-wiggle {
   0%,86%,100%{transform:rotate(0) scale(1)} 90%{transform:rotate(-12deg) scale(1.12)}
   94%{transform:rotate(10deg) scale(1.12)} 97%{transform:rotate(-4deg) scale(1.05)}
-}
-.pm-row .pm-chev { transition: transform .2s ease; color: var(--tint); display: flex; }
-/* dark-theme tints (brighter inks, rgba washes) */
-.pm-row.tint-violet { --tint:#A78BFA; --tint-bg:rgba(167,139,250,.16); --tint-bg2:rgba(167,139,250,.08); --tint-border:rgba(167,139,250,.30); }
-.pm-row.tint-green  { --tint:#4ADE80; --tint-bg:rgba(74,222,128,.14);  --tint-bg2:rgba(74,222,128,.07);  --tint-border:rgba(74,222,128,.28); }
-.pm-row.tint-blue   { --tint:#7FB0FF; --tint-bg:rgba(127,176,255,.15); --tint-bg2:rgba(127,176,255,.07); --tint-border:rgba(127,176,255,.30); }
-.pm-row.tint-rose   { --tint:#F57FB8; --tint-bg:rgba(245,127,184,.14); --tint-bg2:rgba(245,127,184,.07); --tint-border:rgba(245,127,184,.30); }
-.pm-row.tint-amber  { --tint:#F5B84A; --tint-bg:rgba(245,184,74,.15);  --tint-bg2:rgba(245,184,74,.07);  --tint-border:rgba(245,184,74,.30); }
-/* light-theme tints — the prototype's pastel palette */
-html[data-theme="light"] .pm-row.tint-violet { --tint:#6D48F0; --tint-bg:#E6DEFF; --tint-bg2:#F1ECFF; --tint-border:#D6CAFF; }
-html[data-theme="light"] .pm-row.tint-green  { --tint:#12994A; --tint-bg:#CDF1DA; --tint-bg2:#E3F7EA; --tint-border:#B4E5C6; }
-html[data-theme="light"] .pm-row.tint-blue   { --tint:#2569E0; --tint-bg:#D3E5FF; --tint-bg2:#E6F0FF; --tint-border:#BCD5FA; }
-html[data-theme="light"] .pm-row.tint-rose   { --tint:#D63384; --tint-bg:#FFD6E8; --tint-bg2:#FFE9F3; --tint-border:#F8BCD7; }
-html[data-theme="light"] .pm-row.tint-amber  { --tint:#B8760A; --tint-bg:#FDE9C8; --tint-bg2:#FDF3DF; --tint-border:#F3D9A0; }
-.pm-row-badge {
-  display: inline-block; margin-left: 7px; padding: 1px 7px;
-  border-radius: 99px; font-size: 10px; font-weight: 700;
-  background: var(--tint-bg, rgba(245,166,35,0.14)); color: var(--tint, #F5A623);
-  vertical-align: 1px;
 }
 .pm-save-link {
   display: flex; align-items: center; justify-content: center; gap: 6px;
