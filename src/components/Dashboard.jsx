@@ -146,16 +146,16 @@ export default function Dashboard({
     if (!d?.resourceId || preparingGuided) return;
     setPreparingGuided(d.shareToken);
     try {
-      const { text } = await extractResourceText({
+      const { text, images } = await extractResourceText({
         contentType: d.contentType, fileUrl: d.fileUrl, fileName: d.title, title: d.title,
       });
       const content = (text || "").trim();
-      if (!content) { showToast("Couldn't extract text from this file"); return; }
+      if (!content && !images?.length) { showToast("Couldn't extract text from this file"); return; }
       window.dispatchEvent(new CustomEvent("sc-open-study", {
         detail: {
           topic: d.title,
           mode: "auto-roadmap",
-          attachment: { name: d.title, content },
+          attachment: { name: d.title, content, images: images || [] },
           context: { resourceId: d.resourceId, matches: [{ title: d.title, contentType: d.contentType }] },
         },
       }));

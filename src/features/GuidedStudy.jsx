@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { callAI } from "../lib/aiClient";
+import { callAI, callAIMultimodal } from "../lib/aiClient";
+import { fetchDiagram } from "../lib/diagramSearch.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { CHEMISTRY_RULES_BRIEF } from "../lib/chemistryPrompt.js";
 import { getStudyCache, saveStudyCache, clearStudyCache, recordGuidedProgress } from "../lib/studyCache.js";
@@ -279,7 +280,8 @@ function normalizeChunk(chunk) {
     : (chunk.question || chunk.options
         ? { question: chunk.question, options: chunk.options, answer: chunk.answer, why: chunk.why ?? chunk.explanation }
         : null);
-  return { heading: String(chunk.heading || ""), markdown, check: normalizeCheck(mergedCheck) };
+  const diagram = String(chunk.diagram || chunk.figure || chunk.imageQuery || "").trim().slice(0, 90);
+  return { heading: String(chunk.heading || ""), markdown, diagram: diagram || null, check: normalizeCheck(mergedCheck) };
 }
 
 // ─── Context helpers ──────────────────────────────────────────────────────────
@@ -325,10 +327,27 @@ function buildPrevSectionBlock(prevSection, studiedTitles) {
   return parts.length > 0 ? `\n\n${parts.join(" ")}` : "";
 }
 
-async function aiRoadmap(topic, aiConfig, ctx, sourceContent = "") {
+// Text-only path uses callAI; when page/photo images are present the same
+// prompt goes through the multimodal endpoint so the AI can see them.
+function callStudyAI(prompt, aiConfig, images) {
+  return images?.length ? callAIMultimodal(prompt, images, [], aiConfig) : callAI(prompt, aiConfig);
+}
+
+// Pick the page images most relevant to a section — a proportional slice of
+// the scanned/photo material, capped at 3 so the vision payload stays small.
+function sectionImageSlice(images, sectionIdx, sectionCount) {
+  if (!images?.length) return [];
+  const n = images.length;
+  const per = Math.min(3, Math.ceil(n / Math.max(1, sectionCount)));
+  const from = Math.min(n - 1, Math.floor((sectionIdx / Math.max(1, sectionCount)) * n));
+  return images.slice(from, Math.min(n, from + per));
+}
+
+async function aiRoadmap(topic, aiConfig, ctx, sourceContent = "", sourceImages = []) {
   const ctxBlock = buildContextBlock(ctx);
   const contentSlice = sourceContent.trim() ? sourceContent.slice(0, CONTENT_LIMIT) : "";
-  const { min, max, hint } = estimateSectionCount(sourceContent);
+  const imgOnly = !contentSlice && sourceImages.length > 0;
+  const { min, max, hint } = imgOnly ? { min: 3, max: 6, hint: "" } : estimateSectionCount(sourceContent);
   const contentBlock = contentSlice
     ? `\n\nThe student provided the following study material. Your roadmap MUST cover ALL topics in this document — do not skip any section or concept. Derive each section title from the material's own headings and content, following the document's order:\n"""\n${contentSlice}\n"""`
     : "";
@@ -336,19 +355,24 @@ async function aiRoadmap(topic, aiConfig, ctx, sourceContent = "") {
   const outlineBlock = outline
     ? `\n\nThe material continues beyond the excerpt above. Here is its complete outline — your roadmap MUST include sections covering every heading in this outline, not just the excerpt:\n"""\n${outline}\n"""`
     : "";
-  const raw = await callAI(
-    `You are an expert educator. Generate a structured learning roadmap for: "${topic}"${ctxBlock}${contentBlock}${outlineBlock}
+  const visionImages = sourceImages.length ? sourceImages.slice(0, 6) : null;
+  const imageBlock = visionImages?.length
+    ? `\n\nThe student's study material is attached as ${sourceImages.length > 6 ? `${visionImages.length} of ${sourceImages.length} ` : ""}page image(s) — read everything visible (printed text, handwriting, labeled diagrams) and derive each section title from the material's own structure and order.`
+    : "";
+  const raw = await callStudyAI(
+    `You are an expert educator. Generate a structured learning roadmap for: "${topic}"${ctxBlock}${contentBlock}${outlineBlock}${imageBlock}
 Reply ONLY with valid JSON (no markdown):
 {"title":"topic title","description":"2-sentence engaging overview of what the student will learn","sections":[{"id":1,"title":"Section title","summary":"1 sentence describing what this covers"},{"id":2,"title":"...","summary":"..."}]}
 Include ${min}-${max} sections. Each section should cover one coherent concept or chunk of content that a student can absorb in a single sitting. Order from foundational to advanced. Keep summaries under 12 words. Use clear, specific section titles (not generic like "Introduction").${hint}`,
-    aiConfig
+    aiConfig,
+    visionImages
   );
   return extractJSON(raw);
 }
 
 // Returns { tldr, chunks:[{heading, markdown, check}] } on success,
 // or { text } as a fallback when the AI doesn't return valid structured JSON.
-async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitles, sourceContent = "", sectionIdx = 0, sectionCount = 1) {
+async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitles, sourceContent = "", sectionIdx = 0, sectionCount = 1, sourceImages = []) {
   const ctxBlock = buildContextBlock(ctx);
   const prevBlock = buildPrevSectionBlock(prevSection, studiedTitles);
   const docHint = ctx?.matches?.length > 0
@@ -358,8 +382,12 @@ async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitl
   const contentBlock = slice
     ? `\n\nThe student provided study material — here is the excerpt most relevant to this section${sourceContent.length > SECTION_CONTENT_LIMIT ? ` (~excerpt ${sectionIdx + 1} of ${sectionCount})` : ""}. Base your explanation on this content:\n"""\n${slice}\n"""`
     : "";
-  const raw = await callAI(
-    `You are an expert tutor teaching "${topic}". Teach this section: "${section.title}"${ctxBlock}${prevBlock}${docHint}${contentBlock}
+  const sectionImages = sectionImageSlice(sourceImages, sectionIdx, sectionCount);
+  const imageBlock = sectionImages.length
+    ? `\n\nThe page image(s) most relevant to this section are attached — teach directly from what is visible, referencing labels, diagrams and handwriting as needed.`
+    : "";
+  const raw = await callStudyAI(
+    `You are an expert tutor teaching "${topic}". Teach this section: "${section.title}"${ctxBlock}${prevBlock}${docHint}${contentBlock}${imageBlock}
 
 Reply ONLY with valid JSON (no markdown fences) in this exact shape:
 {"tldr":"one-sentence takeaway","chunks":[{"heading":"short heading","markdown":"2-4 short paragraphs of markdown","check":{"question":"quick comprehension question about THIS chunk","options":["option A","option B","option C","option D"],"answer":0,"why":"1 sentence explaining the correct answer"}}]}
@@ -371,8 +399,10 @@ Rules:
 - When a molecular structure or reaction genuinely helps (sugars, amino acids, drugs, simple organic chains — not water or simple ions): ${CHEMISTRY_RULES_BRIEF}
 - Every chunk MUST have a "check": a 4-option MCQ testing the core idea of that chunk (comprehension, not trivia)
 - "answer" is the 0-based index of the correct option — vary it across chunks
+- When a labeled visual would genuinely help a medical student — anatomical structures, organ systems, histology, pathways maps, devices — add "diagram":"short Wikimedia Commons search phrase" to that chunk (e.g. "nephron anatomy diagram", "brachial plexus diagram", "heart chambers labeled"). At most 1-2 chunks per section may carry a diagram; only concrete visual structures qualify — never add it for abstract concepts, and omit the field entirely otherwise
 - Keep the tone clear, encouraging, and concise`,
-    aiConfig
+    aiConfig,
+    sectionImages
   );
   const parsed = extractStudyJSON(raw);
   if (parsed?.chunks?.length) {
@@ -643,6 +673,52 @@ const LAUNCH_MSGS = {
 
 const STATUS_LABEL = { fuzzy: "Still fuzzy 🌫️", solid: "Got it 👍", mastered: "Nailed it 🔥" };
 
+// A Wikimedia Commons diagram resolved for a chunk — ChatGPT-style inline
+// card: white surface so anatomical illustrations stay readable in any theme,
+// attribution caption underneath. Skeleton while loading; quietly disappears
+// when no suitable image exists.
+function DiagramFigure({ query }) {
+  const [state, setState] = useState("loading"); // loading | ready | none
+  const [fig, setFig] = useState(null);
+  useEffect(() => {
+    let dead = false;
+    setState("loading"); setFig(null);
+    fetchDiagram(query).then(d => { if (dead) return; setFig(d); setState(d ? "ready" : "none"); });
+    return () => { dead = true; };
+  }, [query]);
+  if (state === "none") return null;
+  return (
+    <figure className="gs-animate" style={{
+      margin: "2px 0 14px", borderRadius: 14, overflow: "hidden",
+      border: "0.5px solid rgba(0,0,0,0.14)", background: "#fff",
+    }}>
+      {state === "loading" ? (
+        <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 22, height: 22, borderRadius: "50%", border: "3px solid rgba(0,0,0,0.10)", borderTopColor: "#8a7a3a", animation: "gs-spin 0.75s linear infinite" }} />
+        </div>
+      ) : (
+        <>
+          <img
+            src={fig.src} alt={query} loading="lazy"
+            style={{ display: "block", width: "100%", maxHeight: 280, objectFit: "contain", padding: 10, boxSizing: "border-box", background: "#fff" }}
+            onError={() => setState("none")}
+          />
+          <figcaption style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
+            padding: "6px 12px", borderTop: "0.5px solid rgba(0,0,0,0.08)",
+            fontSize: 10, color: "#666", fontFamily: "Manrope,sans-serif",
+          }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fig.title}</span>
+            <a href={fig.href} target="_blank" rel="noreferrer" style={{ color: "inherit", flexShrink: 0, opacity: 0.75 }}>
+              {fig.license ? `${fig.license} · ` : ""}Wikimedia Commons
+            </a>
+          </figcaption>
+        </>
+      )}
+    </figure>
+  );
+}
+
 export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null, onAskTutor = null, onViewSource = null, onExit = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");   // input | roadmap | section | review | summary
@@ -666,6 +742,10 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   const [autoError, setAutoError]       = useState("");
   const [sectionStep, setSectionStep]   = useState("learn");   // learn | question | feedback
   const [attachment]                    = useState(initialAttachment);
+  const sourceImages                    = useMemo(() => (Array.isArray(attachment?.images) ? attachment.images : []), [attachment]);
+  // Fingerprint for image-only materials so cache keys stay unique per upload.
+  const imgSeed                         = useMemo(() => sourceImages.length ? `img${sourceImages.length}:${contentHash(sourceImages[0] || "")}` : "", [sourceImages]);
+  const docSeed                         = sourceContent || imgSeed;
   const [isOnline, setIsOnline]         = useState(navigator.onLine);
   const [showHistory, setShowHistory]   = useState(false);
   const [sessions, setSessions]         = useState(() => loadSessions());
@@ -724,7 +804,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   // are instant when needed. Results land in the same cache handleStudy reads.
   useEffect(() => {
     if (phase !== "section" || !roadmap || !activeSection || !sectionData || sectionData.parseError) return;
-    const key = docCacheKey(topic, sourceContent);
+    const key = docCacheKey(topic, docSeed);
     const idx = roadmap.sections.findIndex(s => s.id === activeSection.id);
     const next = roadmap.sections[idx + 1];
 
@@ -736,7 +816,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           const c = cached?.explanations?.[String(next.id)];
           if (c?.structured?.chunks?.length || c?.text) return null;
           const titles = roadmap.sections.filter(s => studied[s.id]).map(s => s.title);
-          const data = await aiExplain(topic, next, aiConfig, studyContext, activeSection, [...titles, activeSection.title], sourceContent, idx + 1, roadmap.sections.length);
+          const data = await aiExplain(topic, next, aiConfig, studyContext, activeSection, [...titles, activeSection.title], sourceContent, idx + 1, roadmap.sections.length, sourceImages);
           if (data && !data.parseError) saveExplanation(key, next.id, data);
           return data || null;
         })().catch(() => null),
@@ -784,7 +864,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
   function persistProgress(studiedMap) {
     if (!roadmap) return;
-    saveStudyCache(docCacheKey(topic, sourceContent), { roadmap: { ...roadmap, resourceId: studyContext?.resourceId, progress: { studied: studiedMap } } });
+    saveStudyCache(docCacheKey(topic, docSeed), { roadmap: { ...roadmap, resourceId: studyContext?.resourceId, progress: { studied: studiedMap } } });
   }
 
   function resetSessionState() {
@@ -817,7 +897,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   async function autoRoadmap(topicStr, content = "") {
     if (offlineCheck()) return;
     setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap…");
-    const cacheTopic = docCacheKey(initialTopic || topicStr, content);
+    const cacheTopic = docCacheKey(initialTopic || topicStr, content || imgSeed);
     try {
       const cached = await applyCached(cacheTopic);
       if (cached && mountedRef.current) {
@@ -826,7 +906,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         return;
       }
       setLoadingMsg("Building your learning roadmap…");
-      const result = await aiRoadmap(topicStr, aiConfig, studyContext, content);
+      const result = await aiRoadmap(topicStr, aiConfig, studyContext, content, sourceImages);
       if (result?.sections?.length) {
         resetSessionState();
         setRoadmap(result); setPhase("roadmap"); setFromCache(false);
@@ -842,7 +922,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   async function autoExplain(topicStr, content = "") {
     if (offlineCheck()) return;
     setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap…");
-    const cacheTopic = docCacheKey(initialTopic || topicStr, content);
+    const cacheTopic = docCacheKey(initialTopic || topicStr, content || imgSeed);
     try {
       let result = null;
       const cached = await applyCached(cacheTopic);
@@ -851,7 +931,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         setFromCache(true);
       } else {
         setLoadingMsg("Building roadmap…");
-        result = await aiRoadmap(topicStr, aiConfig, studyContext, content);
+        result = await aiRoadmap(topicStr, aiConfig, studyContext, content, sourceImages);
         if (result?.sections?.length) {
           setFromCache(false);
           saveStudyCache(cacheTopic, { roadmap: { ...result, resourceId: studyContext?.resourceId } });
@@ -876,7 +956,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         return;
       }
       setLoadingMsg("Generating explanation…");
-      const data = await aiExplain(initialTopic, firstSection, aiConfig, studyContext, null, [], content, 0, result.sections.length);
+      const data = await aiExplain(initialTopic, firstSection, aiConfig, studyContext, null, [], content, 0, result.sections.length, sourceImages);
       setSectionData(data);
       if (!data.parseError) saveExplanation(cacheTopic, firstSection.id, data);
     } catch (e) {
@@ -901,7 +981,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       }
       setLoadingMsg("Building your learning roadmap…");
       if (pasted) setSourceContent(pasted);
-      const result = await aiRoadmap(topic, aiConfig, studyContext, pasted);
+      const result = await aiRoadmap(topic, aiConfig, studyContext, pasted, sourceImages);
       if (result?.sections?.length) {
         resetSessionState();
         setRoadmap(result);
@@ -921,7 +1001,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setPhase("section");
     setLoading(true); setLoadingMsg("Loading explanation…");
     try {
-      const cached = await getStudyCache(docCacheKey(topic, sourceContent));
+      const cached = await getStudyCache(docCacheKey(topic, docSeed));
       const sectionKey = String(section.id);
       const cachedExp = cached?.explanations?.[sectionKey];
       if (cachedExp?.structured?.chunks?.length) {
@@ -946,8 +1026,8 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         const studiedTitles = roadmap ? roadmap.sections.filter(s => studied[s.id]).map(s => s.title) : [];
         const prevSection = roadmap ? roadmap.sections.filter(s => studied[s.id]).pop() : null;
         const sectionIdx = roadmap ? Math.max(0, roadmap.sections.findIndex(s => s.id === section.id)) : 0;
-        data = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles, sourceContent, sectionIdx, roadmap?.sections.length || 1);
-        if (data && !data.parseError) saveExplanation(docCacheKey(topic, sourceContent), section.id, data);
+        data = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles, sourceContent, sectionIdx, roadmap?.sections.length || 1, sourceImages);
+        if (data && !data.parseError) saveExplanation(docCacheKey(topic, docSeed), section.id, data);
       }
       setSectionData(data);
     } finally { setLoading(false); }
@@ -1001,7 +1081,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setSectionStep("question");
     setLoading(true); setLoadingMsg("Generating a comprehension question…");
     try {
-      const key = docCacheKey(topic, sourceContent);
+      const key = docCacheKey(topic, docSeed);
       const sectionKey = String(activeSection.id);
       const cached = await getStudyCache(key);
       let q = cached?.explanations?.[sectionKey]?.question;
@@ -1348,12 +1428,12 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         <Btn variant="ghost" onClick={() => { resetSessionState(); setPhase("input"); setRoadmap(null); }}>← New topic</Btn>
         {fromCache && (
           <Btn variant="ghost" onClick={async () => {
-            const key = docCacheKey(topic, sourceContent);
+            const key = docCacheKey(topic, docSeed);
             await clearStudyCache(key);
             setFromCache(false);
             setLoading(true); setLoadingMsg("Regenerating roadmap…");
             try {
-              const result = await aiRoadmap(topic, aiConfig, studyContext, sourceContent);
+              const result = await aiRoadmap(topic, aiConfig, studyContext, sourceContent, sourceImages);
               if (result?.sections?.length) {
                 resetSessionState();
                 setRoadmap(result);
@@ -1462,6 +1542,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                         <div style={{ fontSize:13.5, color:"var(--app-text)", lineHeight:1.75, fontFamily:"Manrope,sans-serif" }}>
                           <MarkdownText theme="gold">{chunk.markdown}</MarkdownText>
                         </div>
+                        {chunk.diagram && <DiagramFigure query={chunk.diagram} />}
                         {chunk.check && (
                           <CheckCard
                             check={chunk.check}

@@ -1649,14 +1649,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
     setPreparingStudy(true);
     try {
-      const { text, pageStarts } = await extractResourceText(file);
+      const { text, images, pageStarts } = await extractResourceText(file);
       const content = (text || "").trim();
-      if (!content) { showToast("Couldn't extract text from this file"); return; }
+      if (!content && !images?.length) { showToast("Couldn't extract text from this file"); return; }
       window.dispatchEvent(new CustomEvent("sc-open-study", {
         detail: {
           topic: file.title,
           mode: "auto-roadmap",
-          attachment: { name: file.fileName || file.title, content, pageStarts, shareToken: file.shareToken },
+          attachment: { name: file.fileName || file.title, content, pageStarts, shareToken: file.shareToken, images: images || [] },
           context: { resourceId: file.id, matches: [{ title: file.title, contentType: file.contentType }], returnTo: { folderId: file.folderId || activeFolder } },
         },
       }));
