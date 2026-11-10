@@ -109,26 +109,25 @@ const IcoSliders = (p) => (
     <path d="M4 16h10" /><path d="M18 16h2" /><circle cx="16" cy="16" r="2" />
   </I>
 );
-const IcoCircle = (p) => <I {...p}><ellipse cx="12" cy="12" rx="8" ry="5.5" strokeDasharray="3 3" /><path d="M12 12l5 5" /></I>;
-const IcoChat = (p) => <I {...p}><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.3A8 8 0 1 1 21 12z" /></I>;
 const IcoChevron = (p) => <I {...p}><path d="M9 6l6 6-6 6" /></I>;
 const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></I>;
 const IcoBookmark = (p) => <I {...p}><path d="M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z" /></I>;
 
 
-function PmTile({ icon, name, sub, tint, featured, badge, disabled, onClick, delay = 0 }) {
+function PmRow({ icon, name, sub, tint, badge, disabled, onClick, delay = 0 }) {
   return (
     <button
-      className={`pm-tile pm-anim${tint ? ` ${tint}` : ""}${featured ? " featured" : ""}`}
+      className={`pm-row pm-anim${tint ? ` ${tint}` : ""}`}
       style={{ animationDelay: `${delay}ms` }}
       disabled={disabled}
       onClick={onClick}
     >
-      {badge && <span className="pm-tile-badge">{badge}</span>}
       <span className="pm-tile-icon">{icon}</span>
-      <span className="pm-tile-name">{name}</span>
-      <span className="pm-tile-sub">{sub}</span>
-      <span className="pm-tile-arrow"><IcoChevron size={14} /></span>
+      <span className="pm-live-body">
+        <span className="pm-tile-name">{name}{badge && <span className="pm-row-badge">{badge}</span>}</span>
+        <span className="pm-live-sub">{sub}</span>
+      </span>
+      <span className="pm-chev"><IcoChevron size={16} /></span>
     </button>
   );
 }
@@ -422,7 +421,6 @@ export default function PracticeSheet({
     : <IcoFile size={11} />;
 
   const isPdf = file.contentType === "pdf" || /\.pdf$/i.test(file.fileName || "");
-  const pageCount = file.pageCount || file.pages || null;
   const mastered = mcqPct != null && mcqPct >= 90;
   const askAi = (mode) => act(() => {
     try { sessionStorage.setItem("sc_reader_intro", mode); } catch { /* storage unavailable */ }
@@ -434,12 +432,12 @@ export default function PracticeSheet({
   if (!mcq) {
     const fresh = canExtract && !gsProg && lastStudiedTs === 0;
     hero = fresh
-      ? { name: "Study with AI", badge: "Start here", sub: "Walks you through the file section by section", cta: "Start studying", icon: <IcoBrain size={21} />, run: () => onGuidedStudy?.(file), disabled: preparingStudy, alt: canExtract ? { label: "Or make practice questions", run: () => onGenerate?.(file, "mcqs") } : null }
-      : { name: "Make practice questions", badge: "Setup", sub: heroSub, cta: generating ? "Generating…" : "Make practice questions", icon: <IcoBolt size={21} />, run: () => onGenerate?.(file, "mcqs"), disabled: generating };
+      ? { key: "study", name: "Study with AI", badge: "Start here", sub: "Walks you through the file section by section", cta: "Start studying", icon: <IcoBrain size={21} />, run: () => onGuidedStudy?.(file), disabled: preparingStudy, alt: canExtract ? { label: "Or make practice questions", run: () => onGenerate?.(file, "mcqs") } : null }
+      : { key: "make", name: "Make practice questions", badge: "Setup", sub: heroSub, cta: generating ? "Generating…" : "Make practice questions", icon: <IcoBolt size={21} />, run: () => onGenerate?.(file, "mcqs"), disabled: generating };
   } else if (mastered && canExtract) {
-    hero = { name: "Take an exam", badge: "Ready", sub: `${mcqPct}% learned — test yourself under exam conditions`, cta: "Start exam", icon: <IcoClipboard size={21} />, run: () => onExamSimulation?.(exam || file), alt: { label: "Keep practising", run: () => onOpen(mcq.shareToken) } };
+    hero = { key: "exam", name: "Take an exam", badge: "Ready", sub: `${mcqPct}% learned — test yourself under exam conditions`, cta: "Start exam", icon: <IcoClipboard size={21} />, run: () => onExamSimulation?.(exam || file), alt: { label: "Keep practising", run: () => onOpen(mcq.shareToken) } };
   } else {
-    hero = { name: "Practice questions", badge: "Ready", sub: heroSub, cta: prog ? "Continue practice" : "Start practice", icon: <IcoBolt size={21} />, run: () => onOpen(mcq.shareToken), showMeta: true };
+    hero = { key: "practice", name: "Practice questions", badge: "Ready", sub: heroSub, cta: prog ? "Continue practice" : "Start practice", icon: <IcoBolt size={21} />, run: () => onOpen(mcq.shareToken), showMeta: true };
   }
 
   const shownPeople = livePeople.slice(0, 3);
@@ -527,9 +525,9 @@ export default function PracticeSheet({
             )}
           </section>
 
-          <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>Learn</div>
-          <div className="pm-grid">
-            <PmTile
+          <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to study</div>
+          {hero.key !== "study" && (
+            <PmRow
               delay={90}
               tint="tint-violet" badge={gsBadge}
               icon={<IcoBrain size={17} />}
@@ -538,52 +536,10 @@ export default function PracticeSheet({
               disabled={!canExtract || generating || preparingStudy}
               onClick={act(() => onGuidedStudy?.(file))}
             />
-            {isPdf ? (
-              <PmTile
-                delay={110}
-                tint="tint-blue"
-                icon={<IcoCircle size={17} />}
-                name="Circle to Ask"
-                sub="Circle anything in the file for an instant answer"
-                onClick={askAi("circle")}
-              />
-            ) : (
-              <PmTile
-                delay={110}
-                tint="tint-blue"
-                icon={<IcoFileText size={17} />}
-                name="Summary"
-                sub={summary ? "AI recap" : "Tap to create"}
-                disabled={generating}
-                onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
-              />
-            )}
-          </div>
-          {isPdf && (
-            <button type="button" className="pm-ask-row pm-anim" style={{ animationDelay: "130ms" }} onClick={askAi("chat")}>
-              <span className="pm-tile-icon"><IcoChat size={16} /></span>
-              <span className="pm-live-body">
-                <span className="pm-tile-name">Ask AI about this file</span>
-                <span className="pm-live-sub">Chat, then tap ＋ Add to deck to save questions</span>
-              </span>
-              <span className="pm-chev"><IcoChevron size={16} /></span>
-            </button>
           )}
-
-          <div className="pm-section pm-anim" style={{ animationDelay: "150ms" }}>Test yourself</div>
-          <div className="pm-grid">
-            <PmTile
-              delay={170}
-              tint="tint-amber"
-              icon={<IcoBolt size={17} />}
-              name="Practice questions"
-              badge={mcq && mcqCount ? `${mcqCount}` : null}
-              sub={mcq ? (prog ? "Continue where you stopped" : "Quiz made from this file") : "Tap to make them"}
-              disabled={generating}
-              onClick={act(() => (mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs")))}
-            />
-            <PmTile
-              delay={190}
+          {hero.key !== "exam" && (
+            <PmRow
+              delay={130}
               tint="tint-green"
               icon={<IcoClipboard size={17} />}
               name="Exam"
@@ -598,23 +554,28 @@ export default function PracticeSheet({
               disabled={!canExtract || generating}
               onClick={act(() => onExamSimulation?.(exam || file))}
             />
-            {isPdf && (
-              <PmTile
-                delay={210}
-                tint="tint-blue"
-                icon={<IcoFileText size={17} />}
-                name="Summary"
-                sub={summary ? "AI recap" : "Tap to create"}
-                disabled={generating}
-                onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
-              />
-            )}
-          </div>
+          )}
+          <PmRow
+            delay={150}
+            tint="tint-blue"
+            icon={<IcoFileText size={17} />}
+            name="Summary"
+            sub={summary ? "AI recap" : "Tap to create"}
+            disabled={generating}
+            onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
+          />
+          <PmRow
+            delay={170}
+            tint="tint-blue"
+            icon={<IcoFile size={17} />}
+            name={isPdf ? "Read & ask AI" : "Open file"}
+            sub={isPdf ? "Circle anything for an instant answer" : (file.fileName || "Source document")}
+            onClick={isPdf ? askAi("circle") : act(() => onOpen(file.shareToken))}
+          />
 
-          <div className="pm-section pm-anim" style={{ animationDelay: "230ms" }}>With friends</div>
           <button
             className="pm-live pm-anim"
-            style={{ animationDelay: "250ms" }}
+            style={{ animationDelay: "210ms" }}
             disabled={liveMatch ? false : (generating || goingLive)}
             onClick={act(() => (liveMatch ? onJoinLive?.(liveMatch.code) : mcq ? onGoLive?.(file) : onGenerate?.(file, "mcqs")))}
             aria-label={liveMatch ? `Join live quiz — ${liveMatch.players} in lobby` : "Go live with friends — quiz together in real time"}
@@ -637,16 +598,11 @@ export default function PracticeSheet({
             <span className="pm-chev"><IcoChevron size={16} /></span>
           </button>
 
-          <div className="pm-footer-row">
-            <button type="button" className="pm-footer-btn" onClick={act(() => onOpen(file.shareToken))}>
-              <IcoFile size={14} />Open file
+          {onSaveMaterial && (
+            <button type="button" className="pm-save-link pm-anim" style={{ animationDelay: "240ms" }} onClick={act(() => onSaveMaterial(file))}>
+              <IcoBookmark size={13} />Save to My Space
             </button>
-            {onSaveMaterial && (
-              <button type="button" className="pm-footer-btn" onClick={act(() => onSaveMaterial(file))}>
-                <IcoBookmark size={14} />Save to My Space
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Session settings — anchored popover, survives the hero's overflow:clip */}
