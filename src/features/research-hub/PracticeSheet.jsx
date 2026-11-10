@@ -114,11 +114,11 @@ const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6
 const IcoBookmark = (p) => <I {...p}><path d="M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z" /></I>;
 
 
-function PmRow({ icon, name, sub, tint, badge, disabled, onClick, delay = 0 }) {
+function PmRow({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000 }) {
   return (
     <button
-      className={`pm-row pm-anim${tint ? ` ${tint}` : ""}`}
-      style={{ animationDelay: `${delay}ms` }}
+      className={`pm-row${tint ? ` ${tint}` : ""}`}
+      style={{ "--d": `${delay}ms`, "--wd": `${wdelay}ms` }}
       disabled={disabled}
       onClick={onClick}
     >
@@ -130,6 +130,23 @@ function PmRow({ icon, name, sub, tint, badge, disabled, onClick, delay = 0 }) {
       <span className="pm-chev"><IcoChevron size={16} /></span>
     </button>
   );
+}
+
+// Eased 0→target count-up for the hero's question number
+function useCountUp(target, { delay = 500, dur = 1100 } = {}) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf;
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, Math.max(0, (now - t0 - delay) / dur));
+      setN(Math.round((target || 0) * (1 - Math.pow(1 - k, 3))));
+      if (k < 1 && target) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, delay, dur]);
+  return n;
 }
 
 /**
@@ -170,6 +187,9 @@ export default function PracticeSheet({
   const [prefs, setPrefs] = useState(() => loadSave()?.quizPrefs || { style: "smart", recallFirst: true, speedRound: false });
   const [settingsPos, setSettingsPos] = useState(null);
   const gearRef = useRef(null);
+  // Eased 0→N count-up for the hero's question count (prototype)
+  const mcqCountForAnim = getVariantCount(file?.variants?.mcq);
+  const qNum = useCountUp(file ? mcqCountForAnim : 0);
 
   const setPref = (k, v) => {
     setPrefs((p) => ({ ...p, [k]: v }));
@@ -378,9 +398,9 @@ export default function PracticeSheet({
   const heroSub = mcq
     ? prog
       ? mcqPct != null
-        ? `${mcqCount} questions · ${mcqPct}% learned`
+        ? <><b className="pm-count-num">{qNum}</b>{` questions · ${mcqPct}% learned`}</>
         : `best ${prog.bestScore}/${prog.bestTotal ?? prog.total ?? "?"}${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
-      : (mcqCount ? `${mcqCount} questions ready to go` : "Ready to practice")
+      : (mcqCount ? <><b className="pm-count-num">{qNum}</b> questions ready to go</> : "Ready to practice")
     : "Turn this material into a quiz you can practise";
 
   const gsDone = gsProg && gsProg.done >= gsProg.total;
@@ -482,8 +502,21 @@ export default function PracticeSheet({
           {/* Smart next step — changes with how far along this material is */}
           <section className="pm-hero pm-hero-enter" aria-label="Next step">
             <div className="pm-hero-shimmer" aria-hidden="true" />
+            <span className="pm-aurora pm-aurora-a" aria-hidden="true" />
+            <span className="pm-aurora pm-aurora-b" aria-hidden="true" />
+            <span className="pm-aurora pm-aurora-c" aria-hidden="true" />
+            {[
+              ["60px", "30px", "4.2s", "1s", "#FFD27A", "5px"],
+              ["150px", "20px", "5s", "2.1s", "#FF9DB8", "4px"],
+              ["230px", "28px", "4.6s", "1.6s", "#B8A2FF", "6px"],
+              ["300px", "16px", "5.4s", "3s", "#FFD27A", "4px"],
+              ["110px", "10px", "4.8s", "0.4s", "#8FE3C4", "3px"],
+            ].map(([fx, fy, fd, fdel, fc, fs], i) => (
+              <span key={i} className="pm-spark" aria-hidden="true"
+                style={{ "--fx": fx, "--fy": fy, "--fd": fd, "--fdel": fdel, "--fc": fc, "--fs": fs }} />
+            ))}
             <div className="pm-hero-row">
-              <div className="pm-hero-icon">{hero.icon}</div>
+              <div className="pm-hero-icon"><span className="pm-hero-ring" aria-hidden="true" />{hero.icon}</div>
               <div className="pm-hero-info">
                 <div className="pm-hero-name-row">
                   <span className="pm-hero-name">{hero.name}</span>
@@ -518,6 +551,7 @@ export default function PracticeSheet({
               </div>
             </div>
             <button className="pm-hero-btn" disabled={hero.disabled} onClick={act(hero.run)}>
+              <span className="pm-btn-sweep" aria-hidden="true" />
               {hero.cta} <IcoArrowRight size={15} />
             </button>
             {hero.alt && (
@@ -528,7 +562,7 @@ export default function PracticeSheet({
           <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to study</div>
           {hero.key !== "study" && (
             <PmRow
-              delay={90}
+              delay={90} wdelay={2000}
               tint="tint-violet" badge={gsBadge}
               icon={<IcoBrain size={17} />}
               name="Study with AI"
@@ -539,7 +573,7 @@ export default function PracticeSheet({
           )}
           {hero.key !== "exam" && (
             <PmRow
-              delay={130}
+              delay={130} wdelay={3200}
               tint="tint-green"
               icon={<IcoClipboard size={17} />}
               name="Exam"
@@ -556,7 +590,7 @@ export default function PracticeSheet({
             />
           )}
           <PmRow
-            delay={150}
+            delay={150} wdelay={4400}
             tint="tint-blue"
             icon={<IcoFileText size={17} />}
             name="Summary"
@@ -565,8 +599,8 @@ export default function PracticeSheet({
             onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
           />
           <PmRow
-            delay={170}
-            tint="tint-blue"
+            delay={170} wdelay={5600}
+            tint="tint-rose"
             icon={<IcoFile size={17} />}
             name={isPdf ? "Read & ask AI" : "Open file"}
             sub={isPdf ? "Circle anything for an instant answer" : (file.fileName || "Source document")}
@@ -574,8 +608,8 @@ export default function PracticeSheet({
           />
 
           <button
-            className="pm-live pm-anim"
-            style={{ animationDelay: "210ms" }}
+            className="pm-live"
+            style={{ "--d": "210ms" }}
             disabled={liveMatch ? false : (generating || goingLive)}
             onClick={act(() => (liveMatch ? onJoinLive?.(liveMatch.code) : mcq ? onGoLive?.(file) : onGenerate?.(file, "mcqs")))}
             aria-label={liveMatch ? `Join live quiz — ${liveMatch.players} in lobby` : "Go live with friends — quiz together in real time"}
@@ -590,9 +624,9 @@ export default function PracticeSheet({
                 {shownPeople.map((p, i) =>
                   <AvatarMark key={i} avatar={p.avatar} name={p.name} size={20}
                     className={`pm-avatar${p.avatar ? "" : ` pm-av-${i}`}`}
-                    style={{ marginLeft: i === 0 ? 0 : -7, border: "2px solid var(--app-card)", background: "unset" }} />
+                    style={{ marginLeft: i === 0 ? 0 : -7, border: "2px solid var(--app-card)", background: "unset", "--ad": `${500 + i * 100}ms` }} />
                 )}
-                {extraPeople > 0 && <span className="pm-avatar pm-av-2">+{extraPeople}</span>}
+                {extraPeople > 0 && <span className="pm-avatar pm-av-2" style={{ "--ad": `${500 + shownPeople.length * 100}ms` }}>+{extraPeople}</span>}
               </span>
             )}
             <span className="pm-chev"><IcoChevron size={16} /></span>

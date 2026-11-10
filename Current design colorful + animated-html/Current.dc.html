@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Practice Current Colorful</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Source+Serif+4:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFCF5}
+button{font-family:inherit}
+.cd-btn{transition:transform .15s ease}
+.cd-btn:active{transform:scale(.97)}
+.cd-row{transition:transform .15s ease,box-shadow .2s ease}
+.cd-row:active{transform:scale(.985)}
+.cd-row:active .cd-chev{transform:translateX(5px)}
+.cd-chev{transition:transform .2s ease}
+@keyframes cd-rise{0%{opacity:0;transform:translateY(24px) scale(.95)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes cd-pop{0%{opacity:0;transform:translateY(10px) scale(.9)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes cd-fade{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes cd-slide{0%{opacity:0;transform:translateX(34px)}100%{opacity:1;transform:translateX(0)}}
+@keyframes cd-breathe{0%,100%{box-shadow:0 10px 30px rgba(245,158,11,.18)}50%{box-shadow:0 14px 44px rgba(245,158,11,.38),0 0 0 1px rgba(255,190,70,.35)}}
+@keyframes cd-aurora-a{0%,100%{transform:translate(-10%,-10%) scale(1)}50%{transform:translate(25%,15%) scale(1.25)}}
+@keyframes cd-aurora-b{0%,100%{transform:translate(20%,10%) scale(1.1)}50%{transform:translate(-20%,-5%) scale(.9)}}
+@keyframes cd-aurora-c{0%,100%{transform:translate(0,0) scale(.9)}50%{transform:translate(-30%,20%) scale(1.3)}}
+@keyframes cd-float{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:.9}100%{transform:translateY(-120px) scale(1.1);opacity:0}}
+@keyframes cd-ring{0%{transform:scale(1);opacity:.6}70%,100%{transform:scale(1.7);opacity:0}}
+@keyframes cd-bolt{0%,60%,100%{transform:scale(1) rotate(0)}66%{transform:scale(1.3) rotate(-10deg)}72%{transform:scale(.9) rotate(6deg)}79%{transform:scale(1.15) rotate(-3deg)}88%{transform:scale(1) rotate(0)}}
+@keyframes cd-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.7);opacity:.4}}
+@keyframes cd-sweep{0%,55%{transform:translateX(-160%) skewX(-20deg)}100%{transform:translateX(560%) skewX(-20deg)}}
+@keyframes cd-nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
+@keyframes cd-wiggle{0%,86%,100%{transform:rotate(0) scale(1)}90%{transform:rotate(-12deg) scale(1.12)}94%{transform:rotate(10deg) scale(1.12)}97%{transform:rotate(-4deg) scale(1.05)}}
+@keyframes cd-hue{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes cd-bounce{0%{opacity:0;transform:translateY(14px) scale(.5)}60%{opacity:1;transform:translateY(-4px) scale(1.1)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes cd-tick{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){
+.cd-anim,.cd-anim *{animation:none !important}
+}
+</style>
+</helmet>
+<div class="cd-anim" style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background: #FFFCF5; color: #1E1B16; font-family: 'Inter', system-ui, sans-serif; overflow: hidden">
+
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 84px; box-sizing: border-box; padding: 26px 16px 0 16px; display: flex; align-items: center; justify-content: space-between; background: #8D8A82; border-bottom: 1px solid #77746C">
+<div style="width: 40px; height: 40px; border-radius: 12px; background: #7D7A72"></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 3px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: .22em; color: #4A4740">COURSE SPACE</span>
+<span style="font-size: 16px; font-weight: 600; color: #1E1B16">200 Level · First Semester</span>
+</div>
+<div style="width: 40px; height: 40px; border-radius: 12px; background: #7D7A72"></div>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; top: 84px; bottom: 0; box-sizing: border-box; background: linear-gradient(180deg, #FFFCF5 0%, #FFFAF0 100%); padding: 0 16px; display: flex; flex-direction: column">
+
+<div aria-hidden="true" style="align-self: center; width: 36px; height: 4px; border-radius: 2px; background: #D8D4CA; margin: 10px 0 18px 0"></div>
+
+<div style="display: flex; align-items: flex-start; justify-content: space-between; animation: cd-fade .5s ease both">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="font-size: 11px; font-weight: 700; letter-spacing: .14em; color: #8F8A80">PRACTICE</div>
+<h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 22px; line-height: 1.15; font-weight: 700">Chemistry of CARBOHYDRATES</h1>
+<div style="display: flex; align-items: center; gap: 6px; color: #6B665C; font-size: 13px; margin-top: 2px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>
+BCH
+</div>
+</div>
+<button onClick="{{ close }}" aria-label="Close" class="cd-btn" style="flex: none; width: 44px; height: 44px; border: 0; border-radius: 22px; background: transparent; color: #8F8A80; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-top: -4px">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"></path></svg>
+</button>
+</div>
+
+<sc-if value="{{ show }}" hint-placeholder-val="{{ true }}">
+<div style="position: relative; margin-top: 18px; box-sizing: border-box; padding: 16px; border-radius: 24px; background: #1B1306; overflow: hidden; display: flex; flex-direction: column; gap: 12px; animation: cd-rise .7s cubic-bezier(.2,.8,.2,1) both, cd-breathe 3.6s ease-in-out 1.2s infinite">
+
+<span aria-hidden="true" style="position: absolute; left: -40px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,170,30,.75), rgba(255,170,30,0) 70%); filter: blur(24px); animation: cd-aurora-a 8s ease-in-out infinite"></span>
+<span aria-hidden="true" style="position: absolute; right: -60px; top: -20px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(255,90,120,.5), rgba(255,90,120,0) 70%); filter: blur(26px); animation: cd-aurora-b 10s ease-in-out infinite"></span>
+<span aria-hidden="true" style="position: absolute; right: 10px; bottom: -70px; width: 220px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(140,100,255,.5), rgba(140,100,255,0) 70%); filter: blur(28px); animation: cd-aurora-c 9s ease-in-out infinite"></span>
+
+<span aria-hidden="true" style="position: absolute; left: 60px; bottom: 30px; width: 5px; height: 5px; border-radius: 3px; background: #FFD27A; animation: cd-float 4.2s ease-out 1s infinite"></span>
+<span aria-hidden="true" style="position: absolute; left: 150px; bottom: 20px; width: 4px; height: 4px; border-radius: 2px; background: #FF9DB8; animation: cd-float 5s ease-out 2.1s infinite"></span>
+<span aria-hidden="true" style="position: absolute; left: 230px; bottom: 28px; width: 6px; height: 6px; border-radius: 3px; background: #B8A2FF; animation: cd-float 4.6s ease-out 1.6s infinite"></span>
+<span aria-hidden="true" style="position: absolute; left: 300px; bottom: 16px; width: 4px; height: 4px; border-radius: 2px; background: #FFD27A; animation: cd-float 5.4s ease-out 3s infinite"></span>
+<span aria-hidden="true" style="position: absolute; left: 110px; bottom: 10px; width: 3px; height: 3px; border-radius: 2px; background: #8FE3C4; animation: cd-float 4.8s ease-out 0.4s infinite"></span>
+
+<div style="position: relative; display: flex; gap: 12px; align-items: center; animation: cd-pop .5s cubic-bezier(.2,.8,.2,1) .15s both">
+<button onClick="{{ replay }}" aria-label="Replay animation" class="cd-btn" style="position: relative; flex: none; width: 48px; height: 48px; border-radius: 16px; border: 1px solid rgba(255,200,90,.5); background: rgba(255,179,53,.18); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0">
+<span aria-hidden="true" style="position: absolute; inset: 0; border-radius: 16px; border: 2px solid #FFC85A; animation: cd-ring 2.4s ease-out 1s infinite"></span>
+<svg aria-hidden="true" width="25" height="25" viewBox="0 0 24 24" fill="#FFC24A" stroke="#FFC24A" stroke-width="1.5" stroke-linejoin="round" style="animation: cd-bolt 4.2s ease-in-out 1.4s infinite"><path d="M13 2L4 14h7l-1 8 9-12h-7z"></path></svg>
+</button>
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="font-size: 18px; font-weight: 700; color: #FFF6E4">Practice questions</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 8px; border: 1px solid #2E8A54; background: rgba(34,160,90,.28); color: #6FE9A0; font-size: 12px; font-weight: 600">
+<span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 3px; background: #6FE9A0; animation: cd-dot 1.6s ease-in-out infinite"></span>
+Ready
+</span>
+</div>
+<div style="font-size: 14px; color: #F1D9A8; font-variant-numeric: tabular-nums"><span style="display: inline-block; font-weight: 700; color: #FFD27A; animation: cd-tick .4s ease 1.9s both">{{ nText }}</span> questions ready to go</div>
+</div>
+</div>
+
+<div style="position: relative; display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(255,200,90,.45); background: rgba(255,179,53,.18); color: #FFD27A; font-size: 13px; font-weight: 600; animation: cd-pop .45s cubic-bezier(.2,.8,.2,1) .45s both">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+~3 min
+</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(180,160,255,.5); background: rgba(140,110,255,.22); color: #D4C8FF; font-size: 13px; font-weight: 600; animation: cd-pop .45s cubic-bezier(.2,.8,.2,1) .6s both">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>
+Asked as: Choices
+</span>
+</div>
+
+<button onClick="{{ startPractice }}" class="cd-btn" style="position: relative; height: 48px; border: 0; border-radius: 16px; background: linear-gradient(100deg, #F9C14A, #F29A1A, #F9C14A); background-size: 200% 100%; color: #1A1204; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; overflow: hidden; box-shadow: 0 6px 22px rgba(245,158,11,.4); animation: cd-pop .5s cubic-bezier(.2,.8,.2,1) .8s both, cd-hue 4s ease-in-out 1.5s infinite">
+<span aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 28%; height: 100%; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.6), rgba(255,255,255,0)); animation: cd-sweep 3.6s ease-in-out 2s infinite"></span>
+Start practice
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="animation: cd-nudge 1.3s ease-in-out 1.6s infinite"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+</button>
+
+</div>
+</sc-if>
+
+<div style="display: flex; align-items: center; gap: 12px; margin: 20px 0 10px 0; animation: cd-fade .5s ease .9s both">
+<span style="font-size: 11px; font-weight: 700; letter-spacing: .14em; color: #5B6478; white-space: nowrap">MORE WAYS TO STUDY</span>
+<span aria-hidden="true" style="flex: 1; height: 2px; border-radius: 1px; background: linear-gradient(90deg, #C9B8FF, #9ED8C0, #F7B6D2, rgba(247,182,210,0))"></span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{ modes }}" as="m" hint-placeholder-count="4">
+<button onClick="{{ m.open }}" class="cd-btn cd-row" style="position: relative; box-sizing: border-box; min-height: 62px; padding: 8px 14px 8px 12px; border-radius: 18px; border: 1px solid {{ m.edge }}; background: linear-gradient(90deg, {{ m.wash }} 0%, #FFFFFF 60%); color: #1E1B16; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 12px; overflow: hidden; animation: cd-slide .55s cubic-bezier(.2,.8,.2,1) {{ m.delay }} both">
+<span style="flex: none; width: 40px; height: 40px; border-radius: 13px; display: flex; align-items: center; justify-content: center; background: {{ m.tint }}; color: {{ m.ink }}; animation: cd-wiggle 6s ease-in-out {{ m.wdelay }} infinite">
+<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ m.icon }}"></path><path d="{{ m.icon2 }}"></path></svg>
+</span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600">
+{{ m.title }}
+<sc-if value="{{ m.ai }}" hint-placeholder-val="{{ false }}">
+<span style="position: relative; overflow: hidden; height: 20px; padding: 0 8px; border-radius: 7px; background: #FFE9BD; color: #C77A00; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center">
+<span aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 40%; height: 100%; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.8), rgba(255,255,255,0)); animation: cd-sweep 3s ease-in-out 2s infinite"></span>
+AI
+</span>
+</sc-if>
+</span>
+<span style="font-size: 13px; color: #6B665C">{{ m.sub }}</span>
+</span>
+<svg aria-hidden="true" class="cd-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ m.ink }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+</sc-for>
+</div>
+
+<button onClick="{{ goLive }}" class="cd-btn cd-row" style="position: relative; margin-top: 8px; box-sizing: border-box; min-height: 76px; padding: 10px 14px 10px 12px; border-radius: 18px; border: 1px solid #A8E3D6; background: linear-gradient(90deg, #DDF6F1 0%, #FFFFFF 60%); color: #1E1B16; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left; animation: cd-slide .55s cubic-bezier(.2,.8,.2,1) 1.45s both">
+<span style="flex: none; width: 40px; height: 40px; border-radius: 13px; background: #C6F0E7; color: #0B9C88; display: flex; align-items: center; justify-content: center; animation: cd-wiggle 6s ease-in-out 5s infinite">
+<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .7 3.5 2.6 3.5 5.5"></path></svg>
+</span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600"><span aria-hidden="true" style="width: 9px; height: 9px; border-radius: 5px; background: #22C55E; animation: cd-dot 1.8s ease-in-out infinite"></span>Live quiz with friends</span>
+<span style="font-size: 13px; color: #6B665C">Everyone answers the same questions live</span>
+</span>
+<span style="flex: none; display: flex; align-items: center">
+<span style="width: 26px; height: 26px; border-radius: 13px; background: #FFD27A; color: #5A3B00; border: 2px solid #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; animation: cd-bounce .5s ease 1.8s both">T</span>
+<span style="width: 26px; height: 26px; margin-left: -8px; border-radius: 13px; background: #CBBBFF; color: #34246E; border: 2px solid #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; animation: cd-bounce .5s ease 1.9s both">C</span>
+<span style="width: 26px; height: 26px; margin-left: -8px; border-radius: 13px; background: #FFB6D2; color: #6E1B3F; border: 2px solid #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; animation: cd-bounce .5s ease 2s both">B</span>
+<span style="width: 26px; height: 26px; margin-left: -8px; border-radius: 13px; background: #1FB58A; color: #fff; border: 2px solid #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; animation: cd-bounce .5s ease 2.1s both">+2</span>
+</span>
+<svg aria-hidden="true" class="cd-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B9C88" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+
+</div>
+
+<sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 20px; right: 20px; bottom: 28px; padding: 14px 16px; border-radius: 14px; background: #1E1B16; color: #FFFCF5; font-size: 14px; font-weight: 600; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.25)">{{ toastText }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { show: true, n: 0, toastOn: false, toastText: '' };
+    this._t = null;
+    this._raf = null;
+    this._gone = false;
+  }
+  componentDidMount() {
+    this.countUp();
+  }
+  componentWillUnmount() {
+    this._gone = true;
+    if (this._t) clearTimeout(this._t);
+    if (this._raf) cancelAnimationFrame(this._raf);
+  }
+  countUp() {
+    if (this._raf) cancelAnimationFrame(this._raf);
+    const delay = 500;
+    const dur = 1200;
+    const t0 = performance.now();
+    const step = (now) => {
+      if (this._gone) return;
+      const k = Math.min(1, Math.max(0, (now - t0 - delay) / dur));
+      const eased = 1 - Math.pow(1 - k, 3);
+      this.setState({ n: Math.round(25 * eased) });
+      if (k < 1) this._raf = requestAnimationFrame(step);
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+  replay() {
+    if (this._raf) cancelAnimationFrame(this._raf);
+    this.setState({ show: false, n: 0 });
+    setTimeout(() => {
+      if (this._gone) return;
+      this.setState({ show: true });
+      this.countUp();
+    }, 80);
+  }
+  toast(text) {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ toastText: text, toastOn: true });
+    this._t = setTimeout(() => this.setState({ toastOn: false }), 1800);
+  }
+  renderVals() {
+    const defs = [
+      { title: 'Study with AI', sub: 'AI walkthrough', ai: true, ink: '#6D48F0', tint: '#E6DEFF', wash: '#F1ECFF', edge: '#D6CAFF', icon: 'M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z', icon2: 'M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z' },
+      { title: 'Exam', sub: 'Timed, exam-style paper', ai: false, ink: '#12994A', tint: '#CDF1DA', wash: '#E3F7EA', edge: '#B4E5C6', icon: 'M9 4h6v3H9zM8 5.5H6a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6.5a1 1 0 0 0-1-1h-2', icon2: 'M9 12h6M9 16h6' },
+      { title: 'Summary', sub: 'Tap to create', ai: false, ink: '#2569E0', tint: '#D3E5FF', wash: '#E6F0FF', edge: '#BCD5FA', icon: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z', icon2: 'M14 3v5h5M9 13h6M9 17h4' },
+      { title: 'Read & ask AI', sub: 'Circle anything for an instant answer', ai: false, ink: '#D63384', tint: '#FFD6E8', wash: '#FFE9F3', edge: '#F8BCD7', icon: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z', icon2: 'M14 3v5h5' }
+    ];
+    const modes = defs.map((d, i) => ({
+      ...d,
+      delay: (1.0 + i * 0.12) + 's',
+      wdelay: (2 + i * 1.2) + 's',
+      open: () => this.toast('Opening ' + d.title)
+    }));
+    return {
+      show: this.state.show,
+      nText: String(this.state.n),
+      modes: modes,
+      replay: () => this.replay(),
+      startPractice: () => this.toast('Starting practice: 25 questions'),
+      goLive: () => this.toast('Starting a live quiz with friends'),
+      close: () => this.toast('Closing practice'),
+      toastOn: this.state.toastOn,
+      toastText: this.state.toastText
+    };
+  }
+}
+</script>
+</body>
+</html>
