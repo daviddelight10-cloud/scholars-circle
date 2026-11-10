@@ -68,6 +68,12 @@ const I = ({ size = 16, sw = 2, children, filled }) => (
 );
 
 const IcoBolt = (p) => <I {...p} filled><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" /></I>;
+const IcoBrain = (p) => (
+  <I {...p}>
+    <path d="M12 4c-2.5-1.5-6-.5-6 2.2 0 .5.1 1 .3 1.5C5.3 8.4 4.5 9.6 4.5 11c0 .7.2 1.4.6 2-.3.6-.5 1.3-.4 2 .3 2.5 3 3.7 5.3 2.7.6-.3 1-.8 1-1.4V6.2c0-.9.4-1.8 1-2.2z" />
+    <path d="M12 4c2.5-1.5 6-.5 6 2.2 0 .5-.1 1-.3 1.5 1 .7 1.8 1.9 1.8 3.3 0 .7-.2 1.4-.6 2 .3.6.5 1.3.4 2-.3 2.5-3 3.7-5.3 2.7-.6-.3-1-.8-1-1.4V6.2c0-.9-.4-1.8 1-2.2z" />
+  </I>
+);
 const IcoFileText = (p) => (
   <I {...p}>
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
@@ -154,12 +160,15 @@ export default function PracticeSheet({
   onClose,
   onOpen,
   onGenerate,
+  onGuidedStudy,
   onExamSimulation,
   onExamRegenerate,
   onGoLive,
   goingLive,
   generating,
+  preparingStudy,
   mcqProgress,
+  guidedProgress,
   onJoinLive,
   onSaveMaterial,
 }) {
@@ -361,7 +370,7 @@ export default function PracticeSheet({
                 {onExamRegenerate && (
                   <button
                     className="pm-hero-btn"
-                    style={{ background: "transparent", border: "1px solid var(--app-tint-strong)" }}
+                    style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)" }}
                     onClick={act(() => onExamRegenerate?.(file))}
                   >
                     New version
@@ -383,6 +392,25 @@ export default function PracticeSheet({
         : `best ${prog.bestScore}/${prog.bestTotal ?? prog.total ?? "?"}${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
       : (mcqCount ? <><b className="pm-count-num">{qNum}</b> questions ready to go</> : "Ready to practice")
     : "Turn this material into a quiz you can practise";
+
+  // Guided Study progress — server-synced index prop first, then the
+  // per-key localStorage record written by GuidedStudy itself.
+  let gsProg = guidedProgress?.[file.id] || null;
+  if (!gsProg) {
+    try {
+      const raw = localStorage.getItem(`sc_guided_progress_${file.id}`);
+      if (raw) { const p = JSON.parse(raw); if (p && p.total > 0) gsProg = p; }
+    } catch {}
+  }
+  const gsDone = gsProg && gsProg.done >= gsProg.total;
+  const gsSub = preparingStudy
+    ? "Extracting document…"
+    : gsProg
+      ? (gsDone ? "All sections complete — review anytime" : `Continue — ${gsProg.done} of ${gsProg.total} sections`)
+      : canExtract ? "AI walkthrough" : "No extractable text";
+  const gsBadge = preparingStudy
+    ? null
+    : gsProg ? (gsDone ? "DONE" : `${gsProg.done}/${gsProg.total}`) : "AI";
 
   // A joinable lobby already running on this material — join instead of hosting
   const liveMatch = activeQuizzes.find(
@@ -528,6 +556,15 @@ export default function PracticeSheet({
           </section>
 
           <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to study</div>
+          <PmRow
+            delay={90} wdelay={2000}
+            tint="tint-violet" badge={gsBadge}
+            icon={<IcoBrain size={17} />}
+            name="Study with AI"
+            sub={gsSub}
+            disabled={!canExtract || generating || preparingStudy}
+            onClick={act(() => onGuidedStudy?.(file))}
+          />
           {hero.key !== "exam" && (
             <PmRow
               delay={130} wdelay={3200}
