@@ -166,7 +166,7 @@ describe("generation mode (normal document)", () => {
   });
 });
 
-import { allocateQuestions, rebalanceAnswers, buildMcqPrompt, maxSupportedQuestions, autoQuestionCount, verifyMcqRows } from "./generationCore";
+import { allocateQuestions, rebalanceAnswers, buildMcqPrompt, maxSupportedQuestions, autoQuestionCount, verifyMcqRows, mapAiMcqsToRows } from "./generationCore";
 
 const mkRows = (n) => Array.from({ length: n }, (_, i) => ({
   question: `Rich question ${i} about cardiology?`,
@@ -183,11 +183,14 @@ describe("customise engine", () => {
     expect(allocateQuestions(["a", "b"], 100).every((n) => n <= 25)).toBe(true);
   });
 
-  it("caps supported questions by material length and auto at 20", () => {
+  it("caps supported questions by material length and scales auto from a 20 floor", () => {
     expect(maxSupportedQuestions(30000)).toBe(150);
     expect(maxSupportedQuestions(1000)).toBe(10);
-    expect(autoQuestionCount(100000)).toBe(20);
-    expect(autoQuestionCount(1000)).toBe(10);
+    expect(autoQuestionCount(100000)).toBe(20); // default ceiling = 20
+    expect(autoQuestionCount(1000)).toBe(20); // floor of 20 even on tiny docs
+    expect(autoQuestionCount(150000, 50)).toBe(30); // ~1 question per 5k chars
+    expect(autoQuestionCount(400000, 50)).toBe(50); // paid ceiling
+    expect(autoQuestionCount(400000, 30)).toBe(30); // free ceiling
   });
 
   it("builds a clinical-vignette prompt with the chosen options", () => {
@@ -214,6 +217,43 @@ describe("customise engine", () => {
   it("leaves questions with positional options untouched", () => {
     const rows = [{ question: "q?", options: { A: "x", B: "y", C: "z", D: "All of the above" }, correct: "D", explanation: "" }];
     expect(rebalanceAnswers(rows)).toEqual(rows);
+  });
+
+  it("maps true/false items to 2-option rows and drops unresolvable answers", () => {
+    const rows = mapAiMcqsToRows([
+      { question: "The SA node is the primary pacemaker.", format: "truefalse", correct: true, explanation: "It is.", topic: "Cardiac", difficulty: "easy", type: "recall" },
+      { question: "A false statement.", format: "truefalse", correct: "False" },
+      { question: "Letter-answer tf.", format: "tf", correct: "B" },
+      { question: "Ambiguous tf.", format: "truefalse", correct: "C" },
+      { question: "Options-dict tf.", options: { A: "True", B: "False" }, correct: "A" },
+    ]);
+    expect(rows.length).toBe(4); // the "C" answer can't exist on a T/F row
+    expect(rows[0].options).toEqual({ A: "True", B: "False" });
+    expect(rows[0].correct).toBe("A");
+    expect(rows[0].format).toBe("tf");
+    expect(rows[0].topic).toBe("Cardiac");
+    expect(rows[1].correct).toBe("B");
+    expect(rows[3].format).toBe("tf"); // defensive: True/False options dict
+  });
+
+  it("leaves true/false rows untouched during rebalancing", () => {
+    const tf = { question: "tf?", options: { A: "True", B: "False" }, correct: "A", explanation: "", format: "tf" };
+    expect(rebalanceAnswers([tf])[0]).toEqual(tf);
+  });
+
+  it("verification renders true/false options and only fixes to existing letters", async () => {
+    const tfRows = [
+      { question: "tf1?", options: { A: "True", B: "False" }, correct: "A", explanation: "", format: "tf" },
+      { question: "tf2?", options: { A: "True", B: "False" }, correct: "A", explanation: "", format: "tf" },
+    ];
+    callAI.mockResolvedValue(JSON.stringify([
+      { i: 0, verdict: "fix", correct: "B" },
+      { i: 1, verdict: "fix", correct: "C" }, // no C on a T/F row → dropped
+    ]));
+    const out = await verifyMcqRows(tfRows, "s");
+    expect(out.length).toBe(1);
+    expect(out[0].correct).toBe("B");
+    expect(callAI.mock.calls[0][0]).not.toContain("undefined");
   });
 
   it("verification drops bad questions and fixes wrong keys", async () => {

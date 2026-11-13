@@ -15,7 +15,7 @@ import {
 } from './survivalStore.js';
 import {
   getAuthHeaders, isAuthed,
-  deriveRating, normalizeBank, normalizeQuestion,
+  deriveRating, normalizeBank, normalizeQuestion, isRenderableQuestion,
   initFsrs, fetchCardStates, rateQuestion,
   pickPracticeIndex, pickSurvivalIndex, masteryDots, buildForecast,
   buildSession, readingBudgetMs, isVignette, tallyTopics,
@@ -186,11 +186,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
 
   const bank = useMemo(() => {
     if (isDaily) {
-      return items.map((it) => ({
-        ...normalizeQuestion(it.mcq, it.pageIndex, it.resourceId, it.itemType || 'mcq'),
-        _topic: it.topic,
-        _subject: it.subject,
-      }));
+      return items
+        .map((it) => ({
+          ...normalizeQuestion(it.mcq, it.pageIndex, it.resourceId, it.itemType || 'mcq'),
+          _topic: it.topic,
+          _subject: it.subject,
+        }))
+        .filter(isRenderableQuestion);
     }
     const baseBank = resource?.mcqData ? normalizeBank(resource.mcqData, resource.id) : [];
     const deckBank = linkedDeck?.mcqData ? normalizeBank(linkedDeck.mcqData, linkedDeck.id) : [];

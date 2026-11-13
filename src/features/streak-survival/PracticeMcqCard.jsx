@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { callAI } from '../../lib/aiClient.js';
-import { deriveRating, rateQuestion, masteryDots, readingBudgetMs, isVignette } from './fsrsBridge.js';
+import { deriveRating, rateQuestion, masteryDots, readingBudgetMs, isVignette, isRenderableQuestion } from './fsrsBridge.js';
 import QuestionMeta from './QuestionMeta.jsx';
 import { HINT_GEMS, trySpendGems } from './survivalStore.js';
 import './streakSurvival.css';
@@ -107,6 +107,23 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
   }, [question, selected]);
 
   const ring = masteryDots(cardState);
+
+  // Malformed stored rows can normalize to an empty stem / short options.
+  // Render a skippable card instead of options with no question.
+  if (!isRenderableQuestion(question)) {
+    return (
+      <div className="ss-root">
+        <div className="qcard q-enter" style={{ padding: 20 }}>
+          <div className="qtext">This question couldn’t be loaded.</div>
+          <div className="post-actions show">
+            <button type="button" className="btn-continue" onClick={onNext}>
+              Continue →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ss-root">

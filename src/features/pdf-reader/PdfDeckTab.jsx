@@ -48,9 +48,19 @@ export function usePdfDeck(resourceId, active) {
   return { data, items, loading, refresh };
 }
 
+function mcqStem(q) {
+  if (!q || typeof q !== "object") return "";
+  for (const k of ["question", "q", "stem", "text", "questionText", "body"]) {
+    const v = q[k];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return "";
+}
+
 function Card({ item, T, starred, onStar, onJump }) {
   const [open, setOpen] = useState(false);
   const { q } = item;
+  const stem = mcqStem(q);
   const letters = Object.keys(q.options || {}).sort();
   return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.hover, padding: "11px 12px" }}>
@@ -64,7 +74,7 @@ function Card({ item, T, starred, onStar, onJump }) {
       </div>
       {(q.topic || q.difficulty || q.qtype) && <div style={{ marginBottom: 6 }}><QuestionMeta q={q} /></div>}
       <div role="button" tabIndex={0} onClick={() => setOpen((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } }} style={{ cursor: "pointer" }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.45, marginBottom: 8 }}>{q.question}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: T.text, lineHeight: 1.45, marginBottom: 8 }}>{stem}</div>
         {letters.map((k) => {
           const right = open && k === q.correct;
           return (
@@ -116,7 +126,7 @@ export default function PdfDeckTab({ resourceId, T, deck, onJump }) {
       if (filter === "generated" && i.source !== "generated") return false;
       if (filter === "starred" && !stars.has(i.key)) return false;
       if (!s) return true;
-      return `${i.q.question} ${i.q.topic || ""} ${Object.values(i.q.options || {}).join(" ")}`.toLowerCase().includes(s);
+      return `${mcqStem(i.q)} ${i.q.topic || ""} ${Object.values(i.q.options || {}).join(" ")}`.toLowerCase().includes(s);
     });
   }, [items, filter, search, stars, topic]);
 

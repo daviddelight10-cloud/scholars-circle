@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import CircleSheet from "./CircleSheet.jsx";
-import { autoQuestionCount, maxSupportedQuestions, DEFAULT_QUESTION_CAP } from "../../lib/generationCore.js";
+import { autoQuestionCount, maxSupportedQuestions, DEFAULT_QUESTION_CAP, AUTO_SCALE_MAX, FREE_MCQ_TOTAL_CAP } from "../../lib/generationCore.js";
 
 const PREFS_KEY = "sc_mcq_gen_prefs";
 const STYLES = [
@@ -65,9 +65,9 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
     return (to < ps.length ? ps[to] : data.chars) - ps[from - 1];
   }, [data, rangeOn, pFrom, pTo]);
   const maxQ = data ? Math.min(DEFAULT_QUESTION_CAP, maxSupportedQuestions(effChars)) : DEFAULT_QUESTION_CAP;
-  const autoN = data ? autoQuestionCount(effChars) : 20;
+  const autoN = data ? autoQuestionCount(effChars, isPaid ? AUTO_SCALE_MAX : FREE_MCQ_TOTAL_CAP) : 20;
   // `maxQ` is a guidance estimate only — premium users may push past it up to
-  // the hard 150 cap (the engine warns when the doc truly can't reach).
+  // the hard 200 cap (the engine warns when the doc truly can't reach).
   const n = Math.max(1, Math.min(count, DEFAULT_QUESTION_CAP));
   const shortDoc = data && maxQ < 20;
 
@@ -137,12 +137,12 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
 
                   <div className="gm-lab">Number of questions</div>
                   <div className="gm-count">
-                    <button aria-label="Fewer" onClick={() => setCount(Math.max(1, n - (n > 20 ? 5 : 1)))}>−</button>
+                    <button aria-label="Fewer" onClick={() => setCount(Math.max(1, n - 1))}>−</button>
                     <input type="number" inputMode="numeric" min="1" max={DEFAULT_QUESTION_CAP} value={count} onChange={(e) => setCount(e.target.value === "" ? "" : parseInt(e.target.value, 10) || 1)} onBlur={(e) => clampSet(e.target.value)} aria-label="Number of questions" />
-                    <button aria-label="More" onClick={() => setCount(Math.min(DEFAULT_QUESTION_CAP, n + (n >= 20 ? 5 : 1)))}>+</button>
+                    <button aria-label="More" onClick={() => setCount(Math.min(DEFAULT_QUESTION_CAP, n + 1))}>+</button>
                   </div>
                   <div className="gm-chips">
-                    {[10, 20, 50, 100, 150].map((v) => (
+                    {[10, 20, 50, 100, 200].map((v) => (
                       <button key={v} className={n === v ? "on" : ""} onClick={() => setCount(v)}>{v}</button>
                     ))}
                   </div>
@@ -163,15 +163,16 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
                     ))}
                   </div>
 
-                  <label className="gm-tog"><input type="checkbox" checked={realWorld} onChange={(e) => setRealWorld(e.target.checked)} /><span><b>Real-world focus</b><small>Real clinical situations, red flags, management and drug choices.</small></span></label>
-                  <label className="gm-tog"><input type="checkbox" checked={highYield} onChange={(e) => setHighYield(e.target.checked)} /><span><b>High-yield only</b><small>Concentrate on what exams test most often.</small></span></label>
-                  <label className="gm-tog"><input type="checkbox" checked={verify} onChange={(e) => setVerify(e.target.checked)} /><span><b>Double-check answers</b><small>A second pass removes or fixes answers the material doesn't support.</small></span></label>
-
                   <button className="gm-focus" onClick={() => setFocusOpen((v) => !v)} aria-expanded={focusOpen}>
-                    {focusOpen ? "Focus area" : "Focus on a topic or pages (optional)"}<span aria-hidden="true">{focusOpen ? "−" : "+"}</span>
+                    {focusOpen ? "Advanced options" : "More options — refine, focus, verify"}<span aria-hidden="true">{focusOpen ? "−" : "+"}</span>
                   </button>
                   {focusOpen && (
                     <div className="gm-focus-body">
+                      <label className="gm-tog"><input type="checkbox" checked={realWorld} onChange={(e) => setRealWorld(e.target.checked)} /><span><b>Real-world focus</b><small>Real clinical situations, red flags, management and drug choices.</small></span></label>
+                      <label className="gm-tog"><input type="checkbox" checked={highYield} onChange={(e) => setHighYield(e.target.checked)} /><span><b>High-yield only</b><small>Concentrate on what exams test most often.</small></span></label>
+                      <label className="gm-tog"><input type="checkbox" checked={verify} onChange={(e) => setVerify(e.target.checked)} /><span><b>Double-check answers</b><small>A second pass removes or fixes answers the material doesn't support.</small></span></label>
+
+                      <div className="gm-lab">Focus (optional)</div>
                       <input className="gm-text" value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={120} placeholder="Topic, e.g. brachial plexus" aria-label="Focus topic" />
                       {pages > 1 && (
                         <div className="gm-range">

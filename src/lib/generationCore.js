@@ -23,8 +23,12 @@ export const MIN_CHUNK_SIZE = 5000;
 // 5k chars ≈ 2.5 pages), bounded so small docs still get a useful set and
 // huge docs don't produce an unwieldy/expensive bank.
 export const DEFAULT_QUESTION_FLOOR = 10;
-export const DEFAULT_QUESTION_CAP = 150;
+export const DEFAULT_QUESTION_CAP = 200;
 export const AUTO_QUESTION_COUNT = 20;
+// Auto mode ceiling: the sheet passes 50 for paid users and FREE_MCQ_TOTAL_CAP
+// for free users (mirrors the server's non-paid mcqTotal gate in aiRateLimit).
+export const AUTO_SCALE_MAX = 50;
+export const FREE_MCQ_TOTAL_CAP = 30;
 const CHARS_PER_QUESTION = 5000;
 const EXTRACT_RETRY_ROUNDS = 2;
 
@@ -43,7 +47,7 @@ CRITICAL INSTRUCTIONS:
 1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
 2. Extract ONLY the questions that already exist in the content — do NOT generate new questions.
 3. If no questions are found in this section, return an empty array [].
-4. Each extracted question must have exactly 4 options (A, B, C, D) and one correct answer.
+4. Each extracted question has exactly 4 options (A, B, C, D) and one correct answer — EXCEPT true/false questions, which use "format":"truefalse", no "options", and "correct": true or false.
 5. Preserve the original question text, options, and correct answer as written in the document.
 6. Include the explanation only if one is provided in the document; otherwise leave it empty.
 
@@ -53,6 +57,12 @@ Format:
     "question": "Question text?",
     "options": {"A":"...","B":"...","C":"...","D":"..."},
     "correct": "A",
+    "explanation": "Brief explanation."
+  },
+  {
+    "question": "Statement that is true or false?",
+    "format": "truefalse",
+    "correct": true,
     "explanation": "Brief explanation."
   }
 ]`;
@@ -121,6 +131,7 @@ ITEM-WRITING RULES (follow strictly):
 6. Use exact terms, doses and values from the content; never invent facts that are not in it.
 7. explanation = 2-3 short sentences: why the correct answer is right, then why the most tempting distractor is wrong.
 8. Add "topic" (2-4 word subtopic), "difficulty" ("easy"|"medium"|"hard") and "type" ("recall"|"applied"|"vignette").
+9. TRUE/FALSE: where a fact in the content naturally reads as a statement-check, you may write up to ~15% of the set as true/false items — use "format":"truefalse", no "options", and "correct": true or false (still include explanation/topic/difficulty/type). Use them only where the format genuinely fits; every other item is a standard 4-option MCQ with "format":"mcq".
 
 Format:
 [
@@ -131,7 +142,17 @@ Format:
     "explanation": "Why A is right; why the best distractor is wrong.",
     "topic": "Brachial plexus",
     "difficulty": "medium",
-    "type": "applied"
+    "type": "applied",
+    "format": "mcq"
+  },
+  {
+    "question": "Statement that is true or false?",
+    "format": "truefalse",
+    "correct": true,
+    "explanation": "Why the statement is true or false.",
+    "topic": "Brachial plexus",
+    "difficulty": "easy",
+    "type": "recall"
   }
 ]`;
 }
@@ -145,8 +166,11 @@ export function maxSupportedQuestions(chars) {
   return Math.max(10, Math.min(DEFAULT_QUESTION_CAP, Math.round((chars || 0) / 200)));
 }
 
-export function autoQuestionCount(chars) {
-  return Math.min(AUTO_QUESTION_COUNT, maxSupportedQuestions(chars));
+// Auto target: never fewer than AUTO_QUESTION_COUNT (20), then ~1 extra
+// question per CHARS_PER_QUESTION chars up to `max` — the sheet passes
+// AUTO_SCALE_MAX for paid users and FREE_MCQ_TOTAL_CAP for free users.
+export function autoQuestionCount(chars, max = AUTO_QUESTION_COUNT) {
+  return Math.max(AUTO_QUESTION_COUNT, Math.min(max, Math.round((chars || 0) / CHARS_PER_QUESTION)));
 }
 
 // Split `total` questions across chunks in proportion to their length (largest remainder).
@@ -189,7 +213,10 @@ export function rebalanceAnswers(rows, rng = Math.random) {
 // Second AI pass: check each answer key against the source and drop/fix bad ones.
 export async function verifyMcqRows(rows, sourceText, { signal } = {}) {
   if (!rows.length) return rows;
-  const list = rows.map((r, i) => `${i}. ${r.question}\nA) ${r.options.A}\nB) ${r.options.B}\nC) ${r.options.C}\nD) ${r.options.D}\nMarked answer: ${r.correct}`).join("\n\n");
+  const list = rows.map((r, i) => {
+    const opts = ["A", "B", "C", "D"].filter((k) => r.options?.[k]).map((k) => `${k}) ${r.options[k]}`).join("\n");
+    return `${i}. ${r.question}\n${opts}\nMarked answer: ${r.correct}`;
+  }).join("\n\n");
   const prompt = `You are a strict examiner. Using ONLY the SOURCE, check each question's marked answer.
 
 SOURCE:
@@ -212,7 +239,10 @@ Return ONLY a JSON array: [{"i":0,"verdict":"ok"},{"i":1,"verdict":"fix","correc
     rows.forEach((r, i) => {
       const v = byIdx.get(i);
       if (!v || v.verdict === "ok") return out.push(r);
-      if (v.verdict === "fix" && ["A", "B", "C", "D"].includes(String(v.correct).toUpperCase())) return out.push({ ...r, correct: String(v.correct).toUpperCase(), _verified: "fixed" });
+      const letter = String(v.correct).toUpperCase();
+      // "fix" may only point at an option key that exists — protects
+      // true/false rows (A/B only) from a stray "C"/"D" verdict.
+      if (v.verdict === "fix" && r.options?.[letter]) return out.push({ ...r, correct: letter, _verified: "fixed" });
     });
     return out.length >= Math.ceil(rows.length / 2) ? out : rows;
   } catch (e) {
@@ -357,38 +387,69 @@ export function dedupeMcqs(rows) {
   });
 }
 
+const TF_FORMATS = new Set(["truefalse", "true_false", "tf", "boolean", "statement"]);
+
+// True/false items arrive either marked via "format":"truefalse" (our prompt
+// contract) or defensively as an options dict whose values are all
+// True/False strings.
+function isTfQuestion(q) {
+  if (TF_FORMATS.has(String(q.format || q.kind || "").toLowerCase())) return true;
+  const o = q.options;
+  if (o && !Array.isArray(o) && typeof o === "object") {
+    const vals = Object.values(o).map((v) => String(v).trim().toLowerCase());
+    if (vals.length > 0 && vals.every((v) => v === "true" || v === "false")) return true;
+  }
+  return false;
+}
+
+// Normalises a true/false "correct" value (boolean, "True"/"False", "A"/"B",
+// or 0/1 index) to "A" (True) or "B" (False). Null = unresolvable → drop.
+function tfCorrectLetter(c) {
+  const s = String(c).trim();
+  if (c === true || c === 0 || /^t(rue)?$/i.test(s) || s.toUpperCase() === "A") return "A";
+  if (c === false || c === 1 || /^f(alse)?$/i.test(s) || s.toUpperCase() === "B") return "B";
+  return null;
+}
+
 export function mapAiMcqsToRows(parsed) {
   if (!Array.isArray(parsed)) {
     if (parsed && Array.isArray(parsed.mcq_questions)) parsed = parsed.mcq_questions;
     else return [];
   }
   return parsed
-    .filter((q) => q && q.question && q.options && q.correct !== undefined && q.correct !== null)
+    .filter((q) => q && q.question && q.correct !== undefined && q.correct !== null && (q.options || isTfQuestion(q)))
     .map((q) => {
-      const opts = q.options;
       let row;
-      if (Array.isArray(opts)) {
+      if (isTfQuestion(q)) {
+        const letter = tfCorrectLetter(q.correct);
+        if (!letter) return null;
         row = {
           question: q.question,
-          options: { A: opts[0] || "", B: opts[1] || "", C: opts[2] || "", D: opts[3] || "" },
-          correct: typeof q.correct === "number" ? ["A", "B", "C", "D"][q.correct] || "A" : String(q.correct),
+          options: { A: "True", B: "False" },
+          correct: letter,
           explanation: q.explanation || "",
+          format: "tf",
         };
       } else {
+        const opts = q.options;
         row = {
           question: q.question,
-          options: { A: opts.A || "", B: opts.B || "", C: opts.C || "", D: opts.D || "" },
+          options: Array.isArray(opts)
+            ? { A: opts[0] || "", B: opts[1] || "", C: opts[2] || "", D: opts[3] || "" }
+            : { A: opts.A || "", B: opts.B || "", C: opts.C || "", D: opts.D || "" },
           correct: typeof q.correct === "number" ? ["A", "B", "C", "D"][q.correct] || "A" : String(q.correct),
           explanation: q.explanation || "",
         };
+        row.correct = row.correct.toUpperCase();
       }
-      row.correct = row.correct.toUpperCase();
       if (q.topic) row.topic = String(q.topic).slice(0, 60);
       if (["easy", "medium", "hard"].includes(String(q.difficulty).toLowerCase())) row.difficulty = String(q.difficulty).toLowerCase();
       if (["recall", "applied", "vignette"].includes(String(q.type).toLowerCase())) row.qtype = String(q.type).toLowerCase();
       return row;
     })
-    .filter((r) => r.options.A.trim() && r.options.B.trim() && r.options.C.trim() && r.options.D.trim() && r.question.trim());
+    .filter((r) => r && r.question.trim() && (r.format === "tf"
+      ? r.options.A.trim() && r.options.B.trim()
+      : r.options.A.trim() && r.options.B.trim() && r.options.C.trim() && r.options.D.trim()));
 }
 
 export function mapAiFlashcards(parsed) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveRating, readingBudgetMs, normalizeQuestion, topicStats, tallyTopics, buildSession, isVignette } from "./fsrsBridge";
+import { deriveRating, readingBudgetMs, normalizeQuestion, normalizeBank, isRenderableQuestion, topicStats, tallyTopics, buildSession, isVignette } from "./fsrsBridge";
 
 const mk = (i, extra = {}) => normalizeQuestion({ question: `Q${i}?`, options: { A: "a", B: "b", C: "c", D: "d" }, correct: "A", ...extra }, i, "r1");
 
@@ -22,6 +22,70 @@ describe("reading budget and rating", () => {
     expect(deriveRating({ correct: true, elapsedMs: 20000, via: "mcq", budgetMs })).toBe(4);
     expect(deriveRating({ correct: true, elapsedMs: 40000, via: "mcq", budgetMs })).toBe(3);
     expect(deriveRating({ correct: true, elapsedMs: 61000, via: "mcq", budgetMs })).toBe(2);
+  });
+});
+
+describe("normalizeQuestion hardening", () => {
+  it("falls back to alternate stem keys", () => {
+    for (const k of ["stem", "text", "questionText", "body"]) {
+      const q = normalizeQuestion({ [k]: "Stem?", options: { A: "x", B: "y" }, correct: "A" });
+      expect(q.q).toBe("Stem?");
+    }
+  });
+
+  it("is null-safe and flags malformed rows as unrenderable", () => {
+    expect(normalizeQuestion(null).q).toBe("");
+    expect(normalizeQuestion(undefined).opts).toEqual([]);
+    expect(isRenderableQuestion(normalizeQuestion(null))).toBe(false);
+    // options but no stem — the reported blank-question shape
+    expect(isRenderableQuestion(normalizeQuestion({ options: { A: "x", B: "y" }, correct: "A" }))).toBe(false);
+    // stem but too few usable options
+    expect(isRenderableQuestion(normalizeQuestion({ question: "Q", options: { A: "x" }, correct: "A" }))).toBe(false);
+    expect(isRenderableQuestion(normalizeQuestion({ question: "Q", options: { A: "x", B: "" }, correct: "A" }))).toBe(false);
+    expect(isRenderableQuestion(mk(1))).toBe(true);
+  });
+
+  it("coerces option values to strings and resolves numeric correct", () => {
+    const q = normalizeQuestion({ question: "Q?", options: { A: 42, B: true }, correct: 1 });
+    expect(q.opts).toEqual(["42", "true"]);
+    expect(q.a).toBe(1);
+    expect(normalizeQuestion({ question: "Q?", options: { A: "x", B: "y" }, correct: "B" }).a).toBe(1);
+    expect(normalizeQuestion({ question: "Q?", options: { A: "x", B: "y" }, correct: "1" }).a).toBe(1);
+  });
+
+  it("resolves a correct answer stored as option text", () => {
+    expect(normalizeQuestion({ question: "Q?", options: { A: "London", B: "Paris" }, correct: "Paris" }).a).toBe(1);
+    expect(normalizeQuestion({ question: "Q?", options: { A: "True", B: "False" }, correct: "false" }).a).toBe(1);
+  });
+
+  it("keeps true/false rows renderable", () => {
+    const tf = normalizeQuestion({ question: "Sky is blue", options: { A: "True", B: "False" }, correct: "B", format: "tf" });
+    expect(tf.opts).toEqual(["True", "False"]);
+    expect(tf.a).toBe(1);
+    expect(tf._qFormat).toBe("tf");
+    expect(isRenderableQuestion(tf)).toBe(true);
+  });
+});
+
+describe("normalizeBank", () => {
+  it("drops rows that cannot render, preserving original indices", () => {
+    const bank = normalizeBank([
+      { question: "Good?", options: { A: "x", B: "y" }, correct: "A" },
+      { options: { A: "x", B: "y" }, correct: "A" },
+      { stem: "Alt stem?", options: { A: "x", B: "y" }, correct: "A" },
+      null,
+      { question: "Short", options: { A: "only" }, correct: "A" },
+    ], "r1");
+    expect(bank.length).toBe(2);
+    expect(bank[0].q).toBe("Good?");
+    expect(bank[1].q).toBe("Alt stem?");
+    expect(bank[1]._pageIndex).toBe(2);
+  });
+
+  it("returns [] for non-array or unparseable input", () => {
+    expect(normalizeBank("not json")).toEqual([]);
+    expect(normalizeBank("{}")).toEqual([]);
+    expect(normalizeBank(null)).toEqual([]);
   });
 });
 

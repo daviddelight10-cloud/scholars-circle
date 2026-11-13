@@ -129,37 +129,71 @@ export const sessionMinutes = (n) => Math.max(1, Math.round((n * 22) / 60));
 // ── Question normalization ──────────────────────────────
 // App mcqData shape: { question, options: {A..D}, correct: "A", explanation }
 // Prototype shape:   { q, opts: [], a: idx, hint }
+const STEM_KEYS = ['question', 'q', 'stem', 'text', 'questionText', 'body'];
+
 export function normalizeQuestion(mcq, idx = 0, resourceId = null, itemType = 'mcq') {
-  const optsObj = mcq.options || {};
+  const src = mcq && typeof mcq === 'object' ? mcq : {};
+  const optsObj = src.options && typeof src.options === 'object' ? src.options : {};
   const keys = Object.keys(optsObj).sort();
-  const opts = keys.map((k) => optsObj[k]);
-  const a = Math.max(0, keys.indexOf(mcq.correct));
+  const opts = keys.map((k) => (optsObj[k] == null ? '' : String(optsObj[k])));
+  let a = keys.indexOf(src.correct);
+  if (a < 0) {
+    const s = String(src.correct ?? '').trim();
+    if (/^\d+$/.test(s) && +s < keys.length) a = +s;
+    else if (Number.isInteger(src.correct) && src.correct >= 0 && src.correct < keys.length) a = src.correct;
+    else if (s) {
+      const i = keys.findIndex((k) => String(optsObj[k]).trim().toLowerCase() === s.toLowerCase());
+      if (i >= 0) a = i;
+    }
+  }
+  if (a < 0) a = 0;
+  let q = '';
+  for (const k of STEM_KEYS) {
+    const v = src[k];
+    if (v == null || typeof v === 'object') continue;
+    const s = String(v).trim();
+    if (s) { q = typeof v === 'string' ? v : s; break; }
+  }
   return {
-    q: mcq.question || mcq.q || '',
+    q,
     opts,
     a,
-    hint: mcq.hint || '',
-    explanation: mcq.explanation || '',
+    hint: src.hint || '',
+    explanation: src.explanation || '',
     // AI-generated metadata (separate from _topic, which Daily Review uses for the resource title)
-    _qTopic: mcq.topic || null,
-    _qDiff: ['easy', 'medium', 'hard'].includes(mcq.difficulty) ? mcq.difficulty : null,
-    _qType: ['recall', 'applied', 'vignette'].includes(mcq.qtype || mcq.type) ? (mcq.qtype || mcq.type) : null,
+    _qTopic: src.topic || null,
+    _qDiff: ['easy', 'medium', 'hard'].includes(src.difficulty) ? src.difficulty : null,
+    _qType: ['recall', 'applied', 'vignette'].includes(src.qtype || src.type) ? (src.qtype || src.type) : null,
+    _qFormat: src.format === 'tf' ? 'tf' : null,
     _key: resourceId != null ? `${resourceId}:${idx}` : String(idx),
     _resourceId: resourceId,
     _pageIndex: idx,
     _itemType: itemType,
     // Provenance for PDF-generated questions (set by /deck/add)
-    _src: mcq._src || null,
-    _srcTitle: mcq._srcTitle || null,
-    _srcPage: mcq._srcPage || null,
-    _srcToken: mcq._srcToken || null,
+    _src: src._src || null,
+    _srcTitle: src._srcTitle || null,
+    _srcPage: src._srcPage || null,
+    _srcToken: src._srcToken || null,
   };
 }
 
+// A normalized row is only usable if it has a stem and ≥2 non-empty options.
+export function isRenderableQuestion(nq) {
+  return !!nq
+    && typeof nq.q === 'string' && nq.q.trim().length > 0
+    && Array.isArray(nq.opts)
+    && nq.opts.filter((o) => String(o).trim()).length >= 2;
+}
+
 export function normalizeBank(mcqData, resourceId) {
-  const arr = typeof mcqData === 'string' ? JSON.parse(mcqData) : mcqData;
+  let arr = mcqData;
+  if (typeof arr === 'string') {
+    try { arr = JSON.parse(arr); } catch { return []; }
+  }
   if (!Array.isArray(arr)) return [];
-  return arr.map((m, i) => normalizeQuestion(m, i, resourceId));
+  return arr
+    .map((m, i) => normalizeQuestion(m, i, resourceId))
+    .filter(isRenderableQuestion);
 }
 
 // ── Server calls ────────────────────────────────────────

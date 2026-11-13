@@ -11,7 +11,8 @@ function QuestionMeta({ q, showType = true, className = "" }) {
   const topic = q?._qTopic ?? q?.topic ?? null;
   const diff = q?._qDiff ?? (DIFF[q?.difficulty] ? q.difficulty : null);
   const type = q?._qType ?? q?.qtype ?? null;
-  if (!topic && !diff && !(showType && type)) return null;
+  const isTf = (q?._qFormat ?? q?.format) === "tf";
+  if (!topic && !diff && !isTf && !(showType && type)) return null;
   const [n, label] = DIFF[diff] || [0, ""];
   return (
     <span className={`qm ${className}`}>
@@ -22,6 +23,7 @@ function QuestionMeta({ q, showType = true, className = "" }) {
           <span className="qm-diff-l">{label}</span>
         </span>
       )}
+      {isTf && <span className="qm-type">True/False</span>}
       {showType && type && TYPE[type] && <span className="qm-type">{TYPE[type]}</span>}
     </span>
   );

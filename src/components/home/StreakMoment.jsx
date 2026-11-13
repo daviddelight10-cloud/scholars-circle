@@ -6,7 +6,7 @@ import { weekStrip } from "../../hooks/useStreakMoment.js";
 import { API_BASE } from "../../lib/constants.js";
 import { localDayKey } from "../../lib/dayKey.js";
 import { haptics } from "../../lib/haptics.js";
-import { deriveRating, normalizeQuestion, rateQuestion } from "../../features/streak-survival/fsrsBridge.js";
+import { deriveRating, normalizeQuestion, rateQuestion, isRenderableQuestion } from "../../features/streak-survival/fsrsBridge.js";
 import { loadSave, mutate } from "../../features/streak-survival/survivalStore.js";
 import { sound, setSoundEnabled } from "../../features/streak-survival/survivalAudio.js";
 import useConfetti from "../../features/streak-survival/useConfetti.js";
@@ -131,7 +131,7 @@ function WarmupCard({ onCelebrate, onReview }) {
           if (!live || !d?.item?.mcq) return;
           const it = d.item;
           const nq = normalizeQuestion(it.mcq, it.pageIndex, it.resourceId);
-          if (!nq.q || nq.opts.length < 2) return;
+          if (!isRenderableQuestion(nq)) return;
           // Shuffle options client-side; track where the correct one landed.
           const order = nq.opts.map((_, i) => i);
           for (let i = order.length - 1; i > 0; i--) {

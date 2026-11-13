@@ -61,6 +61,71 @@ async function generateShareToken() {
   }
 }
 
+// ── MCQ row sanitizer ───────────────────────────────────
+// Stored mcqData rows are rendered verbatim by practice surfaces; a malformed
+// row (stem under a nonstandard key, missing/short options, unresolvable
+// `correct`) shows up as a card with options but no question. Coerce each row
+// into the app shape { question, options, correct, explanation, ... } and drop
+// the ones that can't be fixed. Lighter-touch than /deck/add: option keys are
+// preserved, and metadata (topic/difficulty/qtype/format) plus PDF provenance
+// (_src*) survive.
+const MCQ_STEM_KEYS = ["question", "q", "stem", "text", "questionText", "body"];
+
+function sanitizeMcqRow(raw) {
+  if (!raw || typeof raw !== "object") return null;
+
+  let question = "";
+  for (const k of MCQ_STEM_KEYS) {
+    const v = raw[k];
+    if (v == null || typeof v === "object") continue;
+    const s = String(v).trim();
+    if (s) { question = s.slice(0, 1000); break; }
+  }
+  if (!question) return null;
+
+  const rawOpts = raw.options;
+  const entries = rawOpts && typeof rawOpts === "object" && !Array.isArray(rawOpts)
+    ? Object.entries(rawOpts)
+    : (Array.isArray(rawOpts) ? rawOpts : []).map((v, i) => ["ABCDEF"[i], v]);
+  const opts = Object.fromEntries(
+    entries.slice(0, 8)
+      .map(([k, v]) => [String(k).trim(), String(v ?? "").slice(0, 500)])
+      .filter(([k, v]) => k && v.trim())
+  );
+  const keys = Object.keys(opts).sort();
+  if (keys.length < 2) return null;
+
+  const s = String(raw.correct ?? "").trim();
+  let correct = null;
+  if (Object.hasOwn(opts, s)) correct = s;
+  else if (Object.hasOwn(opts, s.toUpperCase().slice(0, 1))) correct = s.toUpperCase().slice(0, 1);
+  else if (/^\d+$/.test(s) && +s < keys.length) correct = keys[+s];
+  else if (Number.isInteger(raw.correct) && raw.correct >= 0 && raw.correct < keys.length) correct = keys[raw.correct];
+  else if (s.toLowerCase() === "true" || s.toLowerCase() === "false") {
+    const k = keys.find((key) => opts[key].trim().toLowerCase() === s.toLowerCase());
+    if (k) correct = k;
+  }
+  if (correct == null) return null;
+
+  const entry = { question, options: opts, correct, explanation: String(raw.explanation || "").slice(0, 600) };
+  if (raw.hint) entry.hint = String(raw.hint).slice(0, 300);
+  if (typeof raw.topic === "string" && raw.topic.trim()) entry.topic = raw.topic.trim().slice(0, 120);
+  if (["easy", "medium", "hard"].includes(raw.difficulty)) entry.difficulty = raw.difficulty;
+  if (["recall", "applied", "vignette"].includes(raw.qtype || raw.type)) entry.qtype = raw.qtype || raw.type;
+  if (raw.format === "tf") entry.format = "tf";
+  if (raw._src) entry._src = String(raw._src).slice(0, 120);
+  if (raw._srcTitle) entry._srcTitle = String(raw._srcTitle).slice(0, 200);
+  if (raw._srcPage != null) entry._srcPage = Math.max(1, Math.round(Number(raw._srcPage) || 0)) || null;
+  if (raw._srcToken) entry._srcToken = String(raw._srcToken).slice(0, 64);
+  if (raw._quote) entry._quote = String(raw._quote).slice(0, 300);
+  return entry;
+}
+
+function sanitizeMcqRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(sanitizeMcqRow).filter(Boolean);
+}
+
 // GET /api/resources - List resources with filters
 router.get("/", requireAuth, async (req, res) => {
   try {
@@ -1273,15 +1338,18 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
       mimeType = "application/pdf";
     }
 
-    // For MCQ type: validate mcqData
+    // For MCQ type: validate + sanitize mcqData rows
     let parsedMcqData = null;
     if (contentType === "mcq") {
       if (!mcqData) {
         return res.status(400).json({ error: "MCQ data is required for MCQ type" });
       }
-      parsedMcqData = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData;
-      if (!Array.isArray(parsedMcqData) || parsedMcqData.length === 0) {
-        return res.status(400).json({ error: "MCQ data must be a non-empty array" });
+      let raw;
+      try { raw = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData; }
+      catch { return res.status(400).json({ error: "Invalid MCQ data format" }); }
+      parsedMcqData = sanitizeMcqRows(raw);
+      if (!parsedMcqData.length) {
+        return res.status(400).json({ error: "MCQ data must contain at least one valid question" });
       }
     }
 
@@ -2612,13 +2680,17 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     }
 
     // For MCQ type, mcqData is required instead of file
+    let parsedMcqData = null;
     if (contentType === "mcq") {
       if (!mcqData) {
         return res.status(400).json({ error: "MCQ data is required for MCQ type" });
       }
-      const parsedMcqData = JSON.parse(mcqData);
-      if (!Array.isArray(parsedMcqData) || parsedMcqData.length === 0) {
-        return res.status(400).json({ error: "MCQ data must be a non-empty array" });
+      let raw;
+      try { raw = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData; }
+      catch { return res.status(400).json({ error: "Invalid MCQ data format" }); }
+      parsedMcqData = sanitizeMcqRows(raw);
+      if (!parsedMcqData.length) {
+        return res.status(400).json({ error: "MCQ data must contain at least one valid question" });
       }
     } else if (contentType !== "note") {
       // For non-MCQ, non-note types, file is required
@@ -2656,7 +2728,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         uploadedBy: req.user.sub,
         isPremium: isPremium === "true",
         shareToken,
-        mcqData: contentType === "mcq" ? JSON.parse(mcqData) : null,
+        mcqData: parsedMcqData,
         flashcardData: contentType === "flashcard_deck" ? (typeof req.body.flashcardData === "string" ? JSON.parse(req.body.flashcardData) : req.body.flashcardData) : null,
         status: isPublic === "true" || isPublic === true ? "approved" : "private",
         department: finalDept,
@@ -2821,17 +2893,21 @@ router.patch("/:id", requireAuth, async (req, res) => {
       }
     }
 
-    // Parse mcqData if provided (for MCQ-type resources)
+    // Parse + sanitize mcqData if provided (for MCQ-type resources)
     let parsedMcqData = null;
     if (mcqData) {
+      let data;
       try {
-        const data = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData;
-        if (!Array.isArray(data) || data.length === 0) {
-          return res.status(400).json({ error: "MCQ data must be a non-empty array" });
-        }
-        parsedMcqData = data;
+        data = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData;
       } catch {
         return res.status(400).json({ error: "Invalid MCQ data format" });
+      }
+      if (!Array.isArray(data) || data.length === 0) {
+        return res.status(400).json({ error: "MCQ data must be a non-empty array" });
+      }
+      parsedMcqData = sanitizeMcqRows(data);
+      if (!parsedMcqData.length) {
+        return res.status(400).json({ error: "MCQ data must contain at least one valid question" });
       }
     }
 
