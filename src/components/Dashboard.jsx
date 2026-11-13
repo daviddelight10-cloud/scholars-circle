@@ -104,7 +104,7 @@ export default function Dashboard({
     if (!showDailyReview) return;
     setMobileNavHidden(true);
     return () => setMobileNavHidden(false);
-  }, [showDailyReview, setMobileNavHidden]);
+  }, [showDailyReview]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Day-rollover for quests (resets progress at local midnight)
   useEffect(() => { tickDay(); setSave({ ...loadSave() }); }, []);

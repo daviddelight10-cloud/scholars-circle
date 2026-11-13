@@ -31,7 +31,7 @@ function Sheet({ open, onClose, children }) {
     if (!open) return;
     setMobileNavHidden(true);
     return () => setMobileNavHidden(false);
-  }, [open, setMobileNavHidden]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null;
   return (
     <>

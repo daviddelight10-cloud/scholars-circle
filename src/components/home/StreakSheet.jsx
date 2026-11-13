@@ -52,7 +52,7 @@ function StreakSheet({ open, onClose, streak, longestStreak, freezes, save, onBu
     if (!open) return;
     setMobileNavHidden(true);
     return () => setMobileNavHidden(false);
-  }, [open, setMobileNavHidden]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) { requestedRef.current.clear(); return; }

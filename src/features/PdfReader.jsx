@@ -3154,7 +3154,7 @@ Passage:
     if (!fullscreen) return;
     setMobileNavHidden(true);
     return () => setMobileNavHidden(false);
-  }, [fullscreen, setMobileNavHidden]);
+  }, [fullscreen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Styles ----
   const s = buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, circleMode, chatOpen, chatExpanded, dockMode, dockW, userZoomed, pinchActive, fullscreen, showSearch, annotatePopOpen });

@@ -27,7 +27,7 @@ import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
 import StreakSurvival from "../streak-survival/StreakSurvival.jsx";
 import DeckView from "../streak-survival/DeckView.jsx";
-import { normalizeQuestion } from "../streak-survival/fsrsBridge.js";
+import { normalizeQuestion, isRenderableQuestion } from "../streak-survival/fsrsBridge.js";
 import ExamBuilder from "../exam/ExamBuilder.jsx";
 import ExamHub from "../exam/ExamHub.jsx";
 import McIcon from "./McIcon.jsx";
@@ -304,7 +304,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   useEffect(() => {
     setMobileNavHidden(Boolean(viewerToken || sessionMode || activeFolder));
     return () => setMobileNavHidden(false);
-  }, [viewerToken, sessionMode, activeFolder, setMobileNavHidden]);
+  }, [viewerToken, sessionMode, activeFolder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate: generateFromMaterial, analyze: analyzeMaterial, retry: retryMaterialGenerate, cancel: cancelMaterialGenerate, closeStream, closeDraft, clearError: clearMaterialGenError } = useMaterialGenerate();
   // Streaming Practice Questions deck: saved resource + active preview run
@@ -1969,7 +1969,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   // Streaming Practice Questions draft cards — normalized once; must run before the
   // sessionMode early-returns below (hook order).
   const draftCards = useMemo(
-    () => (draftRows ? draftRows.map((r, i) => normalizeQuestion(r, i, null)) : null),
+    () => (draftRows ? draftRows.map((r, i) => normalizeQuestion(r, i, null)).filter(isRenderableQuestion) : null),
     [draftRows]
   );
 

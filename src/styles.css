@@ -4614,6 +4614,7 @@ textarea {
 
 .mm-overlay.closing {
   animation: mmFadeOut 0.22s ease forwards;
+  pointer-events: none;
 }
 
 .mm-sheet {

@@ -661,7 +661,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
   useEffect(() => {
     setMobileNavHidden(true);
     return () => setMobileNavHidden(false);
-  }, [setMobileNavHidden]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return createPortal(

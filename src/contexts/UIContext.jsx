@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer } from "react";
+import React, { createContext, useContext, useMemo, useReducer } from "react";
 
 const UIContext = createContext(null);
 
@@ -44,7 +44,10 @@ function uiReducer(state, action) {
     case "TOGGLE_MOBILE_MENU":
       return { ...state, showMobileMenu: !state.showMobileMenu };
     case "SET_MOBILE_NAV_HIDDEN":
-      return { ...state, hideMobileNav: action.payload };
+      // Idempotent — immersive views dispatch this on every render cycle.
+      // Returning the same object lets React bail out instead of churning
+      // re-renders (and keeps action-function identities stable for deps).
+      return state.hideMobileNav === action.payload ? state : { ...state, hideMobileNav: action.payload };
     case "SET_DELETE_MODAL":
       return { ...state, showDeleteModal: action.payload };
     case "SET_DELETE_PASSWORD":
@@ -92,7 +95,7 @@ export function UIProvider({ children }) {
   // Context is an in-memory store only; App.jsx handles persistence and side effects
   // (darkMode in scholars-circle-state, online/offline event listeners).
 
-  const value = {
+  const value = useMemo(() => ({
     ...state,
     setTab: (tab) => dispatch({ type: "SET_TAB", payload: tab }),
     toggleDarkMode: () => dispatch({ type: "TOGGLE_DARK_MODE" }),
@@ -117,7 +120,7 @@ export function UIProvider({ children }) {
     setShowLoginPassword: (show) => dispatch({ type: "SET_SHOW_LOGIN_PASSWORD", payload: show }),
     setShowSignupPassword: (show) => dispatch({ type: "SET_SHOW_SIGNUP_PASSWORD", payload: show }),
     setShowSignupConfirmPassword: (show) => dispatch({ type: "SET_SHOW_SIGNUP_CONFIRM_PASSWORD", payload: show }),
-  };
+  }), [state]);
 
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
 }

@@ -31,12 +31,18 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
   // instead of leaving the app.
   const { close: backClose, isTop } = useOverlayBackClose(close);
 
+  // Latest onClose via ref — parent re-renders hand us a new prop identity,
+  // and an unstable dep here reset the unmount timer on every render, which
+  // could strand the sheet invisible but still blocking all input.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   // Let the exit animation finish before the parent unmounts us
   useEffect(() => {
     if (!closing) return;
-    const t = setTimeout(onClose, CLOSE_ANIMATION_MS + 60);
+    const t = setTimeout(() => onCloseRef.current?.(), CLOSE_ANIMATION_MS + 60);
     return () => clearTimeout(t);
-  }, [closing, onClose]);
+  }, [closing]);
 
   // Esc to close, body scroll lock, focus the close button for a11y
   useEffect(() => {

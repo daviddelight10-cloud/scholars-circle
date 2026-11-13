@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer } from "react";
+import React, { createContext, useContext, useMemo, useReducer } from "react";
 
 const UserDataContext = createContext(null);
 
@@ -74,7 +74,7 @@ export function UserDataProvider({ children }) {
   // Context is an in-memory store only; App.jsx handles localStorage persistence
   // via per-user namespaced keys (scholars-circle-state::userId).
 
-  const value = {
+  const value = useMemo(() => ({
     ...state,
     setStats: (stats) => dispatch({ type: "SET_STATS", payload: stats }),
     updateStats: (data) => dispatch({ type: "UPDATE_STATS", payload: data }),
@@ -93,7 +93,7 @@ export function UserDataProvider({ children }) {
     setWrongCounts: (wrongCounts) => dispatch({ type: "SET_WRONG_COUNTS", payload: wrongCounts }),
     setCustomFlashcards: (customFlashcards) => dispatch({ type: "SET_CUSTOM_FLASHCARDS", payload: customFlashcards }),
     setOutlineProgress: (outlineProgress) => dispatch({ type: "SET_OUTLINE_PROGRESS", payload: outlineProgress }),
-  };
+  }), [state]);
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>;
 }
