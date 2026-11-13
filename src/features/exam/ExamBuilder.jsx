@@ -268,12 +268,13 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
   const selectedWritten = selTypes.filter((t) => WRITTEN_TYPES.includes(t)).length;
 
   return (
-    <div className="exr-root exr-scroll">
+    <div className="exr-root">
       <BuilderTop
         title="Build an exam"
         sub={source?.title || ""}
         onBack={onExit}
       />
+      <div className="exr-scroll exb-scroll">
 
       {/* AI analysis summary */}
       {analysis && (
@@ -312,6 +313,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
       )}
 
       <div className="exb-form">
+        <div className="exb-group-label">Paper</div>
         <label className="exb-label">
           Exam name
           <input className="exr-text-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. GST 201 Mock" />
@@ -319,6 +321,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
 
         <Slider label="Questions" value={count} min={5} max={maxCount} onChange={setCount} />
 
+        <div className="exb-group-label">Rules</div>
         <Toggle label="No timer" hint="Untimed — take as long as you need" checked={untimed} onChange={setUntimed} />
         {!untimed && (
           <Slider label="Time limit" value={timeLimitMin} min={5} max={180} step={5} onChange={setTimeLimitMin} format={(v) => `${v} min`} />
@@ -336,8 +339,15 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
           </div>
         </div>
 
+        <Toggle label="Shuffle questions" hint="Different order each attempt" checked={shuffleQ} onChange={setShuffleQ} />
+        {selTypes.includes("mcq") && (
+          <Toggle label="Shuffle answer options" hint="Option letters move around" checked={shuffleO} onChange={setShuffleO} />
+        )}
+        <Slider label="Pass mark" value={passMark} min={30} max={90} step={5} onChange={setPassMark} format={(v) => `${v}%`} />
+
+        <div className="exb-group-label">Question types</div>
         <div className="exb-field">
-          <div className="exb-field-head"><span>Question types</span><b>{selTypes.length} selected</b></div>
+          <div className="exb-field-head"><span>Include in this exam</span><b>{selTypes.length} selected</b></div>
           <div className="exb-types">
             {ALL_TYPES.map((t) => {
               const det = detected.includes(t);
@@ -364,12 +374,6 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
           {!isBank && <p className="exb-hint">The AI will write new questions in the selected formats.</p>}
         </div>
 
-        <Toggle label="Shuffle questions" checked={shuffleQ} onChange={setShuffleQ} />
-        {selTypes.includes("mcq") && (
-          <Toggle label="Shuffle answer options" checked={shuffleO} onChange={setShuffleO} />
-        )}
-        <Slider label="Pass mark" value={passMark} min={30} max={90} step={5} onChange={setPassMark} format={(v) => `${v}%`} />
-
         {selectedWritten > 0 && (
           <div className="exb-note">🤖 {selectedWritten} written type{selectedWritten > 1 ? "s" : ""} selected — the AI will mark those answers with a marking scheme.</div>
         )}
@@ -384,7 +388,11 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
         )}
         {error && <div className="exr-warn">{error}</div>}
         {warnings.map((w, i) => <div key={i} className="exr-warn">{w}</div>)}
+      </div>
+      </div>
 
+      {/* Sticky build bar */}
+      <div className="exb-bar">
         <button
           className="exr-btn primary big"
           disabled={selTypes.length === 0 || (regenerateFrom && (regenLoading || !source || (!text && !images.length)))}

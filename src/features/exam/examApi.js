@@ -155,6 +155,22 @@ export async function submitExamAttempt(examResourceId, { score, total, details 
   return res.json();
 }
 
+/** Add missed exam questions to the practice deck (same endpoint as PdfReader's "＋ Add to deck"). */
+export async function addMissedToDeck({ sourceResourceId, sourceTitle, questions }) {
+  const res = await fetch(`${API_BASE}/api/resources/deck/add`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      sourceResourceId: sourceResourceId || null,
+      sourceTitle: sourceTitle || "Exam",
+      questions,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+  return data;
+}
+
 /** Fetch the current user's attempts for a given exam resource. */
 export async function getExamAttempts(examResourceId) {
   const res = await fetch(`${API_BASE}/api/resources/quiz-attempts/${examResourceId}/mine`, {

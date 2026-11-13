@@ -33,14 +33,16 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
   const timed = (config.timeLimitMin || 0) > 0;
   const practiceMode = config.mode === "practice";
   const examId = examResourceId || `local-${sourceTitle || "exam"}`;
+  const limitMs = timed ? config.timeLimitMin * 60000 : 0;
 
   const [resumeOffer, setResumeOffer] = useState(null); // saved session
   const [items, setItems] = useState(null);
+  const [started, setStarted] = useState(false); // cover page → exam
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [flagged, setFlagged] = useState(new Set());
   const [locked, setLocked] = useState({}); // practice mode: answered-and-revealed
-  const [timeLeft, setTimeLeft] = useState(timed ? config.timeLimitMin * 60000 : 0);
+  const [timeLeft, setTimeLeft] = useState(limitMs);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const [showNav, setShowNav] = useState(false);
@@ -48,8 +50,18 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
   const [submitting, setSubmitting] = useState(false);
   const [gradingStage, setGradingStage] = useState("");
   const [result, setResult] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [savedAt, setSavedAt] = useState(0);
   const startRef = useRef(Date.now());
   const submitRef = useRef(null);
+  const warnRef = useRef({ m5: false, m1: false });
+  const toastTimerRef = useRef(null);
+
+  const showToast = useCallback((text) => {
+    setToast(text);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2600);
+  }, []);
 
   // ── Init: offer resume if a saved session exists ─────────────────────────
   useEffect(() => {
@@ -60,15 +72,27 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
       return;
     }
     setItems(prepareItems(payload.questions, config));
-    startRef.current = Date.now();
   }, [payload, examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startFresh = useCallback(() => {
     clearExamSession(examId);
     setResumeOffer(null);
     setItems(prepareItems(payload.questions, config));
-    startRef.current = Date.now();
-  }, [payload, config, examId]);
+    setIdx(0);
+    setAnswers({});
+    setFlagged(new Set());
+    setLocked({});
+    setElapsed(0);
+    setTimeLeft(limitMs);
+    setPaused(false);
+    setShowNav(false);
+    setConfirmSubmit(false);
+    setSubmitting(false);
+    setResult(null);
+    warnRef.current = { m5: false, m1: false };
+    setSavedAt(0);
+    setStarted(false); // back to the cover page
+  }, [payload, config, examId, limitMs]);
 
   const resume = useCallback(() => {
     const saved = resumeOffer;
@@ -82,11 +106,18 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
     setFlagged(new Set(saved.flagged || []));
     setLocked(saved.locked || {});
     setIdx(Math.min(saved.idx || 0, restored.length - 1));
-    if (timed) setTimeLeft(Math.max(1000, saved.timeLeft ?? config.timeLimitMin * 60000));
+    if (timed) setTimeLeft(Math.max(1000, saved.timeLeft ?? limitMs));
     setElapsed(saved.elapsed || 0);
     startRef.current = Date.now() - (saved.elapsed || 0);
     setResumeOffer(null);
-  }, [resumeOffer, payload, timed, config.timeLimitMin, startFresh]);
+    setStarted(true); // resume skips the cover page
+  }, [resumeOffer, payload, timed, limitMs, startFresh]);
+
+  const begin = useCallback(() => {
+    startRef.current = Date.now();
+    setElapsed(0);
+    setStarted(true);
+  }, []);
 
   // ── Autosave every few seconds ────────────────────────────────────────────
   const stateSnapshot = useCallback(() => ({
@@ -96,14 +127,17 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
   }), [items, answers, flagged, locked, idx, timeLeft]);
 
   useEffect(() => {
-    if (!items || result) return;
-    const t = setInterval(() => saveExamSession(examId, stateSnapshot()), 4000);
+    if (!items || !started || result) return;
+    const t = setInterval(() => {
+      saveExamSession(examId, stateSnapshot());
+      setSavedAt(Date.now());
+    }, 4000);
     return () => clearInterval(t);
-  }, [items, result, examId, stateSnapshot]);
+  }, [items, started, result, examId, stateSnapshot]);
 
   // ── Timer ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!items || paused || result) return;
+    if (!items || !started || paused || result) return;
     const t = setInterval(() => {
       setElapsed(Date.now() - startRef.current);
       if (timed) {
@@ -117,7 +151,20 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
       }
     }, 1000);
     return () => clearInterval(t);
-  }, [items, paused, result, timed]);
+  }, [items, started, paused, result, timed]);
+
+  // Time warnings: one-shot toast at 5 min and 1 min remaining.
+  useEffect(() => {
+    if (!timed || !started || result) return;
+    if (limitMs > 6 * 60000 && !warnRef.current.m5 && timeLeft <= 5 * 60000 && timeLeft > 60000) {
+      warnRef.current.m5 = true;
+      showToast("⏱ 5 minutes left");
+    }
+    if (limitMs > 2 * 60000 && !warnRef.current.m1 && timeLeft <= 60000 && timeLeft > 0) {
+      warnRef.current.m1 = true;
+      showToast("⏱ 1 minute left — wrap up");
+    }
+  }, [timed, started, result, limitMs, timeLeft, showToast]);
 
   // ── Answers ───────────────────────────────────────────────────────────────
   // lock:false lets text inputs update without triggering practice-mode reveal
@@ -146,6 +193,21 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
       return next;
     });
   }, [idx]);
+
+  const firstUnanswered = useCallback(() => {
+    if (!items) return 0;
+    for (let i = 0; i < items.length; i++) {
+      if (answers[i] == null || answers[i] === "") return i;
+    }
+    return -1;
+  }, [items, answers]);
+
+  const jumpToFirstUnanswered = useCallback(() => {
+    const i = firstUnanswered();
+    if (i >= 0) setIdx(i);
+    setShowNav(false);
+    setConfirmSubmit(false);
+  }, [firstUnanswered]);
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async (auto = false) => {
@@ -225,6 +287,34 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
     submitRef.current = handleSubmit;
   }, [handleSubmit]);
 
+  // ── Keyboard shortcuts (desktop) ─────────────────────────────────────────
+  useEffect(() => {
+    if (!started || paused || result || !items) return;
+    const lockedNow = practiceMode && !!locked[idx] && isObjectiveType(items[idx]?.type);
+    const onKey = (e) => {
+      if (showNav || confirmSubmit) return;
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.isComposing) return;
+      const q = items[idx];
+      if (!q) return;
+      if (e.key === "ArrowLeft" && idx > 0) { setIdx((i) => Math.max(0, i - 1)); return; }
+      if (e.key === "ArrowRight" && idx < items.length - 1) { setIdx((i) => Math.min(items.length - 1, i + 1)); return; }
+      if ((e.key === "f" || e.key === "F")) { toggleFlag(); return; }
+      if (e.key === "Enter") {
+        if (tag === "BUTTON") return; // let the focused button click normally
+        if (idx === items.length - 1) setConfirmSubmit(true);
+        else setIdx((i) => Math.min(items.length - 1, i + 1));
+        return;
+      }
+      if (q.type === "mcq" && !lockedNow) {
+        const k = e.key.toUpperCase();
+        if (/^[A-F]$/.test(k) && q.options && k in q.options) setAnswer(k);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [started, paused, result, items, idx, locked, showNav, confirmSubmit, setAnswer, toggleFlag, practiceMode]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (!payload) {
     return (
@@ -255,6 +345,36 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
 
   if (!items) return <div className="exr-root exr-center"><div className="exr-empty">Preparing…</div></div>;
 
+  // ── Cover page ────────────────────────────────────────────────────────────
+  if (!started) {
+    const marks = totalMarks(items);
+    const byTypeC = countByType(items);
+    return (
+      <div className="exr-root exr-center exr-scroll">
+        <div className="exr-cover">
+          <div className="exr-cover-badge">🎓</div>
+          <h1 className="exr-cover-title">{config.name || sourceTitle || "Exam"}</h1>
+          <div className="exr-cover-meta">
+            <span className="exr-chip">{items.length} question{items.length !== 1 ? "s" : ""}</span>
+            <span className="exr-chip">{marks} marks</span>
+            <span className="exr-chip">{timed ? `${config.timeLimitMin} min` : "Untimed"}</span>
+            <span className="exr-chip">{practiceMode ? "Practice" : "Exam"} mode</span>
+            {(config.passMarkPct || 0) > 0 && <span className="exr-chip">Pass {config.passMarkPct}%</span>}
+          </div>
+          <ul className="exr-cover-rules">
+            <li>{practiceMode ? "Instant feedback on each answer." : "No feedback until you submit."}</li>
+            <li>Tap the question counter to jump to any question — flag ones to revisit.</li>
+            <li>Your answers autosave, so you can leave and resume.</li>
+            {timed && <li>The exam submits automatically when time runs out.</li>}
+            {(byTypeC.shortanswer || byTypeC.essay) ? <li>Written answers are AI-marked against a scheme.</li> : null}
+          </ul>
+          <button className="exr-btn primary big" onClick={begin}>Begin exam →</button>
+          <button className="exr-btn ghost" onClick={onBack}>← Back</button>
+        </div>
+      </div>
+    );
+  }
+
   if (result) {
     return (
       <ExamResults
@@ -270,57 +390,42 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
 
   const q = items[idx];
   const answered = Object.keys(answers).filter((k) => answers[k] !== "" && answers[k] != null).length;
+  const unanswered = items.length - answered;
   const byType = countByType(items);
   const isLocked = practiceMode && locked[idx] && isObjectiveType(q.type);
   const lowTime = timed && timeLeft < 60000;
+  const isLast = idx === items.length - 1;
+
+  // Pace: expected done = elapsed / (limit / len); within one question = on pace.
+  const paceText = timed && elapsed > 30000
+    ? (answered >= (elapsed / (limitMs / items.length)) - 1 ? "on pace" : "behind pace")
+    : null;
 
   return (
     <div className="exr-root">
-      {/* Header */}
+      {/* Slim header: exit · title · saved · timer · pause */}
       <div className="exr-top">
         <div className="exr-top-left">
-          <span className="exr-title">🎓 {config.name || sourceTitle || "Exam"}</span>
-          <span className="exr-sub">Q{idx + 1}/{items.length} · {answered} answered</span>
+          <button className="exr-chip-btn danger" onClick={onBack} aria-label="Exit exam">✕</button>
+          <span className="exr-title" title={config.name || sourceTitle}>{config.name || sourceTitle || "Exam"}</span>
         </div>
         <div className="exr-top-right">
+          {savedAt > 0 && <span className="exr-saved" key={savedAt}>Saved ✓</span>}
           <span className={`exr-timer${lowTime ? " low" : ""}`}>
             ⏱ {timed ? fmt(timeLeft) : fmt(elapsed)}
           </span>
           {timed && (
             <button className={`exr-chip-btn${paused ? " on" : ""}`} onClick={togglePause}>
-              {paused ? "▶ Resume" : "⏸ Pause"}
+              {paused ? "▶" : "⏸"}
             </button>
           )}
-          <button className="exr-chip-btn" onClick={() => setShowNav((v) => !v)}>🗺</button>
-          <button className="exr-chip-btn danger" onClick={onBack} aria-label="Exit exam">✕</button>
         </div>
       </div>
 
-      <div className="exr-progress"><div style={{ width: `${((idx + 1) / items.length) * 100}%` }} /></div>
+      <div className="exr-progress"><div style={{ width: `${(answered / items.length) * 100}%` }} /></div>
 
-      {/* Navigator */}
-      {showNav && (
-        <div className="exr-nav">
-          <div className="exr-nav-grid">
-            {items.map((it, i) => {
-              const cls = [
-                "exr-nav-dot",
-                i === idx ? "cur" : "",
-                answers[i] != null && answers[i] !== "" ? "done" : "",
-                flagged.has(i) ? "flag" : "",
-              ].join(" ");
-              return (
-                <button key={it.id || i} className={cls} onClick={() => { setIdx(i); setShowNav(false); }}>
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
-          <div className="exr-nav-legend">
-            <span>🟢 Answered</span><span>🟡 Current</span><span>🚩 Flagged</span><span>⬛ Unanswered</span>
-          </div>
-        </div>
-      )}
+      {/* Toast (time warnings) */}
+      {toast && <div className="exr-toast">{toast}</div>}
 
       {/* Paused overlay */}
       {paused && (
@@ -332,50 +437,134 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
         </div>
       )}
 
-      {/* Question body */}
+      {/* Question body — keyed for a subtle transition between questions */}
       {!paused && (
         <div className="exr-body">
-          <div className="exr-qcard">
-            <div className="exr-qhead">
-              <span className={`exr-qtype t-${q.type}`}>{typeBadge(q.type)}</span>
-              <span className="exr-qmarks">{q.marks} mark{q.marks > 1 ? "s" : ""}</span>
-              <button className={`exr-flag${flagged.has(idx) ? " on" : ""}`} onClick={toggleFlag}>
-                {flagged.has(idx) ? "🚩" : "🏳"}
+          <div className="exr-swap" key={idx}>
+            <div className="exr-qcard">
+              <div className="exr-qhead">
+                <span className="exr-qnum">Question {idx + 1}</span>
+                <span className={`exr-qtype t-${q.type}`}>{typeBadge(q.type)}</span>
+                <span className="exr-qmarks">{q.marks} mark{q.marks > 1 ? "s" : ""}</span>
+                <button
+                  className={`exr-flagbtn${flagged.has(idx) ? " on" : ""}`}
+                  onClick={toggleFlag}
+                  aria-label={flagged.has(idx) ? "Unflag question" : "Flag question for review"}
+                >
+                  {flagged.has(idx) ? "🚩 Flagged" : "🏳 Flag"}
+                </button>
+              </div>
+              <div className="exr-qtext">{q.question}</div>
+              {q.type === "fillblank" && <div className="exr-qhint">Type the missing word or phrase</div>}
+              {(q.type === "shortanswer" || q.type === "essay") && (
+                <div className="exr-qhint">Written answer — the AI marks it against a scheme at the end</div>
+              )}
+            </div>
+
+            <AnswerInput
+              q={q}
+              value={answers[idx]}
+              locked={isLocked}
+              practiceMode={practiceMode}
+              onChange={setAnswer}
+            />
+
+            {/* Practice-mode instant feedback */}
+            {practiceMode && isLocked && (
+              <PracticeFeedback q={q} answer={answers[idx]} />
+            )}
+            <div className="exr-body-gap" />
+          </div>
+        </div>
+      )}
+
+      {/* Sticky action bar */}
+      {!paused && (
+        <div className="exr-bar">
+          <button
+            className="exr-bar-btn"
+            disabled={idx === 0}
+            onClick={() => setIdx((i) => Math.max(0, i - 1))}
+            aria-label="Previous question"
+          >
+            ← Prev
+          </button>
+          <button
+            className="exr-bar-mid"
+            onClick={() => setShowNav(true)}
+            aria-label="Open question navigator"
+          >
+            <span className="exr-bar-q">Q {idx + 1} <i>of {items.length}</i></span>
+            <span className="exr-bar-sub">
+              {answered} answered{flagged.size > 0 ? ` · 🚩 ${flagged.size}` : ""}{paceText ? ` · ${paceText}` : ""}
+            </span>
+          </button>
+          {!isLast && (
+            <button className="exr-bar-link" onClick={() => setConfirmSubmit(true)}>
+              Submit
+            </button>
+          )}
+          {isLast ? (
+            <button className="exr-bar-btn submit" onClick={() => setConfirmSubmit(true)} disabled={submitting}>
+              {submitting ? "…" : "Submit ✓"}
+            </button>
+          ) : (
+            <button
+              className="exr-bar-btn primary"
+              onClick={() => setIdx((i) => Math.min(items.length - 1, i + 1))}
+              aria-label="Next question"
+            >
+              Next →
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Question palette sheet */}
+      {showNav && (
+        <div className="exr-sheet-bg" onClick={() => setShowNav(false)}>
+          <div className="exr-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="exr-sheet-head">
+              <b>Jump to question</b>
+              <button className="exr-chip-btn" onClick={() => setShowNav(false)} aria-label="Close navigator">✕</button>
+            </div>
+            <div className="exr-sheet-grid">
+              {items.map((it, i) => {
+                const cls = [
+                  "exr-cell",
+                  i === idx ? "cur" : "",
+                  answers[i] != null && answers[i] !== "" ? "done" : "",
+                  flagged.has(i) ? "flag" : "",
+                ].join(" ");
+                return (
+                  <button
+                    key={it.id || i}
+                    className={cls}
+                    aria-label={`Question ${i + 1}${answers[i] != null && answers[i] !== "" ? ", answered" : ""}${flagged.has(i) ? ", flagged" : ""}`}
+                    onClick={() => { setIdx(i); setShowNav(false); }}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="exr-sheet-legend">
+              <span><i className="exr-lg done" /> Answered</span>
+              <span><i className="exr-lg cur" /> Current</span>
+              <span><i className="exr-lg flag" /> Flagged</span>
+            </div>
+            <div className="exr-sheet-foot">
+              {unanswered > 0 ? (
+                <button className="exr-btn ghost" onClick={jumpToFirstUnanswered}>
+                  {unanswered} unanswered — jump to first
+                </button>
+              ) : (
+                <span className="exr-sheet-all">All questions answered ✓</span>
+              )}
+              <button className="exr-btn submit" onClick={() => { setShowNav(false); setConfirmSubmit(true); }}>
+                Submit exam
               </button>
             </div>
-            <div className="exr-qtext">{q.question}</div>
-            {q.type === "fillblank" && <div className="exr-qhint">Type the missing word or phrase</div>}
-            {(q.type === "shortanswer" || q.type === "essay") && (
-              <div className="exr-qhint">Written answer — the AI marks it against a scheme at the end</div>
-            )}
-          </div>
-
-          <AnswerInput
-            q={q}
-            value={answers[idx]}
-            locked={isLocked}
-            practiceMode={practiceMode}
-            onChange={setAnswer}
-          />
-
-          {/* Practice-mode instant feedback */}
-          {practiceMode && isLocked && (
-            <PracticeFeedback q={q} answer={answers[idx]} />
-          )}
-
-          <div className="exr-foot">
-            <button className="exr-btn ghost" disabled={idx === 0} onClick={() => setIdx((i) => Math.max(0, i - 1))}>
-              ← Prev
-            </button>
-            {idx < items.length - 1 ? (
-              <button className="exr-btn primary" onClick={() => setIdx((i) => Math.min(items.length - 1, i + 1))}>
-                Next →
-              </button>
-            ) : (
-              <button className="exr-btn submit" onClick={() => setConfirmSubmit(true)} disabled={submitting}>
-                {submitting ? "Submitting…" : "Submit exam ✓"}
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -387,12 +576,16 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
             <div className="exr-resume-ic">📝</div>
             <div className="exr-resume-title">Submit exam?</div>
             <p className="exr-resume-sub">
-              {items.length - answered > 0
-                ? `${items.length - answered} unanswered question${items.length - answered > 1 ? "s" : ""} will score 0.`
-                : "All questions answered."}
-              {flagged.size > 0 && ` ${flagged.size} flagged.`}
+              {flagged.size > 0 && `${flagged.size} flagged.`}
               {writtenSummary(byType)}
             </p>
+            {unanswered > 0 ? (
+              <button className="exr-unans" onClick={jumpToFirstUnanswered}>
+                {unanswered} unanswered question{unanswered > 1 ? "s" : ""} will score 0 — tap to review →
+              </button>
+            ) : (
+              <p className="exr-resume-sub ok">All questions answered ✓</p>
+            )}
             <div className="exr-modal-row">
               <button className="exr-btn ghost" onClick={() => setConfirmSubmit(false)}>Go back</button>
               <button className="exr-btn submit" onClick={() => handleSubmit(false)}>Submit now</button>
@@ -417,11 +610,11 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
 
 function typeBadge(type) {
   const map = {
-    mcq: "◉ MCQ",
-    truefalse: "⚖ True/False",
-    fillblank: "✎ Fill blank",
-    shortanswer: "≡ Short answer",
-    essay: "📝 Theory",
+    mcq: "MCQ",
+    truefalse: "T/F",
+    fillblank: "Fill blank",
+    shortanswer: "Short",
+    essay: "Theory",
   };
   return map[type] || type;
 }
@@ -500,14 +693,21 @@ function AnswerInput({ q, value, locked, practiceMode, onChange }) {
   }
 
   // shortanswer / essay
+  const words = String(value || "").trim().split(/\s+/).filter(Boolean).length;
   return (
-    <textarea
-      className="exr-textarea"
-      rows={q.type === "essay" ? 9 : 4}
-      value={value || ""}
-      placeholder={q.type === "essay" ? "Write a structured answer — cover all parts of the question…" : "Type a short answer…"}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <div className="exr-answerbox">
+      <div className="exr-anslabel-row">
+        <span className="exr-ans-label">Your answer</span>
+        {q.type === "essay" && <span className="exr-wc">{words} word{words !== 1 ? "s" : ""}</span>}
+      </div>
+      <textarea
+        className="exr-textarea"
+        rows={q.type === "essay" ? 9 : 4}
+        value={value || ""}
+        placeholder={q.type === "essay" ? "Write a structured answer — cover all parts of the question…" : "Type a short answer…"}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
   );
 }
 

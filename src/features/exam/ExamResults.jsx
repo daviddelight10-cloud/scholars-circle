@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { gradeObjectiveAnswer, isWrittenType, countByType, totalMarks, QUESTION_TYPES } from "./examSchema";
-import { getExamAttempts } from "./examApi";
+import { useEffect, useMemo, useState } from "react";
+import { gradeObjectiveAnswer, isWrittenType, countByType, QUESTION_TYPES } from "./examSchema";
+import { getExamAttempts, addMissedToDeck } from "./examApi";
 
 function fmtTime(ms) {
   const s = Math.floor(ms / 1000);
@@ -12,6 +12,8 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
   const [showAttempts, setShowAttempts] = useState(false);
   const [attempts, setAttempts] = useState(null);
   const [attemptsError, setAttemptsError] = useState(false);
+  const [deckBusy, setDeckBusy] = useState(false);
+  const [deckMsg, setDeckMsg] = useState(null); // {type, text}
 
   useEffect(() => {
     if (!examResourceId) return;
@@ -37,6 +39,44 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
   const wrongCount = rows.filter((r) => r.obj && !r.obj.correct).length
     + rows.filter((r) => r.ai && r.ai.marksAwarded < r.ai.maxMarks * 0.5).length;
 
+  // Missed objective questions that can be added to the practice deck
+  // (mcq + truefalse only — written types don't map to the deck format).
+  const missedDeckQuestions = useMemo(() => {
+    const out = [];
+    for (const { q, obj } of rows) {
+      if (!obj || obj.correct) continue;
+      if (q.type === "mcq") {
+        out.push({ question: q.question, options: q.options, correct: q.correct, explanation: q.explanation || "" });
+      } else if (q.type === "truefalse") {
+        out.push({
+          question: q.question,
+          options: { A: "True", B: "False" },
+          correct: q.correct ? "A" : "B",
+          explanation: q.explanation || "",
+        });
+      }
+    }
+    return out;
+  }, [rows]);
+
+  const practiceMisses = async () => {
+    if (deckBusy || !missedDeckQuestions.length) return;
+    setDeckBusy(true);
+    setDeckMsg(null);
+    try {
+      const data = await addMissedToDeck({
+        sourceResourceId: examResourceId || null,
+        sourceTitle: sourceTitle || exam?.config?.name || "Exam",
+        questions: missedDeckQuestions,
+      });
+      setDeckMsg({ type: "ok", text: `✓ ${data?.added ?? missedDeckQuestions.length} question${(data?.added ?? missedDeckQuestions.length) !== 1 ? "s" : ""} added to your deck — they'll come up in Survival Quiz.` });
+    } catch (e) {
+      setDeckMsg({ type: "error", text: e.message || "Couldn't save to deck." });
+    } finally {
+      setDeckBusy(false);
+    }
+  };
+
   const visible = rows.filter((r) => {
     if (filter === "wrong") {
       if (r.obj) return !r.obj.correct;
@@ -56,10 +96,10 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
           <div className="exr-score-title">
             {result.autoSubmitted ? "Time's up — exam submitted" : "Exam complete"}
           </div>
-          <div className="exr-score-big" style={{ color: passed ? "#66bb6a" : "#ffb74d" }}>
-            {Number.isInteger(score) ? score : score.toFixed(1)} / {total} marks
+          <ScoreRing pct={pct} score={score} total={total} passed={passed} />
+          <div className={`exr-score-pct${passed ? " pass" : ""}`}>
+            {pct}% · pass mark {passMark}% · {passed ? "PASSED" : "Below pass mark"}
           </div>
-          <div className="exr-score-pct">{pct}% · pass mark {passMark}% · {passed ? "PASSED" : "Below pass mark"}</div>
 
           <div className="exr-score-grid">
             <div className="exr-score-cell"><b>{items.length}</b><span>questions</span></div>
@@ -79,6 +119,18 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
               ⚠️ Some written answers couldn't be AI-marked — compare them to the model answers below and grade yourself.
             </div>
           )}
+
+          {missedDeckQuestions.length > 0 && (
+            <button className="exr-misses" onClick={practiceMisses} disabled={deckBusy}>
+              <span className="exr-misses-ic">🧠</span>
+              <span className="exr-misses-body">
+                <b>Practice your misses</b>
+                <span>Add {missedDeckQuestions.length} wrong question{missedDeckQuestions.length !== 1 ? "s" : ""} to your deck</span>
+              </span>
+              <span className="exr-misses-go">{deckBusy ? "…" : "＋"}</span>
+            </button>
+          )}
+          {deckMsg && <div className={`exr-deckmsg ${deckMsg.type}`}>{deckMsg.text}</div>}
 
           <div className="exr-modal-row" style={{ marginTop: 14 }}>
             <button className="exr-btn ghost" onClick={onBack}>← My Space</button>
@@ -121,6 +173,29 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
         {visible.map(({ q, i, obj, ai, answer }) => (
           <ReviewRow key={q.id || i} q={q} n={i + 1} obj={obj} ai={ai} answer={answer} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ScoreRing({ pct, score, total, passed }) {
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  const offset = c - (Math.min(100, Math.max(0, pct)) / 100) * c;
+  const color = passed ? "#66bb6a" : "#ffb74d";
+  return (
+    <div className="exr-ring-wrap" role="img" aria-label={`Score ${pct}%`}>
+      <svg viewBox="0 0 100 100" className="exr-ring">
+        <circle cx="50" cy="50" r={r} className="exr-ring-track" />
+        <circle
+          cx="50" cy="50" r={r}
+          className="exr-ring-arc"
+          style={{ strokeDasharray: c, strokeDashoffset: offset, stroke: color }}
+        />
+      </svg>
+      <div className="exr-ring-text">
+        <b>{Number.isInteger(score) ? score : score.toFixed(1)}</b>
+        <span>/{total}</span>
       </div>
     </div>
   );
