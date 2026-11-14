@@ -11,7 +11,15 @@ const DEADLINES = [
   [24, "24h"],
   [72, "3 days"],
   [168, "7 days"],
+  ["custom", "Custom"],
 ];
+
+/** Now + 1h as a datetime-local value (input min — can't pick the past). */
+const dtLocalMin = () => {
+  const d = new Date(Date.now() + 3600000);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
 
 /**
  * Bottom sheet for turning a saved exam into an async challenge.
@@ -21,6 +29,8 @@ const DEADLINES = [
 export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClose, onCreated }) {
   useOverlayBackClose(onClose, { open: true });
   const [deadlineHours, setDeadlineHours] = useState(168);
+  const [customAt, setCustomAt] = useState(""); // datetime-local string
+  const [customInvalid, setCustomInvalid] = useState(true); // starts empty = invalid
   const [scoring, setScoring] = useState("first");
   const [reveal, setReveal] = useState("immediate");
   const [groupId, setGroupId] = useState(fixedGroupId);
@@ -39,14 +49,15 @@ export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClos
   }, [fixedGroupId]);
 
   const submit = async () => {
-    if (busy) return;
+    if (busy || (deadlineHours === "custom" && customInvalid)) return;
     setBusy(true);
     setErr("");
     try {
       const data = await createChallenge({
         examResourceId: exam.id,
         groupId: groupId || null,
-        deadlineHours,
+        deadlineHours: deadlineHours === "custom" ? null : deadlineHours,
+        deadlineAt: deadlineHours === "custom" ? new Date(customAt).toISOString() : null,
         scoring,
         reveal,
       });
@@ -106,6 +117,22 @@ export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClos
                 </button>
               ))}
             </div>
+            {deadlineHours === "custom" && (
+              <input
+                type="datetime-local"
+                className="exh-join-input exc-dt"
+                value={customAt}
+                min={dtLocalMin()}
+                onChange={(e) => {
+                  setCustomAt(e.target.value);
+                  const ms = new Date(e.target.value).getTime();
+                  setCustomInvalid(!Number.isFinite(ms) || ms <= Date.now());
+                }}
+              />
+            )}
+            {deadlineHours === "custom" && customInvalid && customAt && (
+              <div className="exc-dt-hint">Pick a time in the future.</div>
+            )}
 
             <div className="exh-section">Scoring</div>
             <div className="exc-opts">
@@ -146,7 +173,7 @@ export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClos
             )}
 
             {err && <div className="exr-warn" style={{ marginTop: 10 }}>⚠️ {err}</div>}
-            <button className="exr-btn primary big" style={{ marginTop: 14 }} onClick={submit} disabled={busy}>
+            <button className="exr-btn primary big" style={{ marginTop: 14 }} onClick={submit} disabled={busy || (deadlineHours === "custom" && customInvalid)}>
               {busy ? "Creating…" : "Create challenge →"}
             </button>
           </>

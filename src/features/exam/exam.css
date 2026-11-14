@@ -708,6 +708,9 @@
 }
 .exh-join-input::placeholder { letter-spacing: normal; text-transform: none; font-weight: 400; }
 .exh-join-input:focus { outline: none; border-color: #FFD700; }
+.exc-dt { margin-top: 10px; letter-spacing: normal; text-transform: none; font-weight: 500; color-scheme: dark; }
+html[data-theme="light"] .exc-dt { color-scheme: light; }
+.exc-dt-hint { margin-top: 6px; font-size: 11.5px; color: var(--c-f87171); }
 
 /* ── Group Play: challenge strip + picker ─────────────────────────────────── */
 .gxc-strip { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }

@@ -190,10 +190,10 @@ async function chFetch(path, options = {}) {
   return data;
 }
 
-export function createChallenge({ examResourceId, groupId, deadlineHours, scoring, reveal }) {
+export function createChallenge({ examResourceId, groupId, deadlineHours, deadlineAt, scoring, reveal }) {
   return chFetch("/", {
     method: "POST",
-    body: JSON.stringify({ examResourceId, groupId, deadlineHours, scoring, reveal }),
+    body: JSON.stringify({ examResourceId, groupId, deadlineHours, deadlineAt, scoring, reveal }),
   });
 }
 

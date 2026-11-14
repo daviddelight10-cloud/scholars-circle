@@ -60,7 +60,7 @@ function leaderboardEntries(attempts, scoring, currentUserId) {
 // ── Create ───────────────────────────────────────────────────────────────
 router.post("/", requireAuth, async (req, res) => {
   try {
-    const { examResourceId, groupId = null, deadlineHours = null, scoring = "first", reveal = "immediate" } = req.body || {};
+    const { examResourceId, groupId = null, deadlineHours = null, deadlineAt = null, scoring = "first", reveal = "immediate" } = req.body || {};
     if (!examResourceId) return res.status(400).json({ error: "examResourceId is required" });
     if (!["first", "best"].includes(scoring)) return res.status(400).json({ error: "scoring must be first|best" });
     if (!["immediate", "onClose"].includes(reveal)) return res.status(400).json({ error: "reveal must be immediate|onClose" });
@@ -71,8 +71,20 @@ router.post("/", requireAuth, async (req, res) => {
     if (groupId && !(await memberOf(groupId, req.user.sub))) {
       return res.status(403).json({ error: "You're not a member of that group" });
     }
-    const hours = Number(deadlineHours);
-    const deadline = Number.isFinite(hours) && hours > 0 ? new Date(Date.now() + hours * 3600000) : null;
+    // Deadline: absolute `deadlineAt` (custom picker) wins, else `deadlineHours`.
+    // Must be in the future; capped at 90 days so a typo can't pin a challenge open forever.
+    let deadline = null;
+    const maxAt = new Date(Date.now() + 90 * 24 * 3600000);
+    if (deadlineAt != null) {
+      const d = new Date(deadlineAt);
+      if (Number.isNaN(d.getTime())) return res.status(400).json({ error: "Invalid deadline date" });
+      if (d <= new Date()) return res.status(400).json({ error: "Deadline must be in the future" });
+      if (d > maxAt) return res.status(400).json({ error: "Deadline can be at most 90 days away" });
+      deadline = d;
+    } else {
+      const hours = Number(deadlineHours);
+      if (Number.isFinite(hours) && hours > 0) deadline = new Date(Date.now() + hours * 3600000);
+    }
 
     const challenge = await prisma.examChallenge.create({
       data: {
