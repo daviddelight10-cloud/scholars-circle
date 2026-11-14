@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getChallenge, takeChallenge, getLeaderboard } from "./examApi";
 import { fmtDeadline as fmtLeft, fmtDuration as fmtDur, challengeUrl, canTakeChallenge } from "./challengeUtils";
 import ExamRunner from "./ExamRunner";
+import AvatarMark from "../../components/AvatarMark.jsx";
 import "./exam.css";
 
 const authData = () => {
@@ -131,7 +132,7 @@ export default function ExamChallengePage() {
           <div className="exr-cover-badge">🎓</div>
           <div className="exc-eyebrow">Exam challenge</div>
           <h1 className="exr-cover-title">{exam.name}</h1>
-          <div className="exc-by">by {meta.creator.name}</div>
+          <div className="exc-by"><AvatarMark avatar={meta.creator.avatar} name={meta.creator.name} size={18} />by {meta.creator.name}</div>
           <div className="exr-cover-meta">
             <span className="exr-chip">{exam.questionCount} questions</span>
             <span className="exr-chip">{exam.totalMarks} marks</span>
@@ -183,7 +184,7 @@ export default function ExamChallengePage() {
           {(entries.length ? entries : top3).map((e, i) => (
             <div key={e.userId || i} className={`exc-row${e.you ? " you" : ""}`}>
               <span className={`exc-rank${i < 3 ? " top" : ""}`}>{i < 3 ? ["🥇", "🥈", "🥉"][i] : `#${e.rank ?? i + 1}`}</span>
-              <span className="exc-ava">{(e.avatar) ? <img src={e.avatar} alt="" /> : (e.name || "S")[0].toUpperCase()}</span>
+              <AvatarMark avatar={e.avatar} name={e.name} size={30} className="exc-ava" />
               <span className="exc-name">{e.name}{e.you ? " (you)" : ""}{e.attempts > 1 ? ` · ${e.attempts} attempts` : ""}</span>
               <span className="exc-score">
                 <b>{e.pct}%</b>
