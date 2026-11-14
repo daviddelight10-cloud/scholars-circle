@@ -135,7 +135,7 @@ export async function gradeWrittenAnswers(questions, answers) {
  * Submit a finished exam attempt. Reuses quiz-attempts (mode "exam") with
  * skipFsrs so exam questions never pollute the spaced-review pool.
  */
-export async function submitExamAttempt(examResourceId, { score, total, details }) {
+export async function submitExamAttempt(examResourceId, { score, total, details, challengeId, durationMs }) {
   const res = await fetch(`${API_BASE}/api/resources/quiz-attempts`, {
     method: "POST",
     headers: getAuthHeaders(),
@@ -146,6 +146,8 @@ export async function submitExamAttempt(examResourceId, { score, total, details 
       details,
       mode: "exam",
       skipFsrs: true,
+      ...(challengeId ? { challengeId } : {}),
+      ...(durationMs != null ? { durationMs } : {}),
     }),
   });
   if (!res.ok) {
@@ -170,6 +172,39 @@ export async function addMissedToDeck({ sourceResourceId, sourceTitle, questions
   if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
   return data;
 }
+
+// ── Exam challenges ─────────────────────────────────────────────────────────
+
+async function chFetch(path, options = {}, authRequired = true) {
+  const res = await fetch(`${API_BASE}/api/exam-challenges${path}`, {
+    ...options,
+    headers: getAuthHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || `Failed (${res.status})`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+  void authRequired;
+}
+
+export function createChallenge({ examResourceId, groupId, deadlineHours, scoring, reveal }) {
+  return chFetch("/", {
+    method: "POST",
+    body: JSON.stringify({ examResourceId, groupId, deadlineHours, scoring, reveal }),
+  });
+}
+
+export const getChallenge = (token) => chFetch(`/${token}`);
+export const getChallengeByCode = (code) => chFetch(`/code/${encodeURIComponent(code)}`);
+export const takeChallenge = (token) => chFetch(`/${token}/take`, { method: "POST", body: "{}" });
+export const getLeaderboard = (token) => chFetch(`/${token}/leaderboard`);
+export const listMyChallenges = () => chFetch("/mine");
+export const listGroupChallenges = (groupId) => chFetch(`/group/${groupId}`);
+export const deleteChallenge = (id) => chFetch(`/${id}`, { method: "DELETE" });
 
 /** Fetch the current user's attempts for a given exam resource. */
 export async function getExamAttempts(examResourceId) {

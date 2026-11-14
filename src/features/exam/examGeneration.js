@@ -1,6 +1,6 @@
 import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient";
 import { chunkText } from "../../lib/extractFileText";
-import { countExistingMcqs } from "../../lib/generationCore";
+import { countExistingMcqs, isQuestionBankDoc } from "../../lib/generationCore";
 import { normalizeQuestion, normalizeExamPayload, ALL_TYPES, EXAM_VERSION } from "./examSchema";
 
 const AI_MODEL = { provider: "openrouter", model: "z-ai/glm-5.3-flash" };
@@ -73,8 +73,10 @@ export async function analyzeDocument(text, images = []) {
   if (mcqCount >= 5) heuristicTypes.push("mcq");
   if (writtenCount >= 3) heuristicTypes.push("essay");
 
-  // Fast path: no AI call needed when heuristics already agree it's a pure MCQ bank
-  if (mcqCount >= 5 && writtenCount < 3 && !images.length) {
+  // Fast path: no AI call needed when heuristics already agree it's a pure MCQ
+  // bank (dense questions — a prose doc with a small question tail goes to the
+  // AI classifier instead, which can return "mixed"/"study").
+  if (isQuestionBankDoc(text, mcqCount) && writtenCount < 3 && !images.length) {
     return {
       docType: "question_bank",
       detectedTypes: ["mcq"],

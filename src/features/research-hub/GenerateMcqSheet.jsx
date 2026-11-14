@@ -40,10 +40,11 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
   const [pFrom, setPFrom] = useState("");
   const [pTo, setPTo] = useState("");
   const [showLock, setShowLock] = useState(false);
+  const [importTail, setImportTail] = useState(true);
 
   useEffect(() => {
     if (!open || !resource) return;
-    setMode("auto"); setShowLock(false); setFocusOpen(false); setTopic(""); setPFrom(""); setPTo("");
+    setMode("auto"); setShowLock(false); setFocusOpen(false); setTopic(""); setPFrom(""); setPTo(""); setImportTail(true);
     let live = true;
     setState({ status: "loading", data: null, error: "" });
     analyze(resource)
@@ -53,7 +54,8 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
   }, [open, resource?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = state.data;
-  const isBank = !!data && data.existingCount >= 5;
+  const isBank = !!data?.isBank;
+  const hasTail = !isBank && (data?.existingCount || 0) > 0;
   const pages = data?.pages || 0;
   const rangeOn = focusOpen && pages > 1 && (pFrom || pTo);
   const effChars = useMemo(() => {
@@ -81,13 +83,13 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
     if (mode === "custom") {
       try { localStorage.setItem(PREFS_KEY, JSON.stringify({ count: n, style, difficulty, realWorld, highYield, verify })); } catch {}
       const pageRange = rangeOn ? { from: parseInt(pFrom, 10) || 1, to: parseInt(pTo, 10) || pages } : null;
-      onGenerate({ mode: "custom", count: n, style, difficulty, realWorld, highYield, verify, focusTopic: topic.trim(), pageRange });
+      onGenerate({ mode: "custom", count: n, style, difficulty, realWorld, highYield, verify, focusTopic: topic.trim(), pageRange, harvest: hasTail ? importTail : undefined });
     } else {
-      onGenerate({ mode: "auto", count: autoN, style: "mixed", difficulty: "mixed" });
+      onGenerate({ mode: "auto", count: autoN, style: "mixed", difficulty: "mixed", harvest: hasTail ? importTail : undefined });
     }
   };
 
-  const total = isBank ? data.existingCount : mode === "custom" ? n : autoN;
+  const total = isBank ? data.existingCount : (mode === "custom" ? n : autoN) + (importTail && hasTail ? data.existingCount : 0);
   const ready = state.status === "ready";
 
   return (
@@ -111,8 +113,15 @@ export default function GenerateMcqSheet({ open, onClose, resource, analyze, onG
               <button className={`gm-card${mode === "auto" ? " on" : ""}`} onClick={() => { setMode("auto"); setShowLock(false); }} aria-pressed={mode === "auto"}>
                 <span className="gm-tag">Recommended</span>
                 <b>Auto · {autoN} questions</b>
-                <span>{shortDoc ? "Short material, so we'll write as many good questions as it supports." : "A balanced set that covers the whole material."}</span>
+                <span>{shortDoc ? "Short material, so we'll write as many good questions as it supports." : hasTail && importTail ? `A balanced set that covers the whole material — plus the ~${data.existingCount} questions already in it.` : "A balanced set that covers the whole material."}</span>
               </button>
+
+              {hasTail && (
+                <label className="gm-tog" style={{ marginTop: 2 }}>
+                  <input type="checkbox" checked={importTail} onChange={(e) => setImportTail(e.target.checked)} />
+                  <span><b>Also import the ~{data.existingCount} questions already in this document</b><small>They're kept word-for-word and added on top of the generated set. Uncheck to generate a fresh set only.</small></span>
+                </label>
+              )}
 
               <button className={`gm-card${mode === "custom" ? " on" : ""}${isPaid ? "" : " locked"}`} onClick={openCustom} aria-pressed={mode === "custom"}>
                 <span className="gm-tag pro">{isPaid ? "Premium" : "Premium · locked"}</span>

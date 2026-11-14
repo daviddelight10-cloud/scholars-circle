@@ -24,7 +24,7 @@ function prepareItems(questions, config) {
   return items;
 }
 
-export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, onStreakUpdate, onXpUpdate }) {
+export default function ExamRunner({ exam, examResourceId, sourceTitle, challenge = null, onBack, onStreakUpdate, onXpUpdate }) {
   // Device/browser back exits the exam runner instead of leaving the app.
   useOverlayBackClose(onBack, { open: !!onBack });
 
@@ -32,7 +32,9 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
   const config = payload?.config || {};
   const timed = (config.timeLimitMin || 0) > 0;
   const practiceMode = config.mode === "practice";
-  const examId = examResourceId || `local-${sourceTitle || "exam"}`;
+  // Sessions are scoped per challenge so a solo attempt on the same exam
+  // can't wrongly resume inside a challenge (or the reverse).
+  const examId = (examResourceId || `local-${sourceTitle || "exam"}`) + (challenge?.id ? `:ch:${challenge.id}` : "");
   const limitMs = timed ? config.timeLimitMin * 60000 : 0;
 
   const [resumeOffer, setResumeOffer] = useState(null); // saved session
@@ -265,7 +267,11 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
     let serverData = {};
     if (examResourceId) {
       try {
-        serverData = await submitExamAttempt(examResourceId, { score: marks, total, details });
+        serverData = await submitExamAttempt(examResourceId, {
+          score: marks, total, details,
+          challengeId: challenge?.id || null,
+          durationMs: Date.now() - startRef.current,
+        });
         if (serverData.streak != null && onStreakUpdate) onStreakUpdate(serverData.streak, serverData.longestStreak);
         if (serverData.xpAwarded > 0 && onXpUpdate) onXpUpdate(serverData.xpAwarded);
       } catch (err) {
@@ -382,6 +388,7 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
         exam={payload}
         sourceTitle={sourceTitle}
         examResourceId={examResourceId}
+        challenge={challenge}
         onBack={onBack}
         onRetake={startFresh}
       />

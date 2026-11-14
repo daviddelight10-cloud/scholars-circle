@@ -246,6 +246,9 @@ model User {
 
   groupXpEvents     GroupXpEvent[]
 
+  examChallenges     ExamChallenge[]
+  examChallengeViews ExamChallengeView[]
+
 }
 
 model UserFollow {
@@ -909,6 +912,8 @@ model Classroom {
   battlesChallenging GroupBattle[]  @relation("BattleChallenger")
 
   battlesChallenged  GroupBattle[]  @relation("BattleChallenged")
+
+  examChallenges     ExamChallenge[]
 
 }
 
@@ -1617,6 +1622,7 @@ model Resource {
   updatedAt   DateTime @updatedAt
   views       ResourceView[]
   quizAttempts QuizAttempt[]
+  examChallenges ExamChallenge[] @relation("ExamChallenges")
   bookmarks   ResourceBookmark[]
   ratings     ResourceRating[]
   comments    ResourceComment[]
@@ -1678,11 +1684,15 @@ model QuizAttempt {
   xpAwarded   Int      @default(0)
   mode        String   @default("practice") // practice | exam
   details     Json?    // [{ questionIndex, correct }] per-question results
+  challengeId String?
+  challenge   ExamChallenge? @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+  durationMs  Int?     // wall-clock time the attempt took (runner reports)
   createdAt   DateTime @default(now())
 
   @@index([resourceId])
   @@index([userId])
   @@index([mode])
+  @@index([challengeId])
   @@index([userId, createdAt])
 }
 
@@ -2324,6 +2334,8 @@ model FeedPost {
 
   liveCode     String?
 
+  challengeToken String?
+
   universityId String?
 
   createdAt    DateTime      @default(now())
@@ -2439,4 +2451,46 @@ model PdfSharedAnnotation {
 
   @@index([docKey, page])
   @@index([userId])
+}
+
+
+// ============ EXAM CHALLENGES ============
+// Async group exams: creator shares a link/code (or posts to a Classroom);
+// each signed-in user takes the same exam on their own time and attempts
+// link back via QuizAttempt.challengeId for the leaderboard.
+model ExamChallenge {
+  id               String    @id @default(cuid())
+  token            String    @unique        // ~10-char url token → /exam/<token>
+  code             String    @unique        // 6-char join code
+  examResourceId   String
+  examResource     Resource  @relation("ExamChallenges", fields: [examResourceId], references: [id], onDelete: Cascade)
+  creatorId        String
+  creator          User      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  groupId          String?   // Classroom.id when posted to a group
+  group            Classroom? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  scoring          String    @default("first")     // first | best
+  reveal           String    @default("immediate") // immediate | onClose
+  deadline         DateTime?
+  reminder24SentAt DateTime?                     // deadline sweep flags
+  closedNotifiedAt DateTime?
+  createdAt        DateTime  @default(now())
+  attempts         QuizAttempt[]
+  views            ExamChallengeView[]
+
+  @@index([examResourceId])
+  @@index([groupId])
+  @@index([creatorId])
+  @@index([deadline])
+}
+
+// One row per user who opened the challenge landing — viewed-vs-taken stats
+// and "haven't opened it" reminders for group challenges.
+model ExamChallengeView {
+  challengeId String
+  challenge   ExamChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt    DateTime @default(now())
+
+  @@id([challengeId, userId])
 }

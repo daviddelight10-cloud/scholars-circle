@@ -412,7 +412,7 @@ router.get("/", requireAuth, async (req, res) => {
 router.post("/posts", requireAuth, async (req, res) => {
   try {
     const uid = userId(req);
-    const { text, kind, resourceId } = req.body || {};
+    const { text, kind, resourceId, challengeToken } = req.body || {};
     if (!text?.trim() && !resourceId) {
       return res.status(400).json({ error: "Post needs text or a resource" });
     }
@@ -433,6 +433,7 @@ router.post("/posts", requireAuth, async (req, res) => {
         kind: ["post", "question", "activity"].includes(kind) ? kind : "post",
         text: text?.trim() || "",
         resourceId: resourceId || null,
+        challengeToken: typeof challengeToken === "string" && challengeToken.length <= 32 ? challengeToken : null,
         universityId: profile?.universityId || null,
       },
       include: {

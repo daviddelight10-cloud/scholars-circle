@@ -115,6 +115,51 @@ describe("extraction mode (MCQ-bank document)", () => {
     expect(countExistingMcqs(faqDoc)).toBe(0);
   });
 
+  it("treats a dense bank as a bank but a long doc with a question tail as prose", () => {
+    expect(isQuestionBankDoc(makeMcqDoc(30))).toBe(true);
+    const prose = "Study notes paragraph. ".repeat(4000); // ~92k chars of prose
+    const sparseDoc = prose + makeMcqDoc(15);
+    expect(countExistingMcqs(sparseDoc)).toBe(15);
+    expect(isQuestionBankDoc(sparseDoc)).toBe(false);
+  });
+
+  it("harvests a sparse doc's existing questions AND generates over the prose", async () => {
+    const prose = "Study notes paragraph. ".repeat(4000);
+    const doc = prose + makeMcqDoc(15);
+    callAI.mockImplementation(async (prompt) =>
+      prompt.includes("MCQ extractor")
+        ? JSON.stringify([{ question: "Tail q?", options: { A: "x", B: "y", C: "z", D: "w" }, correct: "A", explanation: "" }])
+        : mcqRowsJson(4)
+    );
+    const { rows } = await generateMcqs(doc, [], () => {});
+    // Generation ran over the document, extraction ran over the question tail.
+    expect(callAI.mock.calls.some(([p]) => p.includes("Generate exactly"))).toBe(true);
+    expect(callAI.mock.calls.some(([p]) => p.includes("MCQ extractor"))).toBe(true);
+    expect(rows.some((r) => r.question === "Tail q?")).toBe(true);
+  });
+
+  it("harvests for custom counts on sparse docs but not on dense banks", async () => {
+    const prose = "Study notes paragraph. ".repeat(4000);
+    callAI.mockImplementation(async () => mcqRowsJson(4));
+    await generateMcqs(prose + makeMcqDoc(15), [], () => {}, { customCount: 10 });
+    expect(callAI.mock.calls.some(([p]) => p.includes("MCQ extractor"))).toBe(true);
+    // Dense bank + custom count → pure generation (custom overrides the import)
+    callAI.mockClear();
+    await generateMcqs(makeMcqDoc(30), [], () => {}, { customCount: 10 });
+    expect(callAI.mock.calls.some(([p]) => p.includes("MCQ extractor"))).toBe(false);
+    expect(callAI.mock.calls.some(([p]) => p.includes("Generate exactly"))).toBe(true);
+  });
+
+  it("skips harvesting when the caller opts out with harvest: false", async () => {
+    const prose = "Study notes paragraph. ".repeat(4000);
+    const doc = prose + makeMcqDoc(15);
+    callAI.mockImplementation(async () => mcqRowsJson(4));
+    const { rows } = await generateMcqs(doc, [], () => {}, { harvest: false });
+    expect(callAI.mock.calls.some(([p]) => p.includes("Generate exactly"))).toBe(true);
+    expect(callAI.mock.calls.some(([p]) => p.includes("MCQ extractor"))).toBe(false);
+    expect(rows.some((r) => r.question === "Tail q?")).toBe(false);
+  });
+
   it("falls back to generation when extraction finds no questions", async () => {
     // Passes the heuristic (option markers + stems) but isn't a real bank —
     // the extractor returns [] for every pass, then generation runs instead.
@@ -166,7 +211,7 @@ describe("generation mode (normal document)", () => {
   });
 });
 
-import { allocateQuestions, rebalanceAnswers, buildMcqPrompt, maxSupportedQuestions, autoQuestionCount, verifyMcqRows, mapAiMcqsToRows } from "./generationCore";
+import { allocateQuestions, rebalanceAnswers, buildMcqPrompt, maxSupportedQuestions, autoQuestionCount, verifyMcqRows, mapAiMcqsToRows, isQuestionBankDoc } from "./generationCore";
 
 const mkRows = (n) => Array.from({ length: n }, (_, i) => ({
   question: `Rich question ${i} about cardiology?`,

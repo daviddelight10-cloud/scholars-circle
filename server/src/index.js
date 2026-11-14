@@ -28,6 +28,7 @@ import youtubeRoutes from "./routes/youtube.js";
 import announcementRoutes from "./routes/announcements.js";
 import aiProxyRoutes from "./routes/aiProxy.js";
 import resourcesRoutes from "./routes/resources.js";
+import examChallengeRoutes from "./routes/examChallenges.js";
 import foldersRoutes from "./routes/folders.js";
 import reportsRoutes from "./routes/reports.js";
 import departmentsRoutes from "./routes/departments.js";
@@ -52,6 +53,7 @@ import adminRoutes from "./routes/admin.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
+import { startExamChallengeJob } from "./lib/examChallengeJob.js";
 import { seedBadges } from "./lib/badges.js";
 import { startLeagueJob } from "./lib/leagueJob.js";
 import { prisma } from "./db.js";
@@ -67,6 +69,8 @@ startLeagueJob();
 // Battle housekeeping: expire stale challenges, cancel orphaned rooms,
 // scheduled-war reminders.
 startBattleJobs();
+// Exam-challenge sweep: 24h deadline reminders + closed-winner notices.
+startExamChallengeJob();
 
 const app = express();
 
@@ -171,6 +175,7 @@ app.use("/youtube", youtubeRoutes);
 app.use("/announcements", announcementRoutes);
 app.use("/ai-proxy", aiProxyRoutes);
 app.use("/api/resources", resourcesRoutes);
+app.use("/api/exam-challenges", examChallengeRoutes);
 app.use("/api/folders", foldersRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/departments", departmentsRoutes);

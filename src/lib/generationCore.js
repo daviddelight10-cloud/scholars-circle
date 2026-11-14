@@ -373,6 +373,15 @@ export function countExistingMcqs(text) {
   return estimated >= 5 ? estimated : 0;
 }
 
+// A document only counts as a question bank when questions make up most of
+// its content. A long prose doc with a short "practice questions" tail is
+// sparse — it should be generated over (with the tail questions harvested),
+// not reduced to just those few questions.
+export const BANK_MAX_CHARS_PER_QUESTION = 2500;
+export function isQuestionBankDoc(text, existingCount = countExistingMcqs(text)) {
+  return existingCount >= 5 && text.length / existingCount <= BANK_MAX_CHARS_PER_QUESTION;
+}
+
 /**
  * Remove duplicate MCQ rows by normalized question text.
  * Keeps first occurrence of each unique question.
@@ -477,7 +486,7 @@ export function mapAiFlashcards(parsed) {
  * @returns {Promise<{rows: Array, warnings: string[]}>}
  */
 export async function generateMcqs(text, images, onProgress, options = {}) {
-  const { customCount = null, autoTarget = null, onWarning, onRows, signal, allowExtract = true, verify = false } = options;
+  const { customCount = null, autoTarget = null, onWarning, onRows, signal, allowExtract = true, verify = false, harvest = true } = options;
   const rich = isRichOptions(options);
   const promptOpts = { style: options.style, difficulty: options.difficulty, realWorld: options.realWorld, highYield: options.highYield, focusTopic: options.focusTopic, rich };
   const mcqTotal = customCount || autoTarget || undefined;
@@ -501,8 +510,16 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   // When the document already contains MCQs (e.g. a question bank), extract
   // them as-is instead of generating new ones. This prevents over-generation
   // where a 100-question document would otherwise produce 200+ questions.
+  // Density matters: a long prose doc with a small question tail isn't a bank.
   const existingCount = countExistingMcqs(text);
-  const useExtractMode = allowExtract && !customCount && existingCount >= 5;
+  const bankLike = isQuestionBankDoc(text, existingCount);
+  const useExtractMode = allowExtract && !customCount && bankLike;
+  // Sparse case: not a bank, but still has questions worth keeping — generate
+  // over the whole material AND harvest the existing questions verbatim,
+  // for auto AND custom counts. Dense banks never harvest: custom count is
+  // the user's explicit override of the import path.
+  // `harvest: false` (a sheet choice) generates fresh without importing.
+  const harvestExisting = allowExtract && harvest && !bankLike && existingCount >= 5;
 
   // Determine chunk count from BOTH text length and desired question count,
   // so a large custom count still gets enough chunks to stay within the
@@ -521,7 +538,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   // retried later — the doc-wide estimate is the overall target, these are
   // the per-section expectations.
   const avgExpectedPerChunk = chunks.length ? Math.ceil(existingCount / chunks.length) : 0;
-  const chunkExpected = useExtractMode ? chunks.map((c) => countExistingMcqs(c)) : null;
+  const chunkExpected = (useExtractMode || harvestExisting) ? chunks.map((c) => countExistingMcqs(c)) : null;
   const targetCount = useExtractMode
     ? Math.min(existingCount, MAX_QUESTIONS)
     : customCount
@@ -668,6 +685,34 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   }
 
   if (rich && !useExtractMode) allRows = rebalanceAnswers(dedupeMcqs(allRows));
+
+  // Hybrid: a prose doc with a small question tail still gets those questions
+  // imported verbatim — extraction runs only over chunks that actually contain
+  // questions, then merges with the generated set.
+  if (harvestExisting && chunkExpected) {
+    const bearing = chunkExpected.map((n, idx) => (n > 0 ? idx : -1)).filter((i) => i >= 0);
+    if (bearing.length) {
+      onProgress?.(`Also importing ~${existingCount} questions found in the document…`);
+      const harvested = [];
+      for (let h = 0; h < bearing.length; h += CONCURRENCY_LIMIT) {
+        ensureNotAborted(signal);
+        const results = await Promise.all(bearing.slice(h, h + CONCURRENCY_LIMIT).map((idx) =>
+          callAI(buildMcqPrompt(chunks[idx], 0, { extractMode: true, expectedCount: chunkExpected[idx] }), { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
+            .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
+            .catch(() => [])
+        ));
+        harvested.push(...results.flat());
+      }
+      if (harvested.length) {
+        // Generated rows win dedupe order so the deck stays in document order;
+        // harvested questions append after (matching where they live in the doc).
+        const merged = dedupeMcqs([...allRows, ...harvested]).slice(0, MAX_QUESTIONS);
+        const added = merged.length - allRows.length;
+        allRows = merged;
+        if (added > 0 && onRows) onRows(dedupeMcqs(harvested));
+      }
+    }
+  }
 
   // Extraction mode: retry chunks that produced FEWER questions than their
   // per-chunk estimate, so a question-bank document yields its real count.

@@ -11,6 +11,7 @@ const TeacherResourcesHub = lazyWithRetry(() => import('./features/TeacherResour
 const SharedFolderView = lazyWithRetry(() => import('./features/SharedFolderView'));
 const SharedResourceView = lazyWithRetry(() => import('./features/SharedResourceView'));
 const LiveQuizPage = lazyWithRetry(() => import('./features/live-quiz/LiveQuizPage'));
+const ExamChallengePage = lazyWithRetry(() => import('./features/exam/ExamChallengePage'));
 const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
 const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
 const BlogPost = lazyWithRetry(() => import('./blog/BlogPost'));
@@ -96,6 +97,10 @@ export default function AppRouter() {
       {/* Live quiz room — invite link target. Public: guests see the invite
           card and get sent to signup; joining itself still requires auth. */}
       <Route path="/live/:code" element={<LiveQuizPage />} />
+
+      {/* Exam challenge — share-link landing. Public: guests see the exam meta
+          and get sent to login; taking requires auth. */}
+      <Route path="/exam/:token" element={<ExamChallengePage />} />
 
       {/* Blog routes */}
       <Route path="/blog" element={<BlogList />} />

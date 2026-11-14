@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { gradeObjectiveAnswer, isWrittenType, countByType, QUESTION_TYPES } from "./examSchema";
 import { getExamAttempts, addMissedToDeck } from "./examApi";
 
@@ -7,7 +8,12 @@ function fmtTime(ms) {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-export default function ExamResults({ result, exam, sourceTitle, examResourceId, onBack, onRetake }) {
+export default function ExamResults({ result, exam, sourceTitle, examResourceId, challenge = null, onBack, onRetake }) {
+  const navigate = useNavigate();
+  const revealLocked = !!(challenge?.revealAt && new Date(challenge.revealAt) > new Date());
+  const challengePlaced = result.challengeRank != null
+    ? { rank: result.challengeRank, takers: result.challengeTakers }
+    : null;
   const [filter, setFilter] = useState("all"); // all | wrong | written
   const [showAttempts, setShowAttempts] = useState(false);
   const [attempts, setAttempts] = useState(null);
@@ -100,6 +106,11 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
           <div className={`exr-score-pct${passed ? " pass" : ""}`}>
             {pct}% · pass mark {passMark}% · {passed ? "PASSED" : "Below pass mark"}
           </div>
+          {challengePlaced && (
+            <div className="exr-placed">
+              🏁 You placed <b>#{challengePlaced.rank}</b> of {challengePlaced.takers} challenger{challengePlaced.takers !== 1 ? "s" : ""}
+            </div>
+          )}
 
           <div className="exr-score-grid">
             <div className="exr-score-cell"><b>{items.length}</b><span>questions</span></div>
@@ -133,15 +144,30 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
           {deckMsg && <div className={`exr-deckmsg ${deckMsg.type}`}>{deckMsg.text}</div>}
 
           <div className="exr-modal-row" style={{ marginTop: 14 }}>
-            <button className="exr-btn ghost" onClick={onBack}>← My Space</button>
-            {attempts?.attempts?.length > 1 && (
+            <button className="exr-btn ghost" onClick={onBack}>{challenge ? "← Back" : "← My Space"}</button>
+            {attempts?.attempts?.length > 1 && !challenge && (
               <button className="exr-btn ghost" onClick={() => setShowAttempts((v) => !v)}>
                 {showAttempts ? "Hide attempts" : `Attempts (${attempts.attempts.length})`}
               </button>
             )}
-            <button className="exr-btn primary" onClick={onRetake}>↻ Retake</button>
+            {challenge?.token ? (
+              <button className="exr-btn primary" onClick={() => navigate(`/exam/${challenge.token}`)}>
+                🏁 Leaderboard
+              </button>
+            ) : (
+              <button className="exr-btn primary" onClick={onRetake}>↻ Retake</button>
+            )}
           </div>
         </div>
+
+        {/* Answers locked until the challenge closes */}
+        {revealLocked && (
+          <div className="exr-reveal-lock">
+            🔒 Answers stay hidden until the challenge ends
+            {challenge?.revealAt ? ` (${new Date(challenge.revealAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })})` : ""}
+            — everyone's paper reveals at once.
+          </div>
+        )}
 
         {/* Attempts history */}
         {showAttempts && attempts?.attempts && (
@@ -163,14 +189,16 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
         )}
 
         {/* Filter row */}
+        {!revealLocked && (
         <div className="exr-filter">
           {[["all", `All (${rows.length})`], ["wrong", `Needs work (${wrongCount})`], ...(writtenCount ? [["written", `Written (${writtenCount})`]] : [])].map(([k, l]) => (
             <button key={k} className={`exr-fchip${filter === k ? " on" : ""}`} onClick={() => setFilter(k)}>{l}</button>
           ))}
         </div>
+        )}
 
         {/* Review list */}
-        {visible.map(({ q, i, obj, ai, answer }) => (
+        {!revealLocked && visible.map(({ q, i, obj, ai, answer }) => (
           <ReviewRow key={q.id || i} q={q} n={i + 1} obj={obj} ai={ai} answer={answer} />
         ))}
       </div>

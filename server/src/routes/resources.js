@@ -14,6 +14,7 @@ import { matchDocumentToSkeleton } from "../lib/topicExtractionService.js";
 import { logError } from "../lib/logger.js";
 import { addLeagueXP } from "../lib/badges.js";
 import { parseScore, xpAttemptLimiter } from "../lib/validateScore.js";
+import { rankAttempts } from "../lib/challengeRank.js";
 import { loadReviewScope, reviewFolderOf } from "../lib/reviewScope.js";
 
 const router = express.Router();
@@ -757,7 +758,7 @@ router.patch("/:id/reject", requireAuth, requireRole("TEACHER", "LECTURER"), asy
 // POST /api/quiz-attempts - Submit quiz attempt, award XP, return stats
 router.post("/quiz-attempts", requireAuth, xpAttemptLimiter, async (req, res) => {
   try {
-    const { resourceId, details, mode, skipFsrs } = req.body;
+    const { resourceId, details, mode, skipFsrs, challengeId, durationMs } = req.body;
     if (!resourceId || req.body.score === undefined || req.body.total === undefined) {
       return res.status(400).json({ error: "resourceId, score, and total are required" });
     }
@@ -766,6 +767,24 @@ router.post("/quiz-attempts", requireAuth, xpAttemptLimiter, async (req, res) =>
     const { score, total } = parsed;
 
     const attemptMode = mode === "exam" ? "exam" : "practice";
+
+    // Exam-challenge attempts: validate the challenge is open and, for
+    // "first attempt counts" scoring, that the user hasn't taken it yet.
+    let challenge = null;
+    if (challengeId) {
+      challenge = await prisma.examChallenge.findUnique({ where: { id: challengeId } });
+      if (!challenge) return res.status(404).json({ error: "Challenge not found" });
+      if (challenge.deadline && new Date(challenge.deadline) < new Date()) {
+        return res.status(410).json({ error: "This challenge has ended" });
+      }
+      if (challenge.scoring === "first") {
+        const prior = await prisma.quizAttempt.findFirst({
+          where: { challengeId, userId: req.user.sub },
+          select: { id: true },
+        });
+        if (prior) return res.status(409).json({ error: "You've already taken this challenge" });
+      }
+    }
 
     // Check if this is the user's first attempt on this resource
     const existingAttempts = await prisma.quizAttempt.findMany({
@@ -779,7 +798,12 @@ router.post("/quiz-attempts", requireAuth, xpAttemptLimiter, async (req, res) =>
 
     // Create attempt record
     const attempt = await prisma.quizAttempt.create({
-      data: { resourceId, userId: req.user.sub, score, total, xpAwarded, mode: attemptMode, details: details || null },
+      data: {
+        resourceId, userId: req.user.sub, score, total, xpAwarded,
+        mode: attemptMode, details: details || null,
+        ...(challenge ? { challengeId: challenge.id } : {}),
+        ...(Number.isFinite(durationMs) && durationMs >= 0 ? { durationMs: Math.round(durationMs) } : {}),
+      },
     });
 
     // Feed the weekly league so XP earned here counts toward standings/promotion
@@ -902,6 +926,36 @@ router.post("/quiz-attempts", requireAuth, xpAttemptLimiter, async (req, res) =>
       else break;
     }
 
+    // Challenge-scoped rank + a heads-up push to the creator.
+    let challengeRank = null;
+    let challengeTakers = null;
+    if (challenge) {
+      const chAttempts = await prisma.quizAttempt.findMany({
+        where: { challengeId: challenge.id },
+        select: { userId: true, score: true, total: true, durationMs: true, createdAt: true },
+      });
+      const ranked = rankAttempts(chAttempts, challenge.scoring);
+      const mine = ranked.find((a) => a.userId === req.user.sub);
+      challengeRank = mine?.rank ?? null;
+      challengeTakers = ranked.length;
+
+      if (challenge.creatorId !== req.user.sub) {
+        const { sendPushToUser } = await import("../lib/pushSender.js");
+        const me = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { name: true, username: true } });
+        const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+        sendPushToUser(
+          challenge.creatorId,
+          {
+            title: `📝 ${me?.name || me?.username || "Someone"} finished your exam challenge`,
+            body: `Scored ${pct}% — ${challengeTakers} taken so far.`,
+            tag: `exam-challenge-${challenge.id}`,
+            data: { url: `/exam/${challenge.token}`, examChallenge: challenge.token },
+          },
+          { category: "examAlerts" }
+        ).catch(() => {});
+      }
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.user.sub },
       select: { totalXp: true },
@@ -913,6 +967,8 @@ router.post("/quiz-attempts", requireAuth, xpAttemptLimiter, async (req, res) =>
       percentile,
       rank,
       totalTakers,
+      challengeRank,
+      challengeTakers,
       streak: streakInfo.streak,
       longestStreak: streakInfo.longestStreak,
       streakIsNewDay: streakInfo.isNewDay,

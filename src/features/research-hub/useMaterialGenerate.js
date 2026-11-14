@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { extractFileText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
-import { generateMcqs, generateSummary, countExistingMcqs } from "../../lib/generationCore";
+import { generateMcqs, generateSummary, countExistingMcqs, isQuestionBankDoc } from "../../lib/generationCore";
 import { API_BASE } from "../../lib/constants";
 import { consume } from "../../lib/freeTier.js";
 
@@ -122,11 +122,15 @@ export function useMaterialGenerate() {
   const analyze = useCallback((resource) => {
     if (!resource?.id) return Promise.resolve(null);
     if (analysisRef.current?.id === resource.id) return analysisRef.current.promise;
-    const promise = extractResourceText(resource).then(({ text, images, pageStarts }) => ({
-      text, images, pageStarts: pageStarts || [], chars: text.length,
-      pages: pageStarts?.length || 0,
-      existingCount: countExistingMcqs(text),
-    }));
+    const promise = extractResourceText(resource).then(({ text, images, pageStarts }) => {
+      const existingCount = countExistingMcqs(text);
+      return {
+        text, images, pageStarts: pageStarts || [], chars: text.length,
+        pages: pageStarts?.length || 0,
+        existingCount,
+        isBank: isQuestionBankDoc(text, existingCount),
+      };
+    });
     promise.catch(() => { if (analysisRef.current?.promise === promise) analysisRef.current = null; });
     analysisRef.current = { id: resource.id, promise };
     return promise;
@@ -189,6 +193,7 @@ export function useMaterialGenerate() {
               style: genOptions.style, difficulty: genOptions.difficulty,
               realWorld: genOptions.realWorld, highYield: genOptions.highYield,
               focusTopic: genOptions.focusTopic, verify: !!genOptions.verify,
+              harvest: genOptions.harvest,
             } : {}),
           });
           mcqRows = rows;

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { examFromResource, getExamAttempts } from "./examApi";
+import { useNavigate } from "react-router-dom";
+import { examFromResource, getExamAttempts, listMyChallenges, getChallengeByCode } from "./examApi";
+import { fmtDeadline } from "./challengeUtils";
+import CreateChallengeSheet from "./CreateChallengeSheet";
 import { loadExamSession, QUESTION_TYPES } from "./examSchema";
 import "./exam.css";
 
@@ -9,6 +12,12 @@ import "./exam.css";
  * option. Entered by tapping an exam card or the Practice Sheet's Exam sim tile.
  */
 export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, onBuild }) {
+  const navigate = useNavigate();
+  const [showChallenge, setShowChallenge] = useState(false);
+  const [myChallenges, setMyChallenges] = useState(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinErr, setJoinErr] = useState("");
+  const [joinBusy, setJoinBusy] = useState(false);
   const payload = exam ? examFromResource(exam) : null;
   const config = payload?.config || {};
   const questions = payload?.questions || [];
@@ -29,8 +38,30 @@ export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, o
     getExamAttempts(exam.id)
       .then((data) => { if (!cancelled) setAttempts(data?.attempts || []); })
       .catch(() => { if (!cancelled) setAttemptsErr(true); });
+    // Challenges this user created on this exam.
+    listMyChallenges()
+      .then((d) => {
+        if (cancelled) return;
+        setMyChallenges((d?.challenges || []).filter((c) => c.examResourceId === exam.id));
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [exam?.id]);
+
+  const joinByCode = async () => {
+    const code = joinCode.trim().toUpperCase();
+    if (code.length !== 6 || joinBusy) return;
+    setJoinBusy(true);
+    setJoinErr("");
+    try {
+      const { token } = await getChallengeByCode(code);
+      navigate(`/exam/${token}`);
+    } catch (e) {
+      setJoinErr(e.message || "No challenge with that code");
+    } finally {
+      setJoinBusy(false);
+    }
+  };
 
   const stats = useMemo(() => {
     if (!attempts?.length) return null;
@@ -125,6 +156,15 @@ export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, o
           {savedSession ? "Continue exam" : stats ? "Retake exam" : "Start exam"} →
         </button>
 
+        {/* Challenge friends — share a link, async leaderboard */}
+        <button className="exh-regen exh-challenge" onClick={() => setShowChallenge(true)}>
+          <span className="exh-regen-ic">⚔️</span>
+          <div className="exh-regen-info">
+            <b>Challenge friends</b>
+            <span>Share a link — everyone takes it in their own time, one leaderboard</span>
+          </div>
+        </button>
+
         {onRegenerate && (
           <button className="exh-regen" onClick={onRegenerate}>
             <span className="exh-regen-ic">✨</span>
@@ -134,6 +174,48 @@ export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, o
             </div>
           </button>
         )}
+
+        {/* Challenges created on this exam */}
+        {myChallenges?.length > 0 && (
+          <>
+            <div className="exh-section">Your challenges</div>
+            <div className="exh-attempts">
+              {myChallenges.map((c) => (
+                <button key={c.id} className="exh-attempt exc-chrow" onClick={() => navigate(`/exam/${c.token}`)}>
+                  <div className="exh-attempt-date">
+                    {c.closed ? "🏁 Ended" : `⏳ ${fmtDeadline(c.deadline) || "Open"}`} · code {c.code}
+                  </div>
+                  <div className="exh-attempt-score">
+                    <b>{c.taken} taken</b>
+                    <span>{c.viewed} viewed</span>
+                  </div>
+                  <div className="exh-attempt-tags">
+                    <span className={`exh-tag ${c.scoring === "best" ? "practice" : "exam"}`}>
+                      {c.scoring === "best" ? "Best wins" : "First try"}
+                    </span>
+                    {c.reveal === "onClose" && <span className="exh-tag latest">🔒 answers</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Join by code */}
+        <div className="exh-join">
+          <input
+            className="exh-join-input"
+            placeholder="Have a code? e.g. K7M2PQ"
+            value={joinCode}
+            maxLength={6}
+            onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinErr(""); }}
+            onKeyDown={(e) => { if (e.key === "Enter") joinByCode(); }}
+          />
+          <button className="exr-btn ghost" onClick={joinByCode} disabled={joinBusy || joinCode.trim().length !== 6}>
+            {joinBusy ? "…" : "Join"}
+          </button>
+        </div>
+        {joinErr && <div className="exr-warn" style={{ marginTop: -4 }}>⚠️ {joinErr}</div>}
 
         {/* Attempt history */}
         <div className="exh-section">Your attempts</div>
@@ -166,6 +248,19 @@ export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, o
           </div>
         )}
       </div>
+
+      {showChallenge && exam?.id && (
+        <CreateChallengeSheet
+          exam={exam}
+          onClose={() => setShowChallenge(false)}
+          onCreated={(d) => {
+            // Refresh the strip so the new challenge shows immediately.
+            setMyChallenges((list) => list && d?.challenge
+              ? [{ ...d.challenge, examResourceId: exam.id, taken: 0, viewed: 0, closed: false }, ...list]
+              : list);
+          }}
+        />
+      )}
     </div>
   );
 }
