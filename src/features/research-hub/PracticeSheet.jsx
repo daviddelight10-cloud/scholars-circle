@@ -292,6 +292,11 @@ export default function PracticeSheet({
   const mcq = file.variants?.mcq || null;
   const summary = file.variants?.summary || null;
   const exam = file.variants?.exam || null;
+  // Community exam labeling — exams owned by someone else get a "by @name"
+  // tag on shared surfaces (guests count as non-owners: myId is null).
+  const myId = (() => { try { return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authUser?.id || null; } catch { return null; } })();
+  const examBy = exam?.uploader?.username || exam?.uploader?.name || null;
+  const examForeign = !!exam?.uploadedBy && (!myId || String(exam.uploadedBy) !== String(myId));
   const examCount = getVariantCount(exam);
   const examBestPct = examAttempts?.attempts?.length
     ? Math.round(
@@ -336,6 +341,7 @@ export default function PracticeSheet({
                   Saved exam{qCount ? ` · ${qCount} questions` : ""}
                   {examAttemptsCount > 0 && ` · ${examAttemptsCount} attempt${examAttemptsCount > 1 ? "s" : ""}`}
                   {examBestPct != null && ` · best ${examBestPct}%`}
+                  {examForeign && examBy && ` · by @${examBy}`}
                 </span>
               </p>
             </div>
@@ -574,7 +580,7 @@ export default function PracticeSheet({
                 badge={exam ? (examAttemptsCount > 0 ? `${examAttemptsCount}` : null) : null}
                 sub={
                   exam
-                    ? `${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}`
+                    ? `${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}${examForeign && examBy ? ` · by @${examBy}` : ""}`
                     : canExtract
                       ? "Timed, exam-style paper"
                       : "No extractable text"

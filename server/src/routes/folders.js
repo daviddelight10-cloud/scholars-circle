@@ -494,11 +494,13 @@ router.get("/:id", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "You don't have access to this folder" });
     }
 
-    // Shared/approved resources (visible to everyone with access)
+    // Shared/approved resources (visible to everyone with access).
+    // Exams are creator-scoped — other users' exams stay out of the folder.
     const sharedResources = await prisma.resource.findMany({
       where: {
         folderId: folder.id,
         status: "approved",
+        NOT: { contentType: "exam", uploadedBy: { not: userId } },
       },
       include: {
         uploader: { select: { id: true, username: true, role: true } },
@@ -531,6 +533,7 @@ router.get("/:id", requireAuth, async (req, res) => {
             { status: "approved" },
             { uploadedBy: userId },
           ],
+          NOT: { contentType: "exam", uploadedBy: { not: userId } },
         },
       },
       include: {
@@ -821,9 +824,14 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
       update: {},
     });
 
-    // Cascade: bookmark all approved resources inside the folder
+    // Cascade: bookmark all approved resources inside the folder — except
+    // exams owned by someone else (exams are creator-scoped, not copied).
     const resources = await prisma.resource.findMany({
-      where: { folderId: id, status: "approved" },
+      where: {
+        folderId: id,
+        status: "approved",
+        NOT: { contentType: "exam", uploadedBy: { not: userId } },
+      },
       select: { id: true },
     });
     if (resources.length > 0) {
@@ -889,9 +897,14 @@ router.delete("/:id/bookmark", requireAuth, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.sub;
 
-    // Cascade: unbookmark all approved resources inside the folder
+    // Cascade: unbookmark all approved resources inside the folder (same
+    // owner filter as the bookmark cascade — others' exams were never copied)
     const resources = await prisma.resource.findMany({
-      where: { folderId: id, status: "approved" },
+      where: {
+        folderId: id,
+        status: "approved",
+        NOT: { contentType: "exam", uploadedBy: { not: userId } },
+      },
       select: { id: true },
     });
     if (resources.length > 0) {

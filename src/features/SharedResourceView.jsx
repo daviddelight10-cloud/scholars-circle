@@ -5,6 +5,8 @@ import { ensureAppSession } from "../lib/authToken.js";
 import { formatViewCount } from "../lib/researchUtils";
 import { formatRelativeDate } from "./research-hub/constants.js";
 import { createLiveRoom } from "./live-quiz/liveQuizApi.js";
+import { examFromResource } from "./exam/examApi.js";
+import ExamRunner from "./exam/ExamRunner.jsx";
 import ResourceViewer from "./ResourceViewer";
 import PracticeSheet from "./research-hub/PracticeSheet.jsx";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
@@ -85,6 +87,7 @@ export default function SharedResourceView() {
   const [goingLive, setGoingLive] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [saveSheetOpen, setSaveSheetOpen] = useState(false);
+  const [examTake, setExamTake] = useState(null); // exam resource being taken from the shared page
   const [savePurpose, setSavePurpose] = useState("save"); // "save" | "study" — drives the toast
   const [descExpanded, setDescExpanded] = useState(false);
   const [toast, setToast] = useState(null);
@@ -205,6 +208,15 @@ export default function SharedResourceView() {
     }
   }, [isAuthenticated, bookmarked, isOwner, loginRedirect, say]);
 
+  // Community exams: anyone signed in can take an exam attached to shared
+  // material — creating stays owner/premium, participating is free (same
+  // model as exam challenges). Guests go to login.
+  const handleTakeExam = useCallback((examRes) => {
+    if (!isAuthenticated) { loginRedirect(); return; }
+    if (!examRes?.mcqData) return;
+    setExamTake(examRes);
+  }, [isAuthenticated, loginRedirect]);
+
   const handleGoLive = useCallback(async (f) => {
     if (!isAuthenticated) { loginRedirect(); return; }
     const mcq = f?.variants?.mcq;
@@ -234,6 +246,17 @@ export default function SharedResourceView() {
     linkShared: resource.linkShared,
     isOwner,
   }), [resource, file, token, isOwner]);
+
+  if (examTake) {
+    return (
+      <ExamRunner
+        exam={examFromResource(examTake)}
+        examResourceId={examTake.id}
+        sourceTitle={file?.title || examTake.title}
+        onBack={() => setExamTake(null)}
+      />
+    );
+  }
 
   if (viewerToken) {
     return <ResourceViewer token={viewerToken} onBack={() => setViewerToken(null)} />;
@@ -459,7 +482,7 @@ export default function SharedResourceView() {
         onOpen={(t) => setViewerToken(t)}
         onGenerate={studyGate}
         onGuidedStudy={studyGate}
-        onExamSimulation={studyGate}
+        onExamSimulation={handleTakeExam}
         onGoLive={handleGoLive}
         goingLive={goingLive}
         onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`, { state: { returnTo: `/resources/${token}` } }) : loginRedirect())}

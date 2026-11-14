@@ -72,6 +72,11 @@ export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, o
   const timed = (config.timeLimitMin || 0) > 0;
   const modeLabel = config.mode === "practice" ? "Practice" : "Exam";
   const sourceTitle = source?.title || exam?.sourceTitle || null;
+  // Challenges are owner-only (server enforces it) — hide the row for exams
+  // reached via someone else's shared material. uploadedBy missing → show
+  // anyway and let the server decide.
+  const myId = (() => { try { return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authUser?.id || null; } catch { return null; } })();
+  const canChallenge = !!exam?.id && (!exam.uploadedBy || !myId || String(exam.uploadedBy) === String(myId));
 
   // ── Empty state: no saved exam yet ────────────────────────────────────────
   if (!exam) {
@@ -156,14 +161,16 @@ export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, o
           {savedSession ? "Continue exam" : stats ? "Retake exam" : "Start exam"} →
         </button>
 
-        {/* Challenge friends — share a link, async leaderboard */}
-        <button className="exh-regen exh-challenge" onClick={() => setShowChallenge(true)}>
-          <span className="exh-regen-ic">⚔️</span>
-          <div className="exh-regen-info">
-            <b>Challenge friends</b>
-            <span>Share a link — everyone takes it in their own time, one leaderboard</span>
-          </div>
-        </button>
+        {/* Challenge friends — share a link, async leaderboard (owner only) */}
+        {canChallenge && (
+          <button className="exh-regen exh-challenge" onClick={() => setShowChallenge(true)}>
+            <span className="exh-regen-ic">⚔️</span>
+            <div className="exh-regen-info">
+              <b>Challenge friends</b>
+              <span>Share a link — everyone takes it in their own time, one leaderboard</span>
+            </div>
+          </button>
+        )}
 
         {onRegenerate && (
           <button className="exh-regen" onClick={onRegenerate}>

@@ -171,6 +171,9 @@ router.get("/", requireAuth, async (req, res) => {
               },
             ],
           },
+          // Exams belong to their creator — never listed as flat rows for
+          // other users (folder-saved exams are auto-approved and would leak).
+          { NOT: { contentType: "exam", uploadedBy: { not: req.user.sub } } },
         ],
       },
       include: {
@@ -179,6 +182,8 @@ router.get("/", requireAuth, async (req, res) => {
         _count: { select: { bookmarks: true } },
         resourceDepts: { include: { department: { select: { id: true, name: true } } } },
         derivedResources: {
+          // Only the caller's own exams surface as variants on a material.
+          where: { OR: [{ contentType: { not: "exam" } }, { uploadedBy: req.user.sub }] },
           select: { id: true, contentType: true, title: true, shareToken: true, mcqData: true, flashcardData: true, fileName: true, description: true }
         },
       },
@@ -521,7 +526,12 @@ router.patch("/bulk", requireAuth, requireRole("TEACHER", "LECTURER"), async (re
 router.get("/bookmarks", requireAuth, async (req, res) => {
   try {
     const bookmarks = await prisma.resourceBookmark.findMany({
-      where: { userId: req.user.sub },
+      where: {
+        userId: req.user.sub,
+        // Exams belong to their creator — hide rows bookmarked via the old
+        // cascade (which copied every derived resource to the saver).
+        resource: { NOT: { contentType: "exam", uploadedBy: { not: req.user.sub } } },
+      },
       include: {
         resource: {
           include: {
@@ -529,6 +539,7 @@ router.get("/bookmarks", requireAuth, async (req, res) => {
             _count: { select: { bookmarks: true } },
             resourceDepts: { include: { department: { select: { id: true, name: true } } } },
             derivedResources: {
+              where: { OR: [{ contentType: { not: "exam" } }, { uploadedBy: req.user.sub }] },
               select: { id: true, contentType: true, title: true, shareToken: true, mcqData: true, flashcardData: true, fileName: true, description: true }
             },
           },
@@ -561,15 +572,18 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
       }
     }
 
-    // Fetch derived resources for cascade bookmarking
+    // Fetch derived resources for cascade bookmarking — except exams owned by
+    // someone else: exams are creator-scoped, they don't copy to the saver.
     const source = await prisma.resource.findUnique({
       where: { id },
       select: {
         title: true, description: true, contentType: true, subject: true,
-        derivedResources: { select: { id: true } },
+        derivedResources: { select: { id: true, contentType: true, uploadedBy: true } },
       },
     });
-    const derivedIds = source?.derivedResources?.map((r) => r.id) || [];
+    const derivedIds = (source?.derivedResources || [])
+      .filter((d) => d.contentType !== "exam" || d.uploadedBy === req.user.sub)
+      .map((r) => r.id);
 
     // Bookmark the source + all derived resources in a transaction
     const allIds = [id, ...derivedIds];
@@ -619,12 +633,15 @@ router.delete("/:id/bookmark", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Fetch derived resources for cascade un-bookmarking
+    // Fetch derived resources for cascade un-bookmarking (same owner filter
+    // as the bookmark cascade — other users' exams were never copied).
     const source = await prisma.resource.findUnique({
       where: { id },
-      select: { derivedResources: { select: { id: true } } },
+      select: { derivedResources: { select: { id: true, contentType: true, uploadedBy: true } } },
     });
-    const derivedIds = source?.derivedResources?.map((r) => r.id) || [];
+    const derivedIds = (source?.derivedResources || [])
+      .filter((d) => d.contentType !== "exam" || d.uploadedBy === req.user.sub)
+      .map((r) => r.id);
     const allIds = [id, ...derivedIds];
 
     await prisma.resourceBookmark.deleteMany({
@@ -1255,7 +1272,8 @@ router.get("/:token", optionalAuth, async (req, res) => {
     const derivedSelect = {
       id: true, contentType: true, title: true, shareToken: true,
       fileName: true, description: true, mcqData: true, flashcardData: true,
-      linkShared: true,
+      linkShared: true, uploadedBy: true,
+      uploader: { select: { username: true } },
     };
 
     const resource = await prisma.resource.findUnique({

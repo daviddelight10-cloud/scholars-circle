@@ -5,6 +5,8 @@ import { ensureAppSession } from "../lib/authToken.js";
 import { formatViewCount } from "../lib/researchUtils";
 import { formatRelativeDate } from "./research-hub/constants.js";
 import { createLiveRoom } from "./live-quiz/liveQuizApi.js";
+import { examFromResource } from "./exam/examApi.js";
+import ExamRunner from "./exam/ExamRunner.jsx";
 import ResourceViewer from "./ResourceViewer";
 import PracticeSheet from "./research-hub/PracticeSheet.jsx";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
@@ -60,6 +62,7 @@ export default function SharedFolderView() {
   const [goingLive, setGoingLive] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [saveTarget, setSaveTarget] = useState(null); // file pending a space pick
+  const [examTake, setExamTake] = useState(null); // exam resource being taken from the shared space
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -205,6 +208,15 @@ export default function SharedFolderView() {
     }
   }, [isAuthenticated, isOwner, folderBookmarked, loginRedirect, handleToggleFolderBookmark, say]);
 
+  // Community exams: anyone signed in can take an exam attached to a shared
+  // space — creating stays owner/premium, participating is free (same model
+  // as exam challenges). Guests go to login.
+  const handleTakeExam = useCallback((examRes) => {
+    if (!isAuthenticated) { loginRedirect(); return; }
+    if (!examRes?.mcqData) return;
+    setExamTake(examRes);
+  }, [isAuthenticated, loginRedirect]);
+
   const handleGoLive = useCallback(async (file) => {
     if (!isAuthenticated) { loginRedirect(); return; }
     const mcq = file?.variants?.mcq;
@@ -233,6 +245,17 @@ export default function SharedFolderView() {
     visibility: folder.visibility,
     isOwner,
   }), [folder, shareToken, isOwner]);
+
+  if (examTake) {
+    return (
+      <ExamRunner
+        exam={examFromResource(examTake)}
+        examResourceId={examTake.id}
+        sourceTitle={sheetFile?.title || examTake.title}
+        onBack={() => setExamTake(null)}
+      />
+    );
+  }
 
   if (viewerToken) {
     return <ResourceViewer token={viewerToken} onBack={() => setViewerToken(null)} />;
@@ -462,7 +485,7 @@ export default function SharedFolderView() {
         onOpen={(t) => setViewerToken(t)}
         onGenerate={studyGate}
         onGuidedStudy={studyGate}
-        onExamSimulation={studyGate}
+        onExamSimulation={handleTakeExam}
         onGoLive={handleGoLive}
         goingLive={goingLive}
         onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`, { state: { returnTo: `/folders/${shareToken}` } }) : loginRedirect())}

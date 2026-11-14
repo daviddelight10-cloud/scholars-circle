@@ -41,7 +41,7 @@ export default function GroupExamChallenges({ classroomId, startSignal = 0 }) {
   // Lazily load the user's saved exams the first time the picker opens.
   useEffect(() => {
     if (!pickerOpen || exams != null) return;
-    fetch(`${API_BASE}/api/resources`, { headers: authHeaders() })
+    fetch(`${API_BASE}/api/resources?mine=1`, { headers: authHeaders() })
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setExams((Array.isArray(data) ? data : []).filter((r) => r.contentType === "exam")))
       .catch(() => setExams([]));
