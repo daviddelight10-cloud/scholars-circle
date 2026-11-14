@@ -159,4 +159,42 @@ router.get("/folder/:token", async (req, res) => {
   }
 });
 
+// GET /og/exam/:token — unfurl page for an exam challenge link
+router.get("/exam/:token", async (req, res) => {
+  const canonical = `${SITE_URL}/exam/${encodeURIComponent(req.params.token)}`;
+  try {
+    const c = await prisma.examChallenge.findUnique({
+      where: { token: req.params.token },
+      include: {
+        examResource: { select: { title: true, mcqData: true } },
+        creator: { select: { username: true, fullName: true } },
+        _count: { select: { attempts: true } },
+      },
+    });
+
+    // Missing/cancelled challenge → generic site card, never leak metadata.
+    if (!c) return send(res, { ...GENERIC, canonical });
+
+    const p = c.examResource?.mcqData || {};
+    const open = c.deadline > new Date();
+    const title = `${p?.config?.name || c.examResource?.title || "Exam"} — exam challenge on ${SITE_NAME}`;
+    const description = [
+      `📝 ${(p.questions || []).length} questions`,
+      p?.config?.totalMarks ? `${p.config.totalMarks} marks` : null,
+      p?.config?.timeLimitMin ? `⏱ ${p.config.timeLimitMin} min` : null,
+      c.creator?.username ? `by @${c.creator.username}` : c.creator?.fullName ? `by ${c.creator.fullName}` : null,
+      c._count?.attempts ? `${c._count.attempts} taken` : "Be the first to take it",
+      open
+        ? `closes ${c.deadline.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+        : "Challenge closed — see the final board",
+      "Think you can top it? Tap to take it.",
+    ].filter(Boolean).join(" · ");
+
+    return send(res, { title, description, canonical });
+  } catch (e) {
+    console.error("OG exam error:", e);
+    return send(res, { ...GENERIC, canonical });
+  }
+});
+
 export default router;
