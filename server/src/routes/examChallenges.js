@@ -44,9 +44,9 @@ function leaderboardEntries(attempts, scoring, currentUserId) {
   return ranked.map((a) => ({
     rank: a.rank,
     userId: a.userId,
-    name: a.user?.name || a.user?.username || "Scholar",
+    name: a.user?.fullName || a.user?.username || "Scholar",
     username: a.user?.username || null,
-    avatar: a.user?.avatar || a.user?.profilePic || null,
+    avatar: a.user?.userProfile?.avatar || null,
     score: a.score,
     total: a.total,
     pct: a.total > 0 ? Math.round((a.score / a.total) * 100) : 0,
@@ -141,7 +141,7 @@ router.get("/group/:groupId", requireAuth, async (req, res) => {
       take: 20,
       include: {
         examResource: { select: { title: true, mcqData: true } },
-        creator: { select: { name: true, username: true } },
+        creator: { select: { fullName: true, username: true } },
         _count: { select: { attempts: true } },
         attempts: { where: { userId: req.user.sub }, orderBy: { createdAt: "asc" }, select: { score: true, total: true } },
       },
@@ -150,7 +150,7 @@ router.get("/group/:groupId", requireAuth, async (req, res) => {
       challenges: list.map((c) => ({
         id: c.id, token: c.token, scoring: c.scoring, reveal: c.reveal,
         deadline: c.deadline, closed: isClosed(c), createdAt: c.createdAt,
-        creatorName: c.creator?.name || c.creator?.username || "A member",
+        creatorName: c.creator?.fullName || c.creator?.username || "A member",
         exam: examMeta(c.examResource),
         taken: c._count.attempts,
         myAttempt: c.attempts[0] || null,
@@ -185,7 +185,7 @@ router.get("/:token/leaderboard", requireAuth, async (req, res) => {
       orderBy: { createdAt: "asc" },
       select: {
         userId: true, score: true, total: true, durationMs: true, createdAt: true, details: true,
-        user: { select: { name: true, username: true, avatar: true, profilePic: true } },
+        user: { select: { fullName: true, username: true, userProfile: { select: { avatar: true } } } },
       },
     });
     const entries = leaderboardEntries(attempts, c.scoring, req.user.sub);
@@ -255,7 +255,7 @@ router.get("/:token", optionalAuth, async (req, res) => {
       where: { token: req.params.token },
       include: {
         examResource: { select: { title: true, mcqData: true } },
-        creator: { select: { name: true, username: true, avatar: true, profilePic: true } },
+        creator: { select: { fullName: true, username: true, userProfile: { select: { avatar: true } } } },
         _count: { select: { attempts: true, views: true } },
       },
     });
@@ -275,11 +275,11 @@ router.get("/:token", optionalAuth, async (req, res) => {
       where: { challengeId: c.id },
       orderBy: { score: "desc" },
       take: 20,
-      select: { userId: true, score: true, total: true, createdAt: true, durationMs: true, user: { select: { name: true, username: true, avatar: true, profilePic: true } } },
+      select: { userId: true, score: true, total: true, createdAt: true, durationMs: true, user: { select: { fullName: true, username: true, userProfile: { select: { avatar: true } } } } },
     });
     const top = rankAttempts(topAttempts, c.scoring).slice(0, 3).map((a) => ({
-      name: a.user?.name || a.user?.username || "Scholar",
-      avatar: a.user?.avatar || a.user?.profilePic || null,
+      name: a.user?.fullName || a.user?.username || "Scholar",
+      avatar: a.user?.userProfile?.avatar || null,
       pct: a.total > 0 ? Math.round((a.score / a.total) * 100) : 0,
     }));
 
@@ -301,8 +301,8 @@ router.get("/:token", optionalAuth, async (req, res) => {
       code: c.code,
       exam: examMeta(c.examResource),
       creator: {
-        name: c.creator?.name || c.creator?.username || "A scholar",
-        avatar: c.creator?.avatar || c.creator?.profilePic || null,
+        name: c.creator?.fullName || c.creator?.username || "A scholar",
+        avatar: c.creator?.userProfile?.avatar || null,
       },
       groupId: c.groupId,
       scoring: c.scoring,

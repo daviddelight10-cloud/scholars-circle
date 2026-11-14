@@ -21,7 +21,7 @@ async function sweepReminders() {
     where: { deadline: { gt: now, lte: soon }, reminder24SentAt: null },
     include: {
       examResource: { select: { title: true, mcqData: true } },
-      creator: { select: { name: true, username: true } },
+      creator: { select: { fullName: true, username: true } },
     },
     take: 50,
   });
@@ -47,7 +47,7 @@ async function sweepReminders() {
 
       if (targets.length) {
         const takenCount = takenUsers.size - 1; // exclude creator from count display
-        const who = c.creator?.name || c.creator?.username || "Your friend";
+        const who = c.creator?.fullName || c.creator?.username || "Your friend";
         await sendPushToUsers(
           targets,
           {
@@ -80,14 +80,14 @@ async function sweepClosed() {
       const title = examTitle(c.examResource);
       const attempts = await prisma.quizAttempt.findMany({
         where: { challengeId: c.id },
-        select: { userId: true, score: true, total: true, durationMs: true, createdAt: true, user: { select: { name: true, username: true } } },
+        select: { userId: true, score: true, total: true, durationMs: true, createdAt: true, user: { select: { fullName: true, username: true } } },
       });
       const ranked = rankAttempts(attempts, c.scoring);
       const winner = ranked[0];
       const takenCount = attempts.length;
 
       if (winner) {
-        const winnerName = winner.user?.name || winner.user?.username || "A scholar";
+        const winnerName = winner.user?.fullName || winner.user?.username || "A scholar";
         const pct = winner.total > 0 ? Math.round((winner.score / winner.total) * 100) : 0;
         await sendPushToUser(
           c.creatorId,
@@ -105,7 +105,7 @@ async function sweepClosed() {
         const members = await prisma.classroomMember.findMany({ where: { classroomId: c.groupId }, select: { userId: true } });
         const targets = members.map((m) => m.userId).filter((id) => id !== c.creatorId);
         if (targets.length) {
-          const winnerName = winner ? (winner.user?.name || winner.user?.username || "a scholar") : "—";
+          const winnerName = winner ? (winner.user?.fullName || winner.user?.username || "a scholar") : "—";
           const winnerPct = winner && winner.total > 0 ? Math.round((winner.score / winner.total) * 100) : null;
           await sendPushToUsers(
             targets,

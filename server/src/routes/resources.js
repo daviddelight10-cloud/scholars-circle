@@ -958,12 +958,12 @@ router.post("/quiz-attempts", requireAuth, xpAttemptLimiter, async (req, res) =>
 
       if (challenge.creatorId !== req.user.sub) {
         const { sendPushToUser } = await import("../lib/pushSender.js");
-        const me = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { name: true, username: true } });
+        const me = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { fullName: true, username: true } });
         const pct = total > 0 ? Math.round((score / total) * 100) : 0;
         sendPushToUser(
           challenge.creatorId,
           {
-            title: `📝 ${me?.name || me?.username || "Someone"} finished your exam challenge`,
+            title: `📝 ${me?.fullName || me?.username || "Someone"} finished your exam challenge`,
             body: `Scored ${pct}% — ${challengeTakers} taken so far.`,
             tag: `exam-challenge-${challenge.id}`,
             data: { url: `/exam/${challenge.token}`, examChallenge: challenge.token },
