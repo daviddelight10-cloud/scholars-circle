@@ -579,3 +579,186 @@
   background: var(--app-bg); border-top: 0.5px solid var(--app-border);
 }
 .exb-bar .exr-btn.big { margin-top: 0; max-width: 680px; margin-left: auto; margin-right: auto; display: block; }
+
+/* ── Challenge results extras ─────────────────────────────────────────────── */
+.exr-placed {
+  margin-top: 10px; font-size: 13.5px; color: var(--c-f0f0f0);
+  background: rgba(255, 215, 0, 0.08); border: 0.5px solid rgba(255, 215, 0, 0.3);
+  border-radius: 10px; padding: 9px 14px;
+}
+.exr-placed b { color: #FFD700; }
+.exr-reveal-lock {
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px; text-align: center;
+  font-size: 12.5px; line-height: 1.55; color: var(--c-9db8e8);
+  background: rgba(100, 149, 237, 0.08); border: 0.5px solid rgba(100, 149, 237, 0.3);
+}
+
+/* ── Exam challenge: shared bits ──────────────────────────────────────────── */
+.exr-sheet-grab { width: 38px; height: 4px; border-radius: 2px; background: var(--app-border); margin: 0 auto 12px; }
+.exr-sheet-title { font-size: 16.5px; font-weight: 800; color: var(--c-f0f0f0); }
+.exr-sheet-sub { font-size: 12.5px; color: var(--app-faint); line-height: 1.55; margin: 6px 0 4px; }
+.exc-sheet { padding-top: 10px; }
+
+.exh-section { margin: 16px 0 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--app-faint); }
+.exh-section i { font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+.exc-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.exc-opts { display: flex; flex-direction: column; gap: 8px; }
+.exc-opt {
+  display: flex; flex-direction: column; gap: 3px; text-align: left; cursor: pointer;
+  padding: 12px 14px; border-radius: 12px; font-family: inherit;
+  background: var(--app-card); border: 1px solid var(--app-border); color: var(--app-dim);
+  transition: border-color 0.15s, background 0.15s;
+}
+.exc-opt b { font-size: 13.5px; color: var(--c-f0f0f0); }
+.exc-opt span { font-size: 11.5px; color: var(--app-faint); }
+.exc-opt.on { border-color: #FFD700; background: rgba(255, 215, 0, 0.07); }
+.exc-opt.on b { color: #FFD700; }
+
+.exc-sharebox {
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--app-card); border: 1px solid var(--app-border);
+}
+.exc-sharelink { font-size: 12px; color: var(--app-dim); word-break: break-all; line-height: 1.5; }
+.exc-code { margin-top: 8px; font-size: 12px; color: var(--app-faint); }
+.exc-code b { color: #FFD700; font-size: 16px; letter-spacing: 0.12em; margin-left: 4px; }
+.exc-sharebtns { display: flex; gap: 10px; margin-top: 12px; }
+.exc-sharebtns .exr-btn { flex: 1; }
+.exc-feedshare {
+  width: 100%; margin-top: 10px; padding: 11px; border-radius: 12px; cursor: pointer;
+  background: transparent; border: 0.5px dashed var(--app-border); color: var(--app-dim);
+  font-size: 13px; font-weight: 600; font-family: inherit; transition: border-color 0.15s;
+}
+.exc-feedshare:hover:not(:disabled) { border-color: var(--app-tint-strong); }
+.exc-feedshare:disabled { color: var(--c-66bb6a); border-style: solid; border-color: rgba(102, 187, 106, 0.4); cursor: default; }
+
+/* ── Challenge landing page ───────────────────────────────────────────────── */
+.exc-page { padding-top: 14px; }
+.exc-hero { text-align: center; }
+.exc-eyebrow { font-size: 10.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFD700; margin-top: 4px; }
+.exc-by { font-size: 12.5px; color: var(--app-faint); margin-top: 4px; }
+.exc-stats-row {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+  margin-top: 12px; font-size: 12px; color: var(--app-dim);
+}
+.exc-left { color: var(--c-66bb6a); font-weight: 700; }
+.exc-ended { color: var(--c-f87171); font-weight: 700; }
+.exc-take { margin-top: 14px; }
+
+.exc-your {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(255, 215, 0, 0.07); border: 0.5px solid rgba(255, 215, 0, 0.3);
+}
+.exc-your-l { display: flex; flex-direction: column; gap: 2px; }
+.exc-your-l b { font-size: 13px; color: #FFD700; }
+.exc-your-l span { font-size: 12.5px; color: var(--c-f0f0f0); }
+.exc-your .exr-btn { flex-shrink: 0; }
+
+.exc-board { margin-top: 16px; }
+.exc-board-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 13px; color: var(--c-f0f0f0); margin-bottom: 8px;
+}
+.exc-board-head span { font-size: 11.5px; color: var(--app-faint); font-weight: 500; }
+.exc-board-empty { font-size: 12.5px; color: var(--app-faint); padding: 14px; text-align: center; }
+.exc-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px; margin-bottom: 6px;
+  background: var(--app-card); border: 0.5px solid var(--app-border);
+}
+.exc-row.you { border-color: rgba(255, 215, 0, 0.45); background: rgba(255, 215, 0, 0.06); }
+.exc-rank { width: 34px; flex-shrink: 0; font-size: 15px; text-align: center; color: var(--app-faint); font-weight: 700; }
+.exc-rank.top { font-size: 19px; }
+.exc-ava {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(109, 72, 240, 0.18); color: #9d7bff; font-size: 13px; font-weight: 800;
+}
+.exc-ava img { width: 100%; height: 100%; object-fit: cover; }
+.exc-name { flex: 1; min-width: 0; font-size: 13px; color: var(--c-f0f0f0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exc-score { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
+.exc-score b { font-size: 14px; color: var(--c-f0f0f0); }
+.exc-score i { font-size: 10.5px; font-style: normal; color: var(--app-faint); }
+
+.exc-creator { margin-top: 16px; }
+.exc-creator-row {
+  display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--app-dim);
+  padding: 10px 14px; border-radius: 12px; background: var(--app-card); border: 0.5px solid var(--app-border);
+}
+.exc-live { display: flex; align-items: center; gap: 5px; margin-left: auto; color: var(--c-66bb6a); font-weight: 600; }
+.exc-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--c-66bb6a); animation: exc-blink 1.6s ease-in-out infinite; }
+@keyframes exc-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.exc-qstats { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--app-card); border: 0.5px solid var(--app-border); }
+.exc-qrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; }
+.exc-qrow span { width: 34px; flex-shrink: 0; color: var(--app-faint); font-weight: 700; }
+.exc-qbar { flex: 1; height: 8px; border-radius: 4px; background: var(--app-border); overflow: hidden; }
+.exc-qbar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #66bb6a, #ffb74d); }
+.exc-qrow b { width: 38px; text-align: right; color: var(--c-f0f0f0); font-size: 12px; }
+.exc-qhint { margin-top: 10px; font-size: 10.5px; color: var(--app-faint); }
+
+/* ── ExamHub: challenge row + join code ───────────────────────────────────── */
+.exh-challenge { border-color: rgba(255, 215, 0, 0.35) !important; background: rgba(255, 215, 0, 0.06) !important; }
+.exc-chrow { width: 100%; cursor: pointer; font-family: inherit; text-align: left; }
+.exh-join { display: flex; gap: 8px; margin-top: 14px; }
+.exh-join-input {
+  flex: 1; min-width: 0; padding: 11px 14px; border-radius: 12px; font-family: inherit;
+  background: var(--app-card); border: 1px solid var(--app-border); color: var(--c-f0f0f0);
+  font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+}
+.exh-join-input::placeholder { letter-spacing: normal; text-transform: none; font-weight: 400; }
+.exh-join-input:focus { outline: none; border-color: #FFD700; }
+
+/* ── Group Play: challenge strip + picker ─────────────────────────────────── */
+.gxc-strip { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.gxc-card {
+  width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  padding: 12px 14px; border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.10), rgba(255, 215, 0, 0.03));
+  border: 0.5px solid rgba(255, 215, 0, 0.35); color: var(--app-dim);
+  transition: transform 0.12s, border-color 0.15s;
+}
+.gxc-card:hover { transform: translateY(-1px); border-color: rgba(255, 215, 0, 0.55); }
+.gxc-card.closed { background: var(--app-card); border-color: var(--app-border); }
+.gxc-card-top { display: flex; align-items: center; gap: 10px; }
+.gxc-ic { font-size: 19px; }
+.gxc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gxc-info b { font-size: 13.5px; color: var(--c-f0f0f0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gxc-info span { font-size: 11px; color: var(--app-faint); }
+.gxc-deadline { font-size: 11px; font-weight: 700; color: var(--c-66bb6a); flex-shrink: 0; }
+.gxc-card-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; font-size: 11.5px; color: var(--app-faint); }
+.gxc-cta { font-weight: 700; color: #FFD700; }
+.gxc-cta.done { color: var(--c-66bb6a); }
+.gxc-chooser-sub { display: block; font-size: 10.5px; font-weight: 400; opacity: 0.75; }
+.gxc-picker { display: flex; flex-direction: column; gap: 8px; }
+.gxc-exam-sub { display: block; font-size: 10.5px; font-weight: 400; opacity: 0.75; }
+.gxc-empty { font-size: 12.5px; color: var(--app-faint); padding: 14px; text-align: center; line-height: 1.55; }
+
+/* ── Feed: challenge chip ─────────────────────────────────────────────────── */
+.fd-challenge {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  margin-top: 10px; padding: 12px 14px; border-radius: 12px; cursor: pointer; font-family: inherit;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.10), rgba(255, 215, 0, 0.03));
+  border: 0.5px solid rgba(255, 215, 0, 0.35); color: var(--app-dim);
+  transition: border-color 0.15s, transform 0.12s;
+}
+.fd-challenge:hover { border-color: rgba(255, 215, 0, 0.55); transform: translateY(-1px); }
+.fd-challenge-ic { font-size: 20px; }
+.fd-challenge-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.fd-challenge-info b { font-size: 13px; color: var(--c-f0f0f0); }
+.fd-challenge-info span { font-size: 11px; color: var(--app-faint); }
+.fd-challenge-go { font-size: 12px; font-weight: 800; color: #FFD700; flex-shrink: 0; }
+
+/* ── Light theme ──────────────────────────────────────────────────────────── */
+html[data-theme="light"] .exc-opt b,
+html[data-theme="light"] .exc-name,
+html[data-theme="light"] .exc-score b,
+html[data-theme="light"] .exc-your-l span,
+html[data-theme="light"] .exc-board-head,
+html[data-theme="light"] .exc-qrow b,
+html[data-theme="light"] .gxc-info b,
+html[data-theme="light"] .fd-challenge-info b,
+html[data-theme="light"] .exr-sheet-title,
+html[data-theme="light"] .exr-placed,
+html[data-theme="light"] .exh-join-input { color: #3d2e12; }
+html[data-theme="light"] .gxc-card.closed { background: #fff; }

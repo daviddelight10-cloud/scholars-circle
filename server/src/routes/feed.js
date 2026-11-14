@@ -77,6 +77,7 @@ function postBlock(p, myId) {
     liked: (p.likes || []).length > 0,
     acceptedCommentId: p.acceptedCommentId || null,
     liveCode: p.liveCode || null,
+    challengeToken: p.challengeToken || null,
   };
 }
 

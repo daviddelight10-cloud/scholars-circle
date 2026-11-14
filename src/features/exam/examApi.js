@@ -175,7 +175,7 @@ export async function addMissedToDeck({ sourceResourceId, sourceTitle, questions
 
 // ── Exam challenges ─────────────────────────────────────────────────────────
 
-async function chFetch(path, options = {}, authRequired = true) {
+async function chFetch(path, options = {}) {
   const res = await fetch(`${API_BASE}/api/exam-challenges${path}`, {
     ...options,
     headers: getAuthHeaders(),
@@ -188,7 +188,6 @@ async function chFetch(path, options = {}, authRequired = true) {
     throw err;
   }
   return data;
-  void authRequired;
 }
 
 export function createChallenge({ examResourceId, groupId, deadlineHours, scoring, reveal }) {

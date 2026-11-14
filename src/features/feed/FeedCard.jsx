@@ -142,6 +142,21 @@ function ResourceInner({ resource, uni, token, onOpenResource, onSaveResource })
   );
 }
 
+/** Exam-challenge CTA inside a post — taps through to the /exam/<token> landing. */
+function ChallengeChip({ token }) {
+  const navigate = useNavigate();
+  return (
+    <button className="fd-challenge" onClick={() => navigate(`/exam/${token}`)}>
+      <span className="fd-challenge-ic">📝</span>
+      <span className="fd-challenge-info">
+        <b>Exam challenge</b>
+        <span>Take it in your own time · live leaderboard</span>
+      </span>
+      <span className="fd-challenge-go">Take it →</span>
+    </button>
+  );
+}
+
 export function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount, onOpenResource, onOpenTab, onShare }) {
   const navigate = useNavigate();
   const isPost = block.type === "post";
@@ -411,6 +426,8 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
       {block.resource && (
         <ResourceInner resource={block.resource} uni={block.author?.uni} token={token} onOpenResource={onOpenResource} onSaveResource={onSaveResource} />
       )}
+
+      {block.challengeToken && <ChallengeChip token={block.challengeToken} />}
 
       <PostActions
         block={block}

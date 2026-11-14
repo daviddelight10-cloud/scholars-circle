@@ -1,25 +1,29 @@
 import { useState } from "react";
 import QuizBattles from "./QuizBattles.jsx";
+import GroupExamChallenges from "./GroupExamChallenges.jsx";
 import { GroupClanBattles } from "../groups/ClanBattles.jsx";
 import { FdSheet } from "../feed/feedUi.jsx";
 
 // Play tab = one place to start something. "Live quiz" is a session with your
-// own group; "Clan battle" pits your group against another group. The two
-// lists below share a single Start button instead of two competing heroes.
+// own group; "Clan battle" pits your group against another group; "Exam
+// challenge" is an async exam everyone takes in their own time.
 export default function GroupPlay({ classroomId, token, currentUser, group, members = [], isCaptain, onJoinQuiz }) {
   const [chooser, setChooser] = useState(false);
   const [quizSignal, setQuizSignal] = useState(0);
   const [challengeSignal, setChallengeSignal] = useState(0);
+  const [examSignal, setExamSignal] = useState(0);
 
   return (
     <div className="gv-play-tab">
       <div className="gv-battles-hero">
         <div className="gv-battles-hero-text">
           <b>Play together</b>
-          <span>Run a live quiz with your group, or challenge another clan.</span>
+          <span>Run a live quiz, battle another clan, or set an exam challenge.</span>
         </div>
         <button className="fd-go-btn" onClick={() => setChooser(true)}>⚡ Start</button>
       </div>
+
+      <GroupExamChallenges classroomId={classroomId} startSignal={examSignal} />
 
       <QuizBattles
         classroomId={classroomId}
@@ -54,6 +58,9 @@ export default function GroupPlay({ classroomId, token, currentUser, group, memb
               onClick={() => { setChooser(false); setChallengeSignal((n) => n + 1); }}
             >
               ⚔️ Challenge another clan{!isCaptain ? " (captains only)" : ""}
+            </button>
+            <button className="gv-add-row create" onClick={() => { setChooser(false); setExamSignal((n) => n + 1); }}>
+              📝 Exam challenge <span className="gxc-chooser-sub">everyone takes it in their own time</span>
             </button>
           </div>
         </FdSheet>

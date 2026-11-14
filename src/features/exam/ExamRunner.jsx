@@ -287,7 +287,7 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, challeng
       ...serverData,
     });
     setSubmitting(false);
-  }, [submitting, items, answers, examId, examResourceId, onStreakUpdate, onXpUpdate]);
+  }, [submitting, items, answers, examId, examResourceId, challenge?.id, onStreakUpdate, onXpUpdate]);
 
   useEffect(() => {
     submitRef.current = handleSubmit;

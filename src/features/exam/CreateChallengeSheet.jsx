@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createChallenge } from "./examApi";
 import { challengeUrl } from "./challengeUtils";
 import { groupsApi } from "../groups/groupsApi";
+import { feedApi } from "../feed/feedApi";
 import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 import "./exam.css";
 
@@ -17,23 +18,25 @@ const DEADLINES = [
  * Creates the ExamChallenge, optionally attaches it to a study group, then
  * shows a share view (copy link / native share / join code).
  */
-export default function CreateChallengeSheet({ exam, onClose, onCreated }) {
+export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClose, onCreated }) {
   useOverlayBackClose(onClose, { open: true });
   const [deadlineHours, setDeadlineHours] = useState(168);
   const [scoring, setScoring] = useState("first");
   const [reveal, setReveal] = useState("immediate");
-  const [groupId, setGroupId] = useState(null);
+  const [groupId, setGroupId] = useState(fixedGroupId);
   const [groups, setGroups] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(null); // { challenge, shareUrl, code }
   const [copied, setCopied] = useState(false);
+  const [feedShared, setFeedShared] = useState(false);
 
   useEffect(() => {
+    if (fixedGroupId) return; // group is pre-picked (Play tab flow)
     groupsApi.myGroups({})
       .then((d) => setGroups(d?.groups || d?.classrooms || []))
       .catch(() => setGroups([]));
-  }, []);
+  }, [fixedGroupId]);
 
   const submit = async () => {
     if (busy) return;
@@ -72,8 +75,19 @@ export default function CreateChallengeSheet({ exam, onClose, onCreated }) {
     }
   };
 
+  const shareToFeed = async () => {
+    if (feedShared) return;
+    try {
+      await feedApi.createPost({
+        text: `⚔️ I set an exam challenge — ${exam?.title || "exam"}. Think you can top the board?`,
+        challengeToken: done.challenge.token,
+      });
+      setFeedShared(true);
+    } catch { /* feed post is best-effort */ }
+  };
+
   return (
-    <div className="exr-sheet-veil" onClick={onClose}>
+    <div className="exr-sheet-bg" onClick={onClose}>
       <div className="exr-sheet exc-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="exr-sheet-grab" />
 
@@ -154,6 +168,10 @@ export default function CreateChallengeSheet({ exam, onClose, onCreated }) {
                 <button className="exr-btn ghost" onClick={shareNative}>📤 Share</button>
               )}
             </div>
+
+            <button className="exc-feedshare" onClick={shareToFeed} disabled={feedShared}>
+              {feedShared ? "✓ Posted to your feed" : "📣 Share to feed"}
+            </button>
 
             <button className="exr-btn ghost big" style={{ marginTop: 10 }} onClick={onClose}>Done</button>
           </>

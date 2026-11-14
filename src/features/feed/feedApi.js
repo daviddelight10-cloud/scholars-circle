@@ -29,8 +29,8 @@ export const feedApi = {
   acceptAnswer: ({ token, postId, commentId }) =>
     req(`/api/feed/posts/${postId}/accept`, { token, method: "POST", body: { commentId } }),
 
-  createPost: ({ token, text, kind = "post", resourceId } = {}) =>
-    req("/api/feed/posts", { token, method: "POST", body: { text, kind, resourceId } }),
+  createPost: ({ token, text, kind = "post", resourceId, challengeToken } = {}) =>
+    req("/api/feed/posts", { token, method: "POST", body: { text, kind, resourceId, challengeToken } }),
   deletePost: ({ token, id }) => req(`/api/feed/posts/${id}`, { token, method: "DELETE" }),
   toggleLike: ({ token, id }) => req(`/api/feed/posts/${id}/like`, { token, method: "POST" }),
 
