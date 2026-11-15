@@ -58,6 +58,7 @@ function pick(arr) {
 // Escalating exam-countdown copy. `daysLeft` is a calendar-day difference
 // (local day vs stored exam date), so 0 = exam day.
 function examCountdownCopy(course, daysLeft) {
+  if (daysLeft > 30) return { title: `📅 ${daysLeft} days to ${course}`, body: "Steady pace wins — clear a few review cards today and stay ahead." };
   if (daysLeft === 30) return { title: `📅 One month to ${course}`, body: "Perfect time to plan your revision — a little every day beats a cram." };
   if (daysLeft === 21) return { title: `📅 3 weeks to ${course}`, body: "Start your spaced reviews now — clear a few cards daily and walk in ready." };
   if (daysLeft > 7) return { title: `📅 ${daysLeft} days to ${course}`, body: "Keep the daily reviews going — consistency now is marks later." };
@@ -89,8 +90,8 @@ let lastUtcDay = null;
 /**
  * Local-time slots, evaluated per user every tick:
  *   local hour 7  → morning motivation
- *   local hour 8  → exam countdown (own UserCoursePref.examDate, last 2 weeks
- *                   daily + 30/21-day milestones)
+ *   local hour 8  → exam countdown (own UserCoursePref.examDate — daily
+ *                   from the day it's set until exam day)
  *   local hour 18 → evening reminder (streak-risk if they haven't studied
  *                   their local today, cards-due when ≥5 FSRS items are due,
  *                   generic otherwise)
@@ -149,7 +150,9 @@ async function sendSlotReminders(nowMs) {
         // avoids any timezone drift in the difference.
         const examDay = e.examDate.toISOString().slice(0, 10);
         const daysLeft = Math.round((Date.parse(`${examDay}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
-        if (daysLeft === 30 || daysLeft === 21 || (daysLeft >= 0 && daysLeft <= 14)) {
+        // Daily countdown from the day the date is set until exam day —
+        // milestone copy at 30/21d, escalating urgency in the final week.
+        if (daysLeft >= 0) {
           sentKeys.add(key);
           examCountdowns.push({ userId, courseCode: e.courseCode, daysLeft });
         }
