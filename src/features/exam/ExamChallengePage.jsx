@@ -4,6 +4,7 @@ import { getChallenge, takeChallenge, getLeaderboard } from "./examApi";
 import { fmtDeadline as fmtLeft, fmtDuration as fmtDur, challengeUrl, canTakeChallenge } from "./challengeUtils";
 import ExamRunner from "./ExamRunner";
 import AvatarMark from "../../components/AvatarMark.jsx";
+import { ensureAppSession } from "../../lib/authToken.js";
 import "./exam.css";
 
 const authData = () => {
@@ -18,7 +19,7 @@ const authData = () => {
 export default function ExamChallengePage() {
   const { token } = useParams();
   const navigate = useNavigate();
-  const authed = !!authData().authToken;
+  const [authed, setAuthed] = useState(() => !!authData().authToken);
 
   const [meta, setMeta] = useState(null);
   const [board, setBoard] = useState(null); // leaderboard payload (authed only)
@@ -44,6 +45,19 @@ export default function ExamChallengePage() {
     load();
     return () => clearInterval(pollRef.current);
   }, [load]);
+
+  // OAuth returns land here with a live Supabase session but no
+  // scholars-circle-auth — recover it before treating them as a guest,
+  // then reload so authed meta (mine/isCreator) + leaderboard fill in.
+  useEffect(() => {
+    if (authed) return;
+    let live = true;
+    ensureAppSession().then((u) => {
+      if (!live) return;
+      if (u) { setAuthed(true); load(); }
+    });
+    return () => { live = false; };
+  }, [authed, load]);
 
   // Creator live strip: poll the leaderboard while the page is open.
   useEffect(() => {
