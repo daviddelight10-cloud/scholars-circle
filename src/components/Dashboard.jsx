@@ -547,6 +547,19 @@ export default function Dashboard({
           </button>
           )}
 
+          {/* ── Anatomy Atlas banner ── */}
+          <button className="hm-vp hm-sec-vp" onClick={() => onOpenTab?.("anatomy-atlas")}>
+            <div className="hm-vp-ic"><HIcon name="bone" size={18} /></div>
+            <div className="hm-vp-t">
+              <h3>Anatomy Atlas</h3>
+              <p>502 structures — explore the body in interactive 3D</p>
+            </div>
+            <div className="hm-vp-side">
+              <span className="hm-vp-go">Explore <HIcon name="arrowR" size={12} /></span>
+              <span className="hm-vp-xp">🦴</span>
+            </div>
+          </button>
+
           {/* ── Today's quests ── */}
           <div className="hm-section hm-sec-quests">
             <div className="hm-sec-head"><h2><HIcon name="target" size={15} color="#C0B2FF" />Today's quests <span className="hm-count">{questsDone}/{quests.length}</span></h2></div>

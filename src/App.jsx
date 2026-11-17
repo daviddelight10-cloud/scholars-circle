@@ -180,6 +180,7 @@ const ClinicalCases = lazyWithRetry(() => import("./features/clinicalCases/Virtu
 const DrugReference = lazyWithRetry(() => import("./features/drugReference/DrugReference.jsx"));
 const LabValues = lazyWithRetry(() => import("./features/labValues/LabValues.jsx"));
 const MedicalCalculators = lazyWithRetry(() => import("./features/medicalCalculators/MedicalCalculators.jsx"));
+const AnatomyAtlas = lazyWithRetry(() => import("./features/anatomyAtlas/AnatomyAtlas.jsx"));
 const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_2c321f6a4471b672ee716506912ede6f6f99d8cd";
 
 
@@ -9290,6 +9291,14 @@ function App() {
         <ErrorBoundary>
           <Suspense fallback={<TabSkeleton />}>
             <MedicalCalculators onBack={goBack} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+
+      {tab === "anatomy-atlas" && (
+        <ErrorBoundary>
+          <Suspense fallback={<TabSkeleton />}>
+            <AnatomyAtlas onBack={goBack} />
           </Suspense>
         </ErrorBoundary>
       )}

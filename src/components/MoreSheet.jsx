@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import {
-  X, Gem, Stethoscope, Pill, FlaskConical, Calculator, ChevronRight,
+  X, Gem, Stethoscope, Pill, FlaskConical, Calculator, Bone, ChevronRight,
   BarChart3, CalendarDays, User, Settings, Gift,
   BookOpen, School, GraduationCap, FileText, Laptop, Megaphone,
   Building2, KeyRound, Mail, Cog,
@@ -163,6 +163,10 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
             <button className={`mm-tile${tab === "medical-calculators" ? " active" : ""}`} type="button" onClick={() => go("medical-calculators")}>
               <span className="mm-tile-ic"><Calculator size={18} /></span>
               <span className="mm-tile-txt"><b>Med Calculators</b><span>Dosing &amp; scores</span></span>
+            </button>
+            <button className={`mm-tile${tab === "anatomy-atlas" ? " active" : ""}`} type="button" onClick={() => go("anatomy-atlas")}>
+              <span className="mm-tile-ic"><Bone size={18} /></span>
+              <span className="mm-tile-txt"><b>Anatomy Atlas</b><span>3D body explorer</span></span>
             </button>
           </div>
         </section>

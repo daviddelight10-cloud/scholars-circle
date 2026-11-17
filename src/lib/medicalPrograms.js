@@ -419,7 +419,7 @@ export const MEDICAL_BADGES = [
 ];
 
 export const MEDICAL_TABS = [
-  "today", "practice", "clinical-cases", "aitutor", "drug-ref", "lab-values", "analytics", "research-hub",
+  "today", "practice", "clinical-cases", "aitutor", "drug-ref", "lab-values", "anatomy-atlas", "analytics", "research-hub",
 ];
 
 export const MEDICAL_TAB_LABELS = {
@@ -429,6 +429,7 @@ export const MEDICAL_TAB_LABELS = {
   aitutor: "🤖 AI Tutor",
   "drug-ref": "💊 Drug Reference",
   "lab-values": "🧪 Lab Values",
+  "anatomy-atlas": "🦴 Anatomy Atlas",
   analytics: "📊 Progress",
   "research-hub": "📁 My Circle",
   classroom: "🏫 Classroom",

@@ -47,6 +47,14 @@ registerRoute(
   new CacheFirst({ cacheName: "ocr-engine" })
 );
 
+// Anatomy atlas (page shell + ~30MB 3D model) — same pattern as /ocr/:
+// excluded from precache, CacheFirst so opening it once (or tapping the
+// "Offline" install button in the tab) makes it fully available offline.
+registerRoute(
+  ({ url }) => url.pathname.startsWith("/atlas/"),
+  new CacheFirst({ cacheName: "atlas" })
+);
+
 // Avatars, covers, resource thumbs — CacheFirst so seen images survive
 // offline. Opaque (no-cors) responses included; capped so it can't bloat.
 registerRoute(
