@@ -4,10 +4,6 @@
   X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
 
-# The atlas page is iframed by the app itself — same-origin framing only.
-/atlas/*
-  X-Frame-Options: SAMEORIGIN
-
 /manifest.json
   Content-Type: application/manifest+json
   Cache-Control: public, max-age=86400

@@ -71,7 +71,6 @@ export const PRIMARY_TABS = ["today", "clinical-cases", "aitutor", "voice-tutor"
 export const BARE_TABS = [
   "settings", "refer", "profile", "premium",
   "timetable", "clinical-cases", "drug-ref", "lab-values", "medical-calculators",
-  "anatomy-atlas",
 ];
 
 // Simplified experience for LECTURER role: only these destinations exist
@@ -95,7 +94,7 @@ export const TAB_LABELS = {
   premium: "💎 Premium",
   "clinical-cases": "🩺 Clinical Cases",
   "drug-ref": "💊 Drug Reference", "lab-values": "🧪 Lab Values",
-  "medical-calculators": "🧮 Med Calculators", "anatomy-atlas": "🦴 Anatomy Atlas",
+  "medical-calculators": "🧮 Med Calculators",
   "voice-tutor": "🎙️ Voice Tutor",
   insights: "📊 Insights",
 };

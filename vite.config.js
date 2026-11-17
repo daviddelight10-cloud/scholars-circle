@@ -90,7 +90,7 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ["**/*.{js,mjs,css,html,svg,png,ico,webmanifest}"],
-        globIgnores: ["ocr/**", "atlas/**"],
+        globIgnores: ["ocr/**"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
