@@ -2204,21 +2204,21 @@ Passage:
   // ---- Thumbnails (lazy via IntersectionObserver) ----
   const [thumbs, setThumbs] = useState([]);
   const thumbItemRefs = useRef([]);
-  const scrubItemRefs = useRef([]);
   const thumbRenderQueueRef = useRef([]);
   const thumbRenderingRef = useRef(0);
 
-  // Bottom scrubber — reveals on page turns and strip touches, then
+  // Corner page scrubber — reveals on page turns and while dragging, then
   // auto-hides after a few seconds so it doesn't squat over the page.
   const [scrubVisible, setScrubVisible] = useState(false);
   const scrubTimer = useRef(null);
+  const scrubDrag = useRef(null);   // active drag { moved, startY }
+  const scrubMoved = useRef(false); // click-guard: true once a real drag happened
   const pokeScrub = useCallback(() => {
     setScrubVisible(true);
     clearTimeout(scrubTimer.current);
     scrubTimer.current = setTimeout(() => setScrubVisible(false), 3000);
   }, []);
   useEffect(() => () => clearTimeout(scrubTimer.current), []);
-  useEffect(() => { if (numPages > 1) pokeScrub(); }, [currentPage, numPages, pokeScrub]);
 
   // Lazy thumbnail renderer — shared by the side/drawer panels and the
   // bottom scrubber strip; thumbRenderedRef dedupes across containers.
@@ -2265,15 +2265,38 @@ Passage:
 
     thumbObserverRef.current = observer;
     thumbItemRefs.current.forEach((el) => { if (el) observer.observe(el); });
-    scrubItemRefs.current.forEach((el) => { if (el) observer.observe(el); });
 
     return () => observer.disconnect();
   }, [thumbs.length, showThumbs, renderThumb]);
 
-  // Keep the active page centered in the bottom scrubber.
+  // Page turns reveal the corner scrubber and ensure its thumb is rendered.
   useEffect(() => {
-    scrubItemRefs.current[currentPage - 1]?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
-  }, [currentPage]);
+    if (numPages > 1) { pokeScrub(); renderThumb(currentPage); }
+  }, [currentPage, numPages, pokeScrub, renderThumb]);
+
+  // Apple-style vertical scrub — drag the floating thumb along the edge and
+  // the page follows your finger position on the viewer. Tap opens the panel.
+  const onScrubDown = (e) => {
+    e.stopPropagation();
+    scrubDrag.current = { moved: false, startY: e.clientY };
+    scrubMoved.current = false;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    pokeScrub();
+  };
+  const onScrubMove = (e) => {
+    const d = scrubDrag.current;
+    if (!d) return;
+    const rect = viewerRef.current?.getBoundingClientRect();
+    if (!rect?.height) return;
+    if (!d.moved && Math.abs(e.clientY - d.startY) < 8) return;
+    d.moved = true;
+    scrubMoved.current = true;
+    pokeScrub();
+    const frac = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    const pg = Math.min(numPages, Math.max(1, Math.round(frac * (numPages - 1)) + 1));
+    if (pg !== currentPage) goToPage(pg);
+  };
+  const onScrubEnd = () => { scrubDrag.current = null; };
 
   // ---- Highlighter / Eraser ----
   const screenToPdf = (p) => ({ x: p.x / scale, y: p.y / scale });
@@ -5108,68 +5131,43 @@ Passage:
         )}
       </div>{/* end workspace */}
 
-          {/* Bottom thumbnail scrubber — reveals on page turns, auto-hides */}
+          {/* Page scrubber — Apple-style floating mini-thumb, top-right.
+              Drag vertically to skim pages; tap opens the thumbnails panel. */}
           {!chromeHidden && !loading && !loadError && numPages > 1 && (
             <div
               style={{
                 position: "absolute",
-                left: 0,
-                right: chatOpen && dockMode ? dockW + 8 : isMobile ? 80 : 96,
-                bottom: 82,
+                top: isMobile ? 108 : 62,
+                right: chatOpen && dockMode ? dockW + 12 : 12,
                 zIndex: 48,
-                padding: "0 8px",
                 opacity: scrubVisible && !(isMobile && (showOverflow || studyToolsOpen)) ? 1 : 0,
-                transform: scrubVisible ? "translateY(0)" : "translateY(10px)",
+                transform: scrubVisible ? "translateX(0)" : "translateX(12px)",
                 pointerEvents: scrubVisible && !(isMobile && (showOverflow || studyToolsOpen)) ? "auto" : "none",
                 transition: "opacity 0.22s ease, transform 0.22s ease",
+                touchAction: "none",
               }}
+              onPointerDown={onScrubDown}
+              onPointerMove={onScrubMove}
+              onPointerUp={onScrubEnd}
+              onPointerCancel={onScrubEnd}
+              onClick={(e) => { e.stopPropagation(); if (!scrubMoved.current) setShowThumbs(true); }}
             >
               <div
                 style={{
-                  display: "flex", alignItems: "center",
-                  padding: "5px 7px",
-                  background: `${T.toolbar}E0`,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  padding: 5, borderRadius: 10, cursor: "grab",
+                  background: `${T.toolbar}E6`,
                   backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
-                  border: `1px solid ${T.border}`, borderRadius: 14,
-                  boxShadow: `0 10px 26px ${T.shadow}`,
+                  border: `1px solid ${T.border}`,
+                  boxShadow: `0 8px 22px ${T.shadow}`,
                 }}
-                onTouchStart={(e) => { e.stopPropagation(); pokeScrub(); }}
-                onTouchEnd={(e) => e.stopPropagation()}
-                onPointerDown={(e) => { e.stopPropagation(); pokeScrub(); }}
-                onClick={(e) => e.stopPropagation()}
               >
-                <div style={{
-                  flex: 1, minWidth: 0,
-                  display: "flex", gap: 5, overflowX: "auto", overflowY: "hidden",
-                  scrollbarWidth: "none",
-                }}>
-                  {thumbs.map((t) => (
-                    <button
-                      key={t.page}
-                      data-page={t.page}
-                      ref={(el) => { scrubItemRefs.current[t.page - 1] = el; }}
-                      onClick={() => goToPage(t.page)}
-                      style={{
-                        flex: "0 0 auto", display: "flex",
-                        padding: 2, borderRadius: 5, cursor: "pointer",
-                        border: t.page === currentPage ? `2px solid ${T.accent}` : "2px solid transparent",
-                        background: t.page === currentPage ? T.hover : "none",
-                      }}
-                    >
-                      {t.dataUrl ? (
-                        <img src={t.dataUrl} alt="" draggable={false} style={{ height: 30, borderRadius: 2, display: "block" }} />
-                      ) : (
-                        <div style={{ height: 30, width: 22, borderRadius: 2, background: T.hover }} />
-                      )}
-                    </button>
-                  ))}
-                </div>
-                <span style={{
-                  flex: "0 0 auto", marginLeft: 7,
-                  fontSize: 10, fontFamily: "ui-monospace, monospace",
-                  color: T.muted, padding: "3px 8px",
-                  background: T.chipBg, borderRadius: 999,
-                }}>{currentPage}/{numPages}</span>
+                {thumbs[currentPage - 1]?.dataUrl ? (
+                  <img src={thumbs[currentPage - 1].dataUrl} alt="" draggable={false} style={{ width: 34, borderRadius: 3, display: "block" }} />
+                ) : (
+                  <div style={{ width: 34, height: 44, borderRadius: 3, background: T.hover }} />
+                )}
+                <span style={{ fontSize: 9, fontFamily: "ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{currentPage}</span>
               </div>
             </div>
           )}
@@ -5183,13 +5181,13 @@ Passage:
               background: "linear-gradient(180deg, rgba(79,142,247,0.05), rgba(79,142,247,0.015) 40%, rgba(79,142,247,0.05))",
             }}>
               <div className="pdf-circle-hint" style={{
-                position: "absolute", left: "50%", bottom: scrubVisible ? 134 : 96, transform: "translateX(-50%)",
+                position: "absolute", left: "50%", bottom: 96, transform: "translateX(-50%)",
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "9px 15px", borderRadius: 22,
                 background: "rgba(15,20,32,0.88)", color: "#dbe6ff",
                 fontSize: 12.5, fontWeight: 600, fontFamily: "Manrope, system-ui, sans-serif",
                 whiteSpace: "nowrap", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.35)", transition: "bottom 0.22s ease",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
               }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
                 Circle, highlight, or tap anything — AI explains it
@@ -5200,14 +5198,14 @@ Passage:
           {/* "Read & ask AI" nudge — the intro didn't arm the tool; point at it */}
           {askNudge && !circleMode && !loading && !loadError && (
             <div className="pdf-circle-hint pdf-circle-hint--sticky" style={{
-              position: "absolute", left: "50%", bottom: scrubVisible ? 134 : 96, transform: "translateX(-50%)",
+              position: "absolute", left: "50%", bottom: 96, transform: "translateX(-50%)",
               zIndex: 60, pointerEvents: "none",
               display: "flex", alignItems: "center", gap: 8,
               padding: "9px 15px", borderRadius: 22,
               background: "rgba(15,20,32,0.88)", color: "#dbe6ff",
               fontSize: 12.5, fontWeight: 600, fontFamily: "Manrope, system-ui, sans-serif",
               whiteSpace: "nowrap", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.35)", transition: "bottom 0.22s ease",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
             }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
               Tap <b style={{ color: "#8fb8ff" }}>Ask AI</b> below, then circle anything on the page
