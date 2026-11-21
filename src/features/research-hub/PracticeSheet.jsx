@@ -333,12 +333,12 @@ export default function PracticeSheet({
           </div>
           <div className="pm-top" onPointerDown={onDragStart}>
             <div style={{ minWidth: 0 }}>
-              <p className="cs-sheet-label">EXAM</p>
+              <p className="cs-sheet-label">MOCK EXAM</p>
               <p className="cs-sheet-title" id="sp-sheet-title">{file.title}</p>
               <p className="pm-header-meta">
                 <IcoClipboard size={11} />
                 <span>
-                  Saved exam{qCount ? ` · ${qCount} questions` : ""}
+                  Saved mock exam{qCount ? ` · ${qCount} questions` : ""}
                   {examAttemptsCount > 0 && ` · ${examAttemptsCount} attempt${examAttemptsCount > 1 ? "s" : ""}`}
                   {examBestPct != null && ` · best ${examBestPct}%`}
                   {examForeign && examBy && ` · by @${examBy}`}
@@ -357,7 +357,7 @@ export default function PracticeSheet({
                 <div className="pm-hero-icon"><IcoClipboard size={21} /></div>
                 <div className="pm-hero-info">
                   <div className="pm-hero-name-row">
-                    <span className="pm-hero-name">Exam</span>
+                    <span className="pm-hero-name">Mock exam</span>
                     <span className="pm-badge-ready">Ready</span>
                   </div>
                   <div className="pm-hero-sub">
@@ -456,7 +456,7 @@ export default function PracticeSheet({
   if (!mcq) {
     hero = { key: "make", name: "Practice questions", badge: "Start here", sub: heroSub, cta: generating ? "Generating…" : "Generate questions", icon: <IcoBolt size={21} />, run: () => onGenerate?.(file, "mcqs"), disabled: generating };
   } else if (mastered && canExtract) {
-    hero = { key: "exam", name: "Take an exam", badge: "Start here", sub: `${mcqPct}% learned — test yourself under exam conditions`, cta: "Start exam", icon: <IcoClipboard size={21} />, run: () => onExamSimulation?.(exam || file), alt: { label: "Keep practising", run: () => onOpen(mcq.shareToken) } };
+    hero = { key: "exam", name: "Take a mock exam", badge: "Start here", sub: `${mcqPct}% learned — test yourself under exam conditions`, cta: "Start mock exam", icon: <IcoClipboard size={21} />, run: () => onExamSimulation?.(exam || file), alt: { label: "Keep practising", run: () => onOpen(mcq.shareToken) } };
   } else {
     hero = { key: "practice", name: "Practice questions", badge: "Start here", sub: heroSub, cta: prog ? "Continue practice" : "Start practice", icon: <IcoBolt size={21} />, run: () => onOpen(mcq.shareToken), showMeta: true };
   }
@@ -566,7 +566,7 @@ export default function PracticeSheet({
               delay={90} wdelay={2000}
               tint="tint-violet" badge={gsBadge}
               icon={<IcoBrain size={17} />}
-              name="Study with AI"
+              name="Guided Study"
               sub={gsSub}
               disabled={!canExtract || generating || preparingStudy}
               onClick={act(() => onGuidedStudy?.(file))}
@@ -576,7 +576,7 @@ export default function PracticeSheet({
                 delay={130} wdelay={3200}
                 tint="tint-green"
                 icon={<IcoClipboard size={17} />}
-                name="Exam"
+                name="Mock exam"
                 badge={exam ? (examAttemptsCount > 0 ? `${examAttemptsCount}` : null) : null}
                 sub={
                   exam

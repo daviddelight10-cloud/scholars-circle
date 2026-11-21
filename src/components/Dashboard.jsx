@@ -72,6 +72,14 @@ export default function Dashboard({
   const [recents, setRecents] = useState(() => listRecentDocs());
   const [guidedProg, setGuidedProg] = useState({});
   const [preparingGuided, setPreparingGuided] = useState(null);
+  const [hasGroup, setHasGroup] = useState(false);
+  const [hasExam, setHasExam] = useState(false);
+  const [setupDismissed, setSetupDismissed] = useState(() => {
+    try { return localStorage.getItem("sc_setup_dismissed") === "1"; } catch { return false; }
+  });
+  const [challengeSeen, setChallengeSeen] = useState(() => {
+    try { return localStorage.getItem("sc_setup_challenge") === "1"; } catch { return false; }
+  });
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -240,6 +248,11 @@ export default function Dashboard({
           try { localStorage.setItem("sc_mcq_progress", JSON.stringify({ data: mp, ts: Date.now() })); } catch {}
         }
       } catch {}
+      let groupCount = 0;
+      try {
+        const gRes = await fetch(`${API_BASE}/classroom/groups/my`, { headers });
+        if (gRes.ok) { const gl = await gRes.json(); groupCount = Array.isArray(gl) ? gl.length : 0; }
+      } catch {}
       if (cancelled) return;
 
       const deptId = profile?.departmentId || profile?.department?.id;
@@ -253,6 +266,8 @@ export default function Dashboard({
 
       setUserProfile(profile);
       setResourceCounts({ dept: deptResources.length, saved, uploads });
+      setHasGroup(groupCount > 0);
+      setHasExam(resources.some((r) => r.contentType === "exam"));
       setCommunityFolders(Array.isArray(folders) ? folders : []);
       setFoldersLoaded(true);
     }
@@ -267,6 +282,44 @@ export default function Dashboard({
   const openResearchHub = useCallback((tab, subTab) => {
     window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { tab, subTab } }));
   }, []);
+
+  // "Get set up" checklist — each row deep-links to where the action lives,
+  // and marks itself done from data the app already knows.
+  const setupSteps = useMemo(() => {
+    const openFeedGroups = () => {
+      window.__sc_pending_feed_tab = "groups";
+      window.dispatchEvent(new CustomEvent("sc-open-feed"));
+    };
+    return [
+      {
+        key: "upload", name: "Upload your first PDF", sub: "Turn notes into practice questions",
+        done: (fsrsStats?.totalItems || 0) > 0 || resourceCounts.uploads > 0 || resourceCounts.saved > 0,
+        go: () => window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { openUpload: true } })),
+      },
+      {
+        key: "practice", name: "Practice 10 questions", sub: "Spaced repetition locks it in",
+        done: (fsrsStats?.totalReviews || 0) >= 10,
+        go: () => openResearchHub("space"),
+      },
+      {
+        key: "group", name: "Join a study group", sub: "Clans, live quizzes, exam challenges",
+        done: hasGroup, go: openFeedGroups,
+      },
+      {
+        key: "exam", name: "Run a mock exam", sub: "A timed paper built from your notes",
+        done: hasExam, go: () => openResearchHub("space"),
+      },
+      {
+        key: "challenge", name: "Challenge a friend", sub: "Same exam — compare scores",
+        done: challengeSeen,
+        go: () => {
+          try { localStorage.setItem("sc_setup_challenge", "1"); } catch {}
+          setChallengeSeen(true);
+          openFeedGroups();
+        },
+      },
+    ];
+  }, [fsrsStats, resourceCounts, hasGroup, hasExam, challengeSeen, openResearchHub]);
 
   // For-you community folders: same-uni first, then bookmark count, top 3.
   const forYouFolders = useMemo(() => {
@@ -451,11 +504,11 @@ export default function Dashboard({
 
         {/* Level bar — regular in-flow element; scrolls away, only the
             tappable buttons above stay pinned. */}
-        <div className="hm-gb-xp">
+        <button type="button" className="hm-gb-xp" onClick={() => onOpenTab?.("analytics")} title="See your progress">
           <span className="hm-lvl">LVL {xpLevel}</span>
           <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / xpNeeded) * 100)}%` }} /></div>
           <span className="hm-xptext">{xpIn}/{xpNeeded} XP</span>
-        </div>
+        </button>
         {firstRun && (
           <div className="hm-xp-hint">Review cards and finish cases to earn XP and gems.</div>
         )}
@@ -477,6 +530,33 @@ export default function Dashboard({
               onTrySample={() => openResearchHub("community")}
             />
           </div>
+
+          {/* ── Get set up — progressive checklist; hides when dismissed or all done ── */}
+          {!firstRun && !setupDismissed && setupSteps.some((s) => !s.done) && (
+            <div className="hm-section">
+              <div className="hm-sec-head">
+                <h2><HIcon name="spark" size={15} color="#6EE7A0" />Get set up <span className="hm-count">{setupSteps.filter((s) => s.done).length}/{setupSteps.length}</span></h2>
+                <button onClick={() => { try { localStorage.setItem("sc_setup_dismissed", "1"); } catch {} setSetupDismissed(true); }}>Dismiss</button>
+              </div>
+              <div className="hm-quests">
+                {setupSteps.map((s, i) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    className={`hm-quest hm-setup${s.done ? " done" : ""}`}
+                    onClick={() => { if (!s.done) s.go(); }}
+                  >
+                    <span className={`hm-setup-dot${s.done ? " done" : ""}`}>{s.done ? "✓" : i + 1}</span>
+                    <span className="hm-q-info">
+                      <span className="hm-q-name">{s.name}</span>
+                      <span className="hm-q-meta">{s.sub}</span>
+                    </span>
+                    {!s.done && <span className="hm-q-claim">Go</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Jump back in ── */}
           {recents.length > 0 && (

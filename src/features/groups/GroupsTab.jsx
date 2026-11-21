@@ -160,6 +160,10 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
           <div className="fd-empty-sub">
             Create a group for your course or cohort — chat, set goals, run live quizzes and climb the leaderboard together.
           </div>
+          <div className="fd-quick-chips" style={{ marginTop: 12, justifyContent: "center" }}>
+            <button className="fd-quick-chip" onClick={() => setCreateOpen(true)}>👥 Create a group</button>
+            <button className="fd-quick-chip" onClick={() => setJoinOpen(true)}>🔑 Join with code</button>
+          </div>
         </div>
       )}
 

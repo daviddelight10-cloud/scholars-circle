@@ -82,17 +82,17 @@ export default function ExamHub({ exam, source, onBack, onStart, onRegenerate, o
   if (!exam) {
     return (
       <div className="exr-root exr-scroll">
-        <HubTop title="Exam" sub={sourceTitle || ""} onBack={onBack} />
+        <HubTop title="Mock exam" sub={sourceTitle || ""} onBack={onBack} />
         <div className="exr-results">
           <div className="exr-score-card exh-empty">
             <div className="exr-score-emoji">🎓</div>
-            <div className="exr-score-title">No exam yet</div>
+            <div className="exr-score-title">No mock exam yet</div>
             <p className="exr-resume-sub">
-              Build an AI exam from {sourceTitle ? `“${sourceTitle}”` : "this material"} — you pick
+              Build an AI mock exam from {sourceTitle ? `“${sourceTitle}”` : "this material"} — you pick
               the question count, types and timer, then retake it anytime.
             </p>
             {onBuild && (
-              <button className="exr-btn primary big" onClick={onBuild}>Build an exam ✨</button>
+              <button className="exr-btn primary big" onClick={onBuild}>Build a mock exam ✨</button>
             )}
           </div>
         </div>

@@ -220,7 +220,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
   if (phase === "pick") {
     return (
       <div className="exr-root exr-scroll">
-        <BuilderTop title="Build an exam" sub="Pick a document — the AI reads it and builds the exam to match." onBack={onExit} />
+        <BuilderTop title="Build a mock exam" sub="Pick a document — the AI reads it and builds the exam to match." onBack={onExit} />
         {error && <div className="exr-warn" style={{ margin: "0 16px 10px" }}>{error}</div>}
         <div className="exb-pick-list">
           {candidates.length === 0 && (
@@ -270,7 +270,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, r
   return (
     <div className="exr-root">
       <BuilderTop
-        title="Build an exam"
+        title="Build a mock exam"
         sub={source?.title || ""}
         onBack={onExit}
       />

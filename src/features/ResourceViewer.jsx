@@ -403,7 +403,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
               <h3 style={{ margin: "0 0 8px" }}>Exam Simulator is Premium</h3>
               <p style={{ fontSize: 14, opacity: 0.75, lineHeight: 1.6, marginBottom: 20 }}>
-                Your free trial has ended — upgrade to keep running exam simulations.
+                Your free trial has ended — upgrade to keep running mock exams.
               </p>
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}

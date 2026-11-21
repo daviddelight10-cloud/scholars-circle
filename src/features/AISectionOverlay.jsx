@@ -1603,6 +1603,8 @@ function InputBar({ value, onChange, onSend, loading, onStop, placeholder = "Ask
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setUploadOpen(o => !o)}
+              title="Attach a PDF or image"
+              aria-label="Attach a PDF or image"
               style={{
                 width: 36, height: 36, borderRadius: 10,
                 background: D.bar, border: `0.5px solid ${D.line}`,

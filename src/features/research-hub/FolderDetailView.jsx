@@ -171,7 +171,7 @@ export default function FolderDetailView({
                     {allMcqIds.length > 0 &&
                       menuItem("� Adaptive drill", () => onAdaptiveDrill?.(allMcqIds))}
                     {allFiles.length > 0 &&
-                      menuItem("🎓 Exam simulation", () => onExamSimulation?.(allFiles))}
+                      menuItem("🎓 Mock exam", () => onExamSimulation?.(allFiles))}
                     {folderIsOwner &&
                       menuItem("🗑 Delete folder", () => onDeleteFolder(folderDetail.id), { danger: true })}
                 </div>

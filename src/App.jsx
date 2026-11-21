@@ -8184,7 +8184,7 @@ function App() {
 
           onClick={() => { haptics.selection(); setTab("discuss"); }}
 
-          title="Feed"
+          title="Social"
 
         >
 
@@ -8196,7 +8196,7 @@ function App() {
 
           </span>
 
-          <span className="nav-label">Feed</span>
+          <span className="nav-label">Social</span>
 
         </button>
 
@@ -8303,7 +8303,7 @@ function App() {
 
               ["insights", "Insights", BarChart3],
 
-              ["discuss", "Feed", MessageCircle],
+              ["discuss", "Social", MessageCircle],
 
               ["profile", "Profile", User],
 
@@ -8441,7 +8441,7 @@ function App() {
 
             {[
 
-              ["discuss", "Feed", MessageCircle],
+              ["discuss", "Social", MessageCircle],
 
               ["timetable", "Schedule", CalendarDays],
 
