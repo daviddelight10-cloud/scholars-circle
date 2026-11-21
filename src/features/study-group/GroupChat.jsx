@@ -60,15 +60,21 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
   const unreadBoundary = useRef(null); // id of first incoming unread msg (snapshot on open)
   const boundaryScrolled = useRef(false);
   const lastMarkRead = useRef(0);
+  const firstLoadDone = useRef(false);
 
   const myId = currentUser?.id || currentUser?.sub;
   const myName = currentUser?.fullName || currentUser?.username || "You";
 
-  // Advance the member's read cursor — only while the user is at the bottom,
-  // and throttled so we don't hammer the endpoint on every poll.
+  // Advance the member's read cursor — throttled so we don't hammer the
+  // endpoint on every poll. Fires on open, at-bottom scrolls, and unmount.
   const markRead = useCallback(() => {
     if (Date.now() - lastMarkRead.current < 15000) return;
     lastMarkRead.current = Date.now();
+    groupChatApi.markRead({ token, classroomId }).catch(() => {});
+  }, [token, classroomId]);
+
+  // Catch messages viewed inside the throttle window right before exit.
+  useEffect(() => () => {
     groupChatApi.markRead({ token, classroomId }).catch(() => {});
   }, [token, classroomId]);
 
@@ -78,6 +84,9 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
       const data = await groupChatApi.getMessages({ token, classroomId });
       const list = data.messages || [];
       setTyping(data.typing || []);
+      // Opening the chat counts as viewing — clear the unread pill once the
+      // boundary is snapshot from the pre-open cursor (data.lastReadAt).
+      if (!firstLoadDone.current) { firstLoadDone.current = true; markRead(); }
       setMessages((prev) => {
         if (!prev) {
           // First load — snapshot the unread boundary BEFORE any mark-read:

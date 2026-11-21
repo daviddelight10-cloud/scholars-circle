@@ -1986,7 +1986,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           file={sessionMode.file}
           sources={sessionMode.sources}
           onExit={handleSessionComplete}
-          onSaved={() => { try { localStorage.removeItem("sc_resources_list"); } catch {} fetchResources(); }}
+          onSaved={() => { try { localStorage.removeItem("sc_resources_list"); } catch {} fetchResources(); if (activeFolder) fetchFolderDetail(activeFolder); }}
           onStreakUpdate={handleStreakUpdate}
           onXpUpdate={handleXpUpdate}
         />
@@ -2021,7 +2021,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           existingExam={sessionMode.examResource}
           regenerateFrom={sessionMode.examResource}
           onExit={handleSessionComplete}
-          onSaved={() => { try { localStorage.removeItem("sc_resources_list"); } catch {} fetchResources(); }}
+          onSaved={() => { try { localStorage.removeItem("sc_resources_list"); } catch {} fetchResources(); if (activeFolder) fetchFolderDetail(activeFolder); }}
           onStreakUpdate={handleStreakUpdate}
           onXpUpdate={handleXpUpdate}
         />
