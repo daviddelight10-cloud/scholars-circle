@@ -1069,7 +1069,6 @@ html[data-theme="light"] .card:hover {
 
 /* Header */
 .lb-head { display: flex; flex-direction: column; gap: 4px; }
-.lb-head h2 { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; margin: 0; }
 .lb-head-sub {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--app-dim);

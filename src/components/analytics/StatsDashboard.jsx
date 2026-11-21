@@ -286,10 +286,14 @@ export default function StatsDashboard({ stats, history, subjects }) {
       <div className="sd-panel">
         <div className="sd-panel-head">
           <h3>Daily review goal</h3>
-          <span className="sd-panel-meta">items per day</span>
+          <span className="sd-panel-meta">
+            {goal > 0 ? `${s?.reviewedToday || 0}/${goal} today` : "items per day"}
+          </span>
         </div>
         <div className="sd-goals">
-          {GOAL_OPTS.map((g) => (
+          {/* Goal may be a custom stepper value (5–100) set in the study plan —
+              show it as a selected chip so the current goal is never invisible */}
+          {(GOAL_OPTS.includes(goal) || goal <= 0 ? GOAL_OPTS : [...GOAL_OPTS, goal].sort((a, b) => a - b)).map((g) => (
             <button
               key={g}
               className={`sd-goal${goal === g ? " on" : ""}`}

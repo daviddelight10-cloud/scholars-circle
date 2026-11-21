@@ -27,8 +27,6 @@
 
 /* Header */
 .sd-head { display: flex; align-items: flex-end; justify-content: flex-end; gap: 12px; margin-bottom: 14px; }
-.sd-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; margin: 0; }
-.sd-sub { font-size: 12px; color: var(--sd-muted); margin: 4px 0 0; }
 
 .sd-range { display: flex; gap: 4px; }
 .sd-chip {

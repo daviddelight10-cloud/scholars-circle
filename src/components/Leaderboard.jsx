@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { API_BASE } from "../lib/constants";
 import { Avatar } from "../features/feed/feedUi.jsx";
 import { levelProgress } from "../features/streak-survival/survivalStore.js";
+import { useUI } from "../contexts/UIContext.jsx";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 const TIER_META = {
   bronze:   { icon: "🥉", color: "var(--c-c9824a)" },
@@ -18,6 +20,7 @@ function LvlChip({ xp }) {
 }
 
 export function Leaderboard({ token }) {
+  const { setMobileNavHidden } = useUI();
   const [board, setBoard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -80,6 +83,16 @@ export function Leaderboard({ token }) {
     const id = setInterval(tick, 60000);
     return () => clearInterval(id);
   }, []);
+
+  // The profile sheet is a fixed overlay inside #root — hide the body-level
+  // mobile nav while it's open (iOS paints body children above #root), and
+  // give it the standard back-gesture close.
+  useOverlayBackClose(() => setSelectedUser(null), { open: !!selectedUser });
+  useEffect(() => {
+    if (!selectedUser) return;
+    setMobileNavHidden(true);
+    return () => setMobileNavHidden(false);
+  }, [selectedUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch live profile when a row is tapped
   useEffect(() => {

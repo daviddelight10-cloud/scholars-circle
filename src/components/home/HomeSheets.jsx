@@ -17,7 +17,7 @@ function avColor(name) {
   for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return AV_COLORS[Math.abs(h) % AV_COLORS.length];
 }
-export function Sheet({ open, onClose, children }) {
+export function Sheet({ open, onClose, children, hideNav = true }) {
   const { setMobileNavHidden } = useUI();
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -27,11 +27,14 @@ export function Sheet({ open, onClose, children }) {
   }, [open]);
   // Sheets live inside #root, whose fixed children lose z-order to the
   // body-level mobile nav on iOS — unmount the nav while a sheet is open.
+  // hideNav=false is for sheets that only open on top of another sheet:
+  // the flag is a single boolean, so a stacked sheet's cleanup would
+  // re-show the nav while the parent sheet is still open.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !hideNav) return;
     setMobileNavHidden(true);
     return () => setMobileNavHidden(false);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, hideNav]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null;
   return (
     <>
@@ -421,7 +424,9 @@ export function MaterialsSheet({ open, onClose, materials, selected, onChange })
   const count = selected.length;
 
   return (
-    <Sheet open={open} onClose={onClose}>
+    // Only reachable from inside the Review-options sheet — that sheet
+    // already holds the nav claim, so this one must not touch the flag.
+    <Sheet open={open} onClose={onClose} hideNav={false}>
       <SheetHead title="Choose materials" onClose={onClose} />
       <p className="hm-sh-sub">Pick one or more materials to practise. Cards that are due come first; if nothing is due, you practise ahead.</p>
       {(materials || []).length > 6 && (
