@@ -16,10 +16,10 @@ function getAuthHeaders() {
 }
 
 const GRADE_LABELS = {
-  1: { label: "Again", desc: "Forgot", color: "#ef4444", nextTime: "< 1 min" },
-  2: { label: "Hard", desc: "With effort", color: "#f59e0b", nextTime: "~3 min" },
-  3: { label: "Good", desc: "Remembered", color: "#22c55e", nextTime: "~1 day" },
-  4: { label: "Easy", desc: "Instantly", color: "#7986cb", nextTime: "~4 days" },
+  1: { label: "Again", desc: "Forgot", color: "#ef4444" },
+  2: { label: "Hard", desc: "With effort", color: "#f59e0b" },
+  3: { label: "Good", desc: "Remembered", color: "#22c55e" },
+  4: { label: "Easy", desc: "Instantly", color: "#7986cb" },
 };
 
 const STATE_LABELS = { 0: "🆕 New", 1: "📖 Learning", 2: "🔄 Review", 3: "🔁 Relearning" };
@@ -101,6 +101,15 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
 
   // Session length: Home passes an explicit size; otherwise the daily goal.
   const sessionCap = size || dailyGoal || 20;
+
+  // Single-folder decks skip the picker entirely — nothing to choose between.
+  const autoPicked = useRef(false);
+  useEffect(() => {
+    if (autoPicked.current || selectedFolder || initialFolder) return;
+    const keys = Object.keys(byFolder);
+    if (keys.length === 1) setSelectedFolder(keys[0]);
+    if (keys.length !== 0) autoPicked.current = true;
+  }, [byFolder, selectedFolder, initialFolder]);
 
   // When a folder is selected, set items and session stats
   useEffect(() => {
@@ -497,8 +506,7 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
     );
   }
 
-  const typeIcon = { mcq: "❓", legacy_mcq: "❓" }[currentItem?.itemType] || "📚";
-  const typeLabel = { mcq: "Practice Questions", legacy_mcq: "Practice Questions" }[currentItem?.itemType] || "Review";
+
 
   const progressPct = sessionStats.total > 0 ? Math.round((sessionStats.reviewed / sessionStats.total) * 100) : 0;
 
@@ -525,19 +533,20 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
 
       {/* Card scroll area */}
       <div ref={scrollRef} className="flex flex-1 flex-col items-center overflow-auto px-5 pb-6 pt-4">
-        {/* Meta badges */}
-        <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
-          <span className="rounded-full border border-hub-border bg-hub-surface px-2.5 py-1 text-[10px] font-medium text-hub-text-muted">{typeIcon} {typeLabel}</span>
-          {STATE_LABELS[currentItem.state] && (
-            <span className="rounded-full border border-hub-border bg-hub-surface px-2.5 py-1 text-[10px] text-hub-text-dim">{STATE_LABELS[currentItem.state]}</span>
-          )}
-          {currentItem.lapses > 0 && (
-            <span className="rounded-full border border-coral-300 bg-coral-50 px-2.5 py-1 text-[10px] text-coral-400">🔁 {currentItem.lapses} lapse{currentItem.lapses > 1 ? "s" : ""}</span>
-          )}
-          {reviewPhase && (
-            <span className="rounded-full border border-coral-300 bg-coral-50 px-2.5 py-1 text-[10px] text-coral-400">🔁 Review · {missedQueue.length} left</span>
-          )}
-        </div>
+        {/* Meta badges — only the ones that change how you answer */}
+        {(currentItem.state === 3 || currentItem.lapses > 0 || reviewPhase) && (
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
+            {currentItem.state === 3 && (
+              <span className="rounded-full border border-hub-border bg-hub-surface px-2.5 py-1 text-[10px] text-hub-text-dim">{STATE_LABELS[3]}</span>
+            )}
+            {currentItem.lapses > 0 && (
+              <span className="rounded-full border border-coral-300 bg-coral-50 px-2.5 py-1 text-[10px] text-coral-400">🔁 {currentItem.lapses} lapse{currentItem.lapses > 1 ? "s" : ""}</span>
+            )}
+            {reviewPhase && (
+              <span className="rounded-full border border-coral-300 bg-coral-50 px-2.5 py-1 text-[10px] text-coral-400">🔁 Missed · {missedQueue.length} left</span>
+            )}
+          </div>
+        )}
 
         {/* Topic badge */}
         {currentItem.topic && (
@@ -612,7 +621,6 @@ export default function DailyReview({ onBack, onComplete, initialFolder = null, 
               }}>
                 <span className="text-[13px] font-bold" style={{ color: GRADE_LABELS[g].color }}>{GRADE_LABELS[g].label}</span>
                 <span className="text-[9px] opacity-60" style={{ color: GRADE_LABELS[g].color }}>{GRADE_LABELS[g].desc}</span>
-                <span className="text-[9px] opacity-40" style={{ color: GRADE_LABELS[g].color }}>{GRADE_LABELS[g].nextTime}</span>
               </button>
             ))}
           </div>

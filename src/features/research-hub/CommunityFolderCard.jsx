@@ -38,6 +38,7 @@ function CommunityFolderCard({
   const accent = isLecturer ? "acc-lec" : isUserUni ? "acc-uni" : "";
   const fresh = freshnessTag(folder);
   const displayName = owner.lecturerProfile?.fullName || owner.userProfile?.fullName || owner.username || "Unknown";
+  const meta = [folder.level, folder.semester, folder.university?.name, fresh?.label].filter(Boolean).join(" · ");
 
   const stop = useCallback((e) => e.stopPropagation(), []);
 
@@ -61,6 +62,7 @@ function CommunityFolderCard({
             <span className="mc-c-count" title={`${itemCount} items`}>{itemCount}</span>
           </div>
           {folder.courseCode && <span className="mc-c-sub">{folder.courseCode}</span>}
+          {meta && <span className="mc-c-sub mc-c-meta">{meta}</span>}
         </div>
         {onOpenActions && (
           <button
@@ -72,17 +74,6 @@ function CommunityFolderCard({
           </button>
         )}
       </div>
-
-      {(isLecturer || folder.level || folder.semester || fresh) && (
-        <div className="mc-c-tags">
-          {isLecturer && (
-            <span className="mc-tag lec"><McIcon name="verify" />Verified lecturer</span>
-          )}
-          {folder.level && <span className="mc-tag level">{folder.level}</span>}
-          {folder.semester && <span className="mc-tag sem">{folder.semester}</span>}
-          {fresh && <span className={`mc-tag ${fresh.cls}`}>{fresh.label}</span>}
-        </div>
-      )}
 
       <div className="mc-c-foot">
         {onOpenProfile ? (
@@ -105,21 +96,15 @@ function CommunityFolderCard({
         ) : (
           <span className="mc-by-name">{displayName}</span>
         )}
-        {folder.university?.name && (
-          <span className="mc-uni">
-            <McIcon name="landmark" />
-            <span>{folder.university.name}</span>
-          </span>
-        )}
         {onToggleBookmark && (
           <button
             className={`mc-bmk${isBookmarked ? " on" : ""}`}
             disabled={bookmarkBusy}
-            title={isBookmarked ? "Remove from your space" : "Add to your space"}
+            title={isBookmarked ? "Remove from your space" : "Save to your space"}
             onClick={(e) => { e.stopPropagation(); if (!bookmarkBusy) onToggleBookmark(folder); }}
           >
-            <McIcon name="bookmark" filled={isBookmarked} />
-            <span>{Math.max(bookmarkCount, isBookmarked ? 1 : 0)}</span>
+            <McIcon name={isBookmarked ? "check" : "plus"} />
+            <span>{isBookmarked ? "Saved" : "Save"}{bookmarkCount > 0 ? ` · ${bookmarkCount}` : ""}</span>
           </button>
         )}
       </div>

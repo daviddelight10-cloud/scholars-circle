@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
+
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../../lib/authToken.js";
 import { createLiveRoom, getMaterialLives } from "../live-quiz/liveQuizApi.js";
@@ -50,9 +50,8 @@ import "../../research-hub.css";
 const CACHE_TTL = 5 * 60 * 1000;
 
 const TYPE_SEGMENTS = [
-  { value: "all", label: "All" },
-  { value: "folders", label: "Folders" },
-  { value: "pdf", label: "PDFs" },
+  { value: "folders", label: "Decks" },
+  { value: "pdf", label: "Documents" },
 ];
 
 const communityEmptyStates = {
@@ -71,90 +70,6 @@ const folderMatchesSearch = (f, q) => {
 const ownerMatchesSearch = (f, q) => {
   return (ownerDisplayName(f) || "").toLowerCase().includes(q);
 };
-
-/** Gizmo-style dropdown filter pill — collapsed label, opens a small menu. */
-function FilterPill({ label, value, options, onChange, allLabel }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  // Mobile (≤767px) presents the picker as a bottom sheet; desktop keeps the dropdown
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 767px)").matches);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const fn = (e) => setIsMobile(e.matches);
-    mq.addEventListener("change", fn);
-    return () => mq.removeEventListener("change", fn);
-  }, []);
-
-  useEffect(() => {
-    if (!open || isMobile) return;
-    const onDoc = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", onDoc);
-    return () => document.removeEventListener("pointerdown", onDoc);
-  }, [open, isMobile]);
-
-  const active = value !== "all";
-  const current = options.find((o) => o.value === value)?.label;
-  const pick = (v) => { haptics.selection(); onChange(v); setOpen(false); };
-
-  return (
-    <div ref={ref} className="mc-fpill-wrap">
-      <button
-        className={`mc-fpill${active ? " active" : ""}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => { haptics.selection(); setOpen((v) => !v); }}
-      >
-        {active ? current : label}
-        <McIcon name="chev" size={11} />
-      </button>
-      {open && !isMobile && (
-        <div className="mc-fmenu" role="listbox">
-          <button className={!active ? "active" : ""} onClick={() => pick("all")}>
-            {allLabel || `All ${label.toLowerCase()}`}
-          </button>
-          {options.map((o) => (
-            <button
-              key={o.value}
-              className={value === o.value ? "active" : ""}
-              onClick={() => pick(o.value)}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && isMobile && createPortal(
-        <div className="mc-fsheet-back" onClick={() => setOpen(false)}>
-          <div className="mc-fsheet" role="dialog" aria-label={label} onClick={(e) => e.stopPropagation()}>
-            <div className="mc-sheet-grab" />
-            <div className="mc-fsheet-head">
-              <b>{label}</b>
-              <button className="mc-sheet-x" aria-label="Close" onClick={() => setOpen(false)}>
-                <McIcon name="x" />
-              </button>
-            </div>
-            <div className="mc-fsheet-list">
-              <button className={!active ? "active" : ""} onClick={() => pick("all")}>
-                <span>{allLabel || `All ${label.toLowerCase()}`}</span>
-                {!active && <McIcon name="check" />}
-              </button>
-              {options.map((o) => (
-                <button key={o.value} className={value === o.value ? "active" : ""} onClick={() => pick(o.value)}>
-                  <span>{o.label}</span>
-                  {value === o.value && <McIcon name="check" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
 
 export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, activeSemester } = {}) {
   const { setLastActivity } = useUserData();
@@ -190,7 +105,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState("library");
-  const [communityType, setCommunityType] = useState("all"); // all | folders | pdf
+  const [communityType, setCommunityType] = useState("folders"); // folders (decks) | pdf (documents)
+  const [filterOpen, setFilterOpen] = useState(false);
   const activeQuery = activeTab === "library" ? librarySearch : search;
   const setActiveQuery = activeTab === "library" ? setLibrarySearch : setSearch;
   const [recycleItems, setRecycleItems] = useState([]);
@@ -1855,9 +1771,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       const more = filtered.filter((f) => !fromUniIds.has(f.id) && !popularIds.has(f.id));
 
       return [
-        ...(fromUni.length > 0 ? [{ label: "From Your University", folders: fromUni }] : []),
+        ...(fromUni.length > 0 ? [{ label: userProfile?.university?.name || "Your university", folders: fromUni }] : []),
         ...(popular.length > 0 ? [{ label: "Popular", folders: popular }] : []),
-        ...(more.length > 0 ? [{ label: "More Folders", folders: more }] : []),
+        ...(more.length > 0 ? [{ label: "Explore", folders: more }] : []),
       ];
     }
 
@@ -2401,7 +2317,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         />
       ) : (
         <div className="mc-root">
-          {/* Type segmented control + filter pills */}
+          {/* Decks | Documents switch + one filter button */}
           <div className="mc-fpills">
             <div className="mc-seg" role="tablist" aria-label="Content type">
               {TYPE_SEGMENTS.map((s) => (
@@ -2416,49 +2332,16 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                 </button>
               ))}
             </div>
-            {levelOptions.length > 0 && (
-              <FilterPill
-                label="Level"
-                value={filters.level}
-                onChange={(v) => setFilters((f) => ({ ...f, level: v }))}
-                options={levelOptions.map((l) => ({ value: l, label: l }))}
-                allLabel="All levels"
-              />
-            )}
-            {subjects.length > 0 && (
-              <FilterPill
-                label="Subject"
-                value={filters.subject}
-                onChange={(v) => setFilters((f) => ({ ...f, subject: v }))}
-                options={subjects.map((s) => ({ value: s, label: s }))}
-                allLabel="All subjects"
-              />
-            )}
-            {schoolOptions.length > 0 && (
-              <FilterPill
-                label="School"
-                value={filters.university}
-                onChange={(v) => setFilters((f) => ({ ...f, university: v }))}
-                options={schoolOptions.map((s) => ({ value: s, label: s }))}
-                allLabel="All schools"
-              />
-            )}
-            {activeFilterCount > 0 && (
-              <button className="mc-clearbtn" onClick={clearFilters}>
-                <McIcon name="x" size={11} />
-                {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
+            {(levelOptions.length > 0 || subjects.length > 0 || schoolOptions.length > 0) && (
+              <button
+                className={`mc-fpill${activeFilterCount > 0 ? " active" : ""}`}
+                onClick={() => { haptics.selection(); setFilterOpen(true); }}
+              >
+                <McIcon name="filter" size={12} />
+                Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
               </button>
             )}
           </div>
-
-          {/* University banner — only when the "From Your University" section actually has content */}
-          {!search && communityType !== "pdf" && userProfile?.university?.name &&
-            communityFolderSections.some((s) => s.label === "From Your University" && s.folders.length > 0) && (
-            <div className="mc-uni-banner">
-              <McIcon name="flame" />
-              <span>Popular at <b>{userProfile.university.name}</b></span>
-            </div>
-          )}
 
           {/* Results count */}
           {search && searchCounts && (
@@ -2468,7 +2351,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           <div className="mc-content">
             {search ? (
                   <>
-                    {communityType !== "pdf" && (communityFolderSections[0]?.folders || []).length > 0 && (
+                    {(communityFolderSections[0]?.folders || []).length > 0 && (
                       <>
                         <div className="mc-section-label">FOLDERS</div>
                         <div className="mc-folders-grid">
@@ -2489,7 +2372,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                         </div>
                       </>
                     )}
-                    {communityType !== "pdf" && peopleMatches.length > 0 && (
+                    {peopleMatches.length > 0 && (
                       <>
                         <div className="mc-section-label">PEOPLE</div>
                         <div className="mc-folders-grid">
@@ -2510,7 +2393,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                         </div>
                       </>
                     )}
-                    {communityType !== "folders" && visiblePdfs.length > 0 && (
+                    {visiblePdfs.length > 0 && (
                       <>
                         <div className="mc-section-label">PDF DOCUMENTS</div>
                         <div className="mc-pdfs-grid">
@@ -2579,10 +2462,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                         {/* Lecturers section */}
                         {lecturerSections.length > 0 && (
                           <>
-                            <div className="mc-section-label">YOUR LECTURERS</div>
-                            <p className="mc-section-hint">
-                              Folders uploaded directly by your course lecturers. Tap a name to view their profile.
-                            </p>
+                            <div className="mc-section-label">LECTURERS</div>
+                            <p className="mc-section-hint">Uploaded by your course lecturers.</p>
                             <div className="mc-folders-grid">
                               {lecturerSections.map((folder, i) => (
                                 <CommunityFolderCard
@@ -2640,6 +2521,29 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           </div>
         </div>
       )}
+
+      <CircleSheet open={filterOpen} onClose={() => setFilterOpen(false)} title="Filters" kind="Community">
+        {[
+          { key: "level", label: "Level", options: levelOptions, allLabel: "All levels" },
+          { key: "subject", label: "Subject", options: subjects, allLabel: "All subjects" },
+          { key: "university", label: "School", options: schoolOptions, allLabel: "All schools" },
+        ].filter((g) => g.options.length > 0).map((g) => (
+          <div key={g.key} className="mc-fgroup">
+            <div className="mc-fgroup-label">{g.label}</div>
+            <div className="mc-fchips">
+              <button className={filters[g.key] === "all" ? "on" : ""} onClick={() => setFilters((f) => ({ ...f, [g.key]: "all" }))}>{g.allLabel}</button>
+              {g.options.map((o) => (
+                <button key={o} className={filters[g.key] === o ? "on" : ""} onClick={() => setFilters((f) => ({ ...f, [g.key]: o }))}>{o}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+        {activeFilterCount > 0 && (
+          <button className="mc-clearbtn" style={{ marginTop: 16 }} onClick={() => { clearFilters(); setFilterOpen(false); }}>
+            <McIcon name="x" size={11} /> Clear all filters
+          </button>
+        )}
+      </CircleSheet>
 
       {hubToast}
 

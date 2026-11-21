@@ -17,7 +17,7 @@ function avColor(name) {
   for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return AV_COLORS[Math.abs(h) % AV_COLORS.length];
 }
-function Sheet({ open, onClose, children }) {
+export function Sheet({ open, onClose, children }) {
   const { setMobileNavHidden } = useUI();
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -44,7 +44,7 @@ function Sheet({ open, onClose, children }) {
   );
 }
 
-function SheetHead({ title, right, onClose }) {
+export function SheetHead({ title, right, onClose }) {
   return (
     <div className="hm-sh-head">
       <h3>{title}</h3>

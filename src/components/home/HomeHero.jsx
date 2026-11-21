@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import HIcon from "./HIcon.jsx";
-import { MaterialsSheet } from "./HomeSheets.jsx";
-import { examKeyOf, daysUntil, readiness, needPerDay } from "../../hooks/useReviewPlan.js";
+import { MaterialsSheet, Sheet, SheetHead } from "./HomeSheets.jsx";
+import { examKeyOf, daysUntil, needPerDay } from "../../hooks/useReviewPlan.js";
 
 const RING_C = 138.2; // 2πr for r=22
 const SCOPE_KEY = "sc_home_review_scope";
@@ -18,9 +18,7 @@ function relIn(ts) {
   return `${Math.round(hrs / 24)}d`;
 }
 
-const retInfo = (v) => (v >= 85 ? ["On target", "#3DDC97"] : v >= 65 ? ["Getting there", "#FFC857"] : ["Needs attention", "#FF9F5A"]);
 const mins = (n) => `~${Math.max(1, Math.round((n * 20) / 60))} min`;
-const pct = (n, d) => (d > 0 ? Math.max(0, Math.min(100, (n / d) * 100)) : 0);
 
 const CalIcon = () => (
   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="5" width="16" height="16" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></svg>
@@ -34,12 +32,12 @@ const Chevron = () => (
 
 // Returning-user hero: real FSRS stats, course (folder) scope, session size,
 // expandable stat details and an exam countdown.
-function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs, onStartDaily, onOpenPlan, onOpenSpace }) {
+function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs, onStartDaily, onOpenPlan }) {
   const [scope, setScope] = useState(() => lsGet(SCOPE_KEY) || "all");
   const [size, setSize] = useState(() => { const n = parseInt(lsGet(SIZE_KEY), 10); return n > 0 ? n : null; });
-  const [open, setOpen] = useState(null); // 'ret' | 'm' | 'l' | 'done' | 'src'
   const [picked, setPicked] = useState(() => { try { const v = JSON.parse(lsGet(MATS_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } });
   const [matsOpen, setMatsOpen] = useState(false);
+  const [optsOpen, setOptsOpen] = useState(false);
   const setPick = (ids) => { setPicked(ids); lsSet(MATS_KEY, JSON.stringify(ids)); };
 
   const list = useMemo(() => folders || [], [folders]);
@@ -90,21 +88,19 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
   const shownDue = picks ? pickDue : a.due;
   const avail = picks ? pickTotal : a.due;
 
-  // The big number is what's due; the stepper picks this session's length.
+  // Session length — three plain choices instead of a stepper.
   const toGoal = Math.max(goal - done, 0);
-  const presets = useMemo(() => {
-    const s = new Set([3, 5, 10, 25, 50]);
-    if (toGoal > 0) s.add(toGoal);
-    if (shownDue > 0) s.add(shownDue);
-    if (avail > 0) s.add(avail);
-    return [...s].filter((n) => n >= 1 && n <= Math.min(avail, 100)).sort((x, y) => x - y);
-  }, [toGoal, shownDue, avail]);
-  const n = !presets.length ? 0
-    : size != null && presets.includes(size) ? size
-    : toGoal > 0 && presets.includes(toGoal) ? toGoal
-    : presets[Math.min(1, presets.length - 1)];
-  const idx = presets.indexOf(n);
-  const stepTo = (i) => { setSize(presets[i]); lsSet(SIZE_KEY, presets[i]); };
+  const sizeOpts = useMemo(() => {
+    const opts = [];
+    const push = (m, label) => { if (m >= 1 && !opts.some((o) => o.n === m)) opts.push({ n: m, label }); };
+    if (avail > 0) push(Math.min(10, avail), "Quick");
+    if (toGoal > 0 && toGoal < avail) push(toGoal, "Daily goal");
+    if (avail > 0) push(avail, "Everything due");
+    return opts;
+  }, [avail, toGoal]);
+  const n = avail <= 0 ? 0
+    : size != null ? Math.min(size, avail)
+    : (sizeOpts.find((o) => o.label === "Daily goal")?.n ?? sizeOpts[0]?.n ?? 0);
 
   const pick = (key) => { setScope(key); lsSet(SCOPE_KEY, key); };
 
@@ -122,27 +118,9 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
   const examDays = examIso ? daysUntil(examIso) : null;
   const examLive = examDays != null && examDays >= 0;
 
-  const retPct = Math.round(a.ret);
-  const rest = Math.max(a.total - a.m - a.l, 0);
   const idle = done < goal && shownDue > 0;
 
-  const toggle = (k) => setOpen((o) => (o === k ? null : k));
-
-  const [custOpen, setCustOpen] = useState(false);
   const sessScope = picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"}` : folder ? folder.folderName : "All courses";
-
-  const [retLabel, retColor] = retInfo(retPct);
-  let detail = null;
-  if (open === "sum") {
-    detail = (
-      <>
-        <b>How you are doing</b>
-        <br /><b style={{ color: "#3DDC97" }}>{a.m.toLocaleString()} mastered</b>: you remember these reliably, so they come back rarely.
-        <br /><b style={{ color: "#F5A623" }}>{a.l.toLocaleString()} learning</b>: a few more good reviews and they move up.{rest > 0 ? ` ${rest.toLocaleString()} not started yet.` : ""}
-        <br /><b style={{ color: retColor }}>{retPct}% remembered ({retLabel})</b>: the share of due cards you answer correctly. Aim for about 90%.
-      </>
-    );
-  }
 
   const start = () => onStartDaily?.(picks
     ? { folder: "__all__", resources: pickedMats.map((m) => m.id), practice: true, size: n || undefined }
@@ -194,20 +172,16 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
                 <b>{examFolder.folderName} exam {examDays === 0 ? "today" : examDays === 1 ? "tomorrow" : `in ${examDays} days`}</b>
                 {(() => {
                   const need = needPerDay(examFolder, examDays);
-                  const ok = goal >= need;
-                  return <span className={ok ? "" : "warn"}>{ok ? `On track at ${goal}/day` : `Need ~${need}/day · goal is ${goal}`}</span>;
+                  return <span className={goal >= need ? "" : "warn"}>{goal >= need ? "You're on track" : `Aim for ~${need}/day`}</span>;
                 })()}
               </>
             ) : (
               <>
                 <b>{folder ? `Set an exam date for ${folder.folderName}` : examIso ? "Exam date passed" : "Set an exam date"}</b>
-                <span>We will plan your reviews around it</span>
+                <span>We'll plan your reviews around it</span>
               </>
             )}
           </div>
-          {examLive && (
-            <div className="hm-exam-r"><b>{readiness(examFolder)}%</b><small>ready</small><i><u style={{ width: `${readiness(examFolder)}%` }} /></i></div>
-          )}
         </button>
       )}
 
@@ -224,7 +198,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         <div className="hm-goalmsg" role="status">Daily goal reached. Anything more is a bonus round.</div>
       )}
 
-      <button className="hm-sess" aria-expanded={custOpen} onClick={() => setCustOpen((o) => !o)}>
+      <button className="hm-sess" onClick={() => setOptsOpen(true)}>
         <span className="hm-sess-t"><b>{sessScope}</b>{n > 0 ? ` · ${n} card${n === 1 ? "" : "s"}` : ""}</span>
         <span className="hm-sess-c">
           {(picks || !!folder) && <i className="hm-sess-dot" aria-label="Custom selection active" />}
@@ -232,12 +206,14 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         </span>
       </button>
 
-      {custOpen && (
-        <div className="hm-cust">
-          {foldersLoading && (
-            <div className="hm-pick hm-pick-skel" aria-hidden="true"><i /><i /><i /></div>
-          )}
-          {hasFolders && chips.length > 0 && (
+      <Sheet open={optsOpen} onClose={() => setOptsOpen(false)}>
+        <SheetHead title="Review options" onClose={() => setOptsOpen(false)} />
+        {foldersLoading && (
+          <div className="hm-pick hm-pick-skel" aria-hidden="true"><i /><i /><i /></div>
+        )}
+        {hasFolders && chips.length > 0 && (
+          <>
+            <p className="hm-sh-sub">What to review</p>
             <div className="hm-pick" role="radiogroup" aria-label="Choose a course to review">
               {[{ key: "all", folderName: "All courses", due: list.reduce((s, f) => s + f.due, 0) + (bankDueCount || 0) }, ...chips].map((c) => (
                 <button key={c.key} className={`hm-cc${c.due === 0 ? " zero" : ""}`} role="radio" aria-checked={c.key === effScope} onClick={() => pick(c.key)}>
@@ -246,50 +222,35 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
                 </button>
               ))}
             </div>
-          )}
-          {hasFolders && scopeMats.length > 0 && (
-            <div className="hm-mpick">
-              <button className={`hm-mpick-b${picks ? " on" : ""}`} onClick={() => setMatsOpen(true)} aria-haspopup="dialog">
-                <span>{picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"} selected` : "Choose materials to practise"}</span>
-                <em>{picks ? `${pickDue} due` : `${scopeMats.length}`}</em>
-              </button>
-              {picks && <button className="hm-mpick-x" onClick={() => setPick([])} aria-label="Clear selected materials">Clear</button>}
-            </div>
-          )}
-          <div className="hm-cust-row">
-            <span>Cards this session</span>
-            <div className="hm-size" role="group" aria-label="Cards in this session">
-              <button aria-label="Fewer cards" disabled={idx <= 0} onClick={() => stepTo(idx - 1)}>−</button>
-              <div><span>{n}</span></div>
-              <button aria-label="More cards" disabled={idx < 0 || idx >= presets.length - 1} onClick={() => stepTo(idx + 1)}>+</button>
-            </div>
-          </div>
-          {hasFolders && onOpenSpace && (
-            <button className="hm-spacelink" onClick={onOpenSpace}>
-              Not studying a space? Archive it in My Space <span aria-hidden="true">→</span>
+          </>
+        )}
+        {hasFolders && scopeMats.length > 0 && (
+          <div className="hm-mpick">
+            <button className={`hm-mpick-b${picks ? " on" : ""}`} onClick={() => setMatsOpen(true)} aria-haspopup="dialog">
+              <span>{picks ? `${pickedMats.length} material${pickedMats.length === 1 ? "" : "s"} selected` : "Choose materials to practise"}</span>
+              <em>{picks ? `${pickDue} due` : `${scopeMats.length}`}</em>
             </button>
-          )}
-        </div>
-      )}
-      <MaterialsSheet open={matsOpen} onClose={() => setMatsOpen(false)} materials={scopeMats} selected={pickedMats.map((m) => m.id)} onChange={setPick} />
-
-      {a.total > 0 && (
-        <>
-          <div className="hm-seg-bar" aria-hidden="true">
-            <div className="hm-seg m" style={{ width: `${pct(a.m, a.total)}%` }} />
-            <div className="hm-seg l" style={{ width: `${pct(a.l, a.total)}%` }} />
-            <div className="hm-seg r" style={{ width: `${pct(rest, a.total)}%` }} />
+            {picks && <button className="hm-mpick-x" onClick={() => setPick([])} aria-label="Clear selected materials">Clear</button>}
           </div>
-          <button className="hm-line" aria-expanded={open === "sum"} onClick={() => toggle("sum")}>
-            <span><i className="hm-sdot" style={{ background: "#3DDC97" }} />{a.m.toLocaleString()} mastered</span>
-            <span><i className="hm-sdot" style={{ background: "#F5A623" }} />{a.l.toLocaleString()} learning</span>
-            <span style={{ color: retColor }}>{retPct}% remembered</span>
-            <Chevron />
-          </button>
-        </>
-      )}
-
-      {detail && <div className="hm-dbox">{detail}</div>}
+        )}
+        {sizeOpts.length > 0 && (
+          <>
+            <p className="hm-sh-sub">Session length</p>
+            <div className="hm-pick" role="radiogroup" aria-label="Cards in this session">
+              {sizeOpts.map((o) => (
+                <button key={o.label} className="hm-cc" role="radio" aria-checked={n === o.n} onClick={() => { setSize(o.n); lsSet(SIZE_KEY, o.n); }}>
+                  <span className="hm-cc-n">{o.label}</span>
+                  <em>{o.n}</em>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <button className="hm-cta hm-cta-solo" style={{ marginTop: 16 }} onClick={() => { setOptsOpen(false); start(); }} disabled={avail <= 0}>
+          Start review{n > 0 ? ` · ${n} cards` : ""}
+        </button>
+      </Sheet>
+      <MaterialsSheet open={matsOpen} onClose={() => setMatsOpen(false)} materials={scopeMats} selected={pickedMats.map((m) => m.id)} onChange={setPick} />
     </div>
   );
 }

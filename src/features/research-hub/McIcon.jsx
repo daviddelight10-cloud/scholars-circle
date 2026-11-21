@@ -39,6 +39,7 @@ const ICONS = {
   inbox: { viewBox: "0 0 24 24", paths: ['<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'], stroke: 2 },
   users: { viewBox: "0 0 24 24", paths: ['<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'], stroke: 2 },
   image: { viewBox: "0 0 24 24", paths: ['<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>'], stroke: 2 },
+  filter: { viewBox: "0 0 24 24", paths: ['<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'], stroke: 2 },
 };
 
 // Filled variants (star / bookmark)
