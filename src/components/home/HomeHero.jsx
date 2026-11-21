@@ -307,6 +307,7 @@ function FirstRunHero({ onAddFirst, onTrySample }) {
       <p className="hm-fr-sub">
         Scholars Circle turns every PDF you upload into practice questions and daily
         reviews — so the reading you do today actually sticks on exam day.
+        Then invite your study group: live quiz rooms turn revision into a competition.
       </p>
       <div className="hm-steps">
         <span className="hm-step"><b>1</b>&nbsp;Add a PDF</span>

@@ -2204,38 +2204,43 @@ Passage:
   // ---- Thumbnails (lazy via IntersectionObserver) ----
   const [thumbs, setThumbs] = useState([]);
   const thumbItemRefs = useRef([]);
+  const scrubItemRefs = useRef([]);
   const thumbRenderQueueRef = useRef([]);
   const thumbRenderingRef = useRef(0);
 
-  // Initialize placeholder thumb entries when panel opens
+  // Lazy thumbnail renderer — shared by the side/drawer panels and the
+  // bottom scrubber strip; thumbRenderedRef dedupes across containers.
+  const renderThumb = useCallback(async (pg) => {
+    if (thumbRenderedRef.current.has(pg)) return;
+    thumbRenderedRef.current.add(pg);
+    try {
+      const page = await pdfDocRef.current.getPage(pg);
+      const vp = page.getViewport({ scale: 0.24 });
+      const c = document.createElement("canvas");
+      c.width = vp.width;
+      c.height = vp.height;
+      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+      const dataUrl = c.toDataURL();
+      setThumbs((prev) => prev.map((t) => t.page === pg ? { ...t, dataUrl } : t));
+    } catch (e) {
+      thumbRenderedRef.current.delete(pg);
+    }
+  }, []);
+
+  // Initialize placeholder thumb entries once the document loads — the
+  // bottom scrubber needs them even when the thumbnails panel never opens.
   useEffect(() => {
-    if (!showThumbs || !pdfDocRef.current) return;
+    if (numPages <= 0 || !pdfDocRef.current) return;
     if (thumbs.length > 0) return;
     const arr = Array.from({ length: pdfDocRef.current.numPages }, (_, i) => ({ page: i + 1, dataUrl: null }));
     setThumbs(arr);
-  }, [showThumbs, thumbs.length]);
+  }, [numPages, thumbs.length]);
 
-  // Lazy render thumbnails when they scroll into view
+  // Lazy render thumbnails when they scroll into view — one observer shared
+  // by the panel items and the bottom scrubber items.
   useEffect(() => {
-    if (!showThumbs || thumbs.length === 0 || !pdfDocRef.current) return;
+    if (thumbs.length === 0 || !pdfDocRef.current) return;
     if (thumbObserverRef.current) thumbObserverRef.current.disconnect();
-
-    const renderThumb = async (pg) => {
-      if (thumbRenderedRef.current.has(pg)) return;
-      thumbRenderedRef.current.add(pg);
-      try {
-        const page = await pdfDocRef.current.getPage(pg);
-        const vp = page.getViewport({ scale: 0.24 });
-        const c = document.createElement("canvas");
-        c.width = vp.width;
-        c.height = vp.height;
-        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-        const dataUrl = c.toDataURL();
-        setThumbs((prev) => prev.map((t) => t.page === pg ? { ...t, dataUrl } : t));
-      } catch (e) {
-        thumbRenderedRef.current.delete(pg);
-      }
-    };
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -2248,9 +2253,15 @@ Passage:
 
     thumbObserverRef.current = observer;
     thumbItemRefs.current.forEach((el) => { if (el) observer.observe(el); });
+    scrubItemRefs.current.forEach((el) => { if (el) observer.observe(el); });
 
     return () => observer.disconnect();
-  }, [showThumbs, thumbs.length]);
+  }, [thumbs.length, showThumbs, renderThumb]);
+
+  // Keep the active page centered in the bottom scrubber.
+  useEffect(() => {
+    scrubItemRefs.current[currentPage - 1]?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [currentPage]);
 
   // ---- Highlighter / Eraser ----
   const screenToPdf = (p) => ({ x: p.x / scale, y: p.y / scale });
@@ -3731,6 +3742,23 @@ Passage:
                     onPointerCancel={() => { menuDragRef.current = null; setSheetDrag(0); }}
                   />
                 )}
+                {isMobile && (
+                  <div style={{ ...s.overflowItem, display: "flex", alignItems: "center", gap: 8, cursor: "default" }} onClick={(e) => e.stopPropagation()}>
+                    <button style={{ ...s.navBtn, border: `1px solid ${T.border}` }} onClick={handleZoomOut} title="Zoom out" aria-label="Zoom out">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
+                    </button>
+                    <span style={{ ...s.zoomChip, flex: "0 0 auto" }}>{Math.round(scale * 100)}%</span>
+                    <button style={{ ...s.navBtn, border: `1px solid ${T.border}` }} onClick={handleZoomIn} title="Zoom in" aria-label="Zoom in">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    </button>
+                    <button
+                      style={{ marginLeft: "auto", background: "none", border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, padding: "5px 12px", fontFamily: "inherit", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                      onClick={() => { resetToFit(); setShowOverflow(false); setOverflowBackdropOpen(false); }}
+                    >
+                      Fit width
+                    </button>
+                  </div>
+                )}
                 <button style={s.overflowItem} onClick={() => { toggleBookmark(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.some((b) => b.page === currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                   {bookmarks.some((b) => b.page === currentPage) ? "Bookmarked" : "Bookmark"}
@@ -5068,6 +5096,60 @@ Passage:
         )}
       </div>{/* end workspace */}
 
+          {/* Bottom thumbnail scrubber — drag/tap to skim through the doc */}
+          {!chromeHidden && !loading && !loadError && numPages > 1 && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0, right: isMobile ? 80 : 96, bottom: 82,
+                zIndex: 48,
+                padding: "4px 8px",
+                opacity: isMobile && (showOverflow || studyToolsOpen) ? 0 : 1,
+                pointerEvents: isMobile && (showOverflow || studyToolsOpen) ? "none" : "auto",
+                transition: "opacity 0.18s ease",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex", gap: 6, overflowX: "auto", overflowY: "hidden",
+                  padding: "6px 8px",
+                  background: `${T.toolbar}E0`,
+                  backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+                  border: `1px solid ${T.border}`, borderRadius: 14,
+                  boxShadow: `0 10px 26px ${T.shadow}`,
+                  scrollbarWidth: "none",
+                }}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {thumbs.map((t) => (
+                  <button
+                    key={t.page}
+                    data-page={t.page}
+                    ref={(el) => { scrubItemRefs.current[t.page - 1] = el; }}
+                    onClick={() => goToPage(t.page)}
+                    style={{
+                      flex: "0 0 auto",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                      padding: 3, borderRadius: 6, cursor: "pointer",
+                      border: t.page === currentPage ? `2px solid ${T.accent}` : "2px solid transparent",
+                      background: t.page === currentPage ? T.hover : "none",
+                    }}
+                  >
+                    {t.dataUrl ? (
+                      <img src={t.dataUrl} alt="" draggable={false} style={{ height: 44, borderRadius: 3, display: "block" }} />
+                    ) : (
+                      <div style={{ height: 44, width: 32, borderRadius: 3, background: T.hover }} />
+                    )}
+                    <span style={{ fontSize: 9, fontFamily: "ui-monospace,monospace", color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Circle-to-Ask active — Google-style light overlay (non-blocking,
               pointer-events none so lasso/pointer drawing still works) */}
           {circleMode && !loading && !loadError && (
@@ -5148,21 +5230,6 @@ Passage:
                       title="Next page"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
-                    </button>
-                    <span style={s.navDivider} />
-                    <button style={s.navBtn} onClick={handleZoomOut} title="Zoom out" aria-label="Zoom out">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
-                    </button>
-                    <button
-                      style={{ ...s.zoomChip, background: "none", border: "none", cursor: "pointer", fontFamily: s.zoomChip.fontFamily }}
-                      onClick={resetToFit}
-                      title="Reset to fit width"
-                      aria-label="Reset zoom to fit width"
-                    >
-                      {Math.round(scale * 100)}%
-                    </button>
-                    <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in" aria-label="Zoom in">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                     </button>
                     <span style={s.navDivider} />
                   </>

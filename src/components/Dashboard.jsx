@@ -638,6 +638,11 @@ export default function Dashboard({
                 <h3>My Space</h3>
                 <p>{resourceCounts.saved} saved · {resourceCounts.uploads} uploads</p>
               </button>
+              <button className="hm-lib-card" onClick={() => window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { openUpload: true } }))}>
+                <div className="hm-lib-ic green"><HIcon name="plus" size={16} /></div>
+                <h3>Upload a PDF</h3>
+                <p>Turn notes into practice</p>
+              </button>
             </div>
           </div>
 

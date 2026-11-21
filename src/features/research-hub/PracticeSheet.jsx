@@ -454,11 +454,11 @@ export default function PracticeSheet({
   // One smart "next step" — always leads with practice questions
   let hero;
   if (!mcq) {
-    hero = { key: "make", name: "Practice questions", badge: "Setup", sub: heroSub, cta: generating ? "Generating…" : "Generate questions", icon: <IcoBolt size={21} />, run: () => onGenerate?.(file, "mcqs"), disabled: generating };
+    hero = { key: "make", name: "Practice questions", badge: "Start here", sub: heroSub, cta: generating ? "Generating…" : "Generate questions", icon: <IcoBolt size={21} />, run: () => onGenerate?.(file, "mcqs"), disabled: generating };
   } else if (mastered && canExtract) {
-    hero = { key: "exam", name: "Take an exam", badge: "Ready", sub: `${mcqPct}% learned — test yourself under exam conditions`, cta: "Start exam", icon: <IcoClipboard size={21} />, run: () => onExamSimulation?.(exam || file), alt: { label: "Keep practising", run: () => onOpen(mcq.shareToken) } };
+    hero = { key: "exam", name: "Take an exam", badge: "Start here", sub: `${mcqPct}% learned — test yourself under exam conditions`, cta: "Start exam", icon: <IcoClipboard size={21} />, run: () => onExamSimulation?.(exam || file), alt: { label: "Keep practising", run: () => onOpen(mcq.shareToken) } };
   } else {
-    hero = { key: "practice", name: "Practice questions", badge: "Ready", sub: heroSub, cta: prog ? "Continue practice" : "Start practice", icon: <IcoBolt size={21} />, run: () => onOpen(mcq.shareToken), showMeta: true };
+    hero = { key: "practice", name: "Practice questions", badge: "Start here", sub: heroSub, cta: prog ? "Continue practice" : "Start practice", icon: <IcoBolt size={21} />, run: () => onOpen(mcq.shareToken), showMeta: true };
   }
 
   const shownPeople = livePeople.slice(0, 3);

@@ -499,6 +499,7 @@ html[data-theme="dark"] .hm-hero { border-color: rgba(255,200,87,.22); }
 .hm-lib-ic { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .hm-lib-ic.blue { background: rgba(108,158,255,.12); color: var(--c-9db8e8); }
 .hm-lib-ic.amber { background: rgba(255,181,71,.12); color: #FFC55C; }
+.hm-lib-ic.green { background: rgba(61,220,151,.12); color: #3DDC97; }
 .hm-lib-card h3 { font-size: 13px; font-weight: 600; margin: 9px 0 0; }
 .hm-lib-card p { font-size: 10.5px; color: var(--hm-faint); margin: 2px 0 0; }
 .hm-empty {
