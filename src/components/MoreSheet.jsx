@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import {
   X, Gem, Stethoscope, Pill, FlaskConical, Calculator, ChevronRight,
-  BarChart3, CalendarDays, User, Settings, Gift,
+  Bot, CalendarDays, User, Settings, Gift,
   BookOpen, School, GraduationCap, FileText, Laptop, Megaphone,
   Building2, KeyRound, Mail, Cog,
 } from "lucide-react";
@@ -171,8 +171,8 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
         <section className="mm-group">
           <div className="mm-label">Tools</div>
           <div className="mm-list">
-            <button className={`mm-row${["analytics", "leaderboard", "achievements", "gamification"].includes(tab) ? " active" : ""}`} type="button" onClick={() => go("analytics")}>
-              <BarChart3 size={20} /><span>Progress</span><ChevronRight className="mm-chev" size={16} />
+            <button className={`mm-row${tab === "aitutor" ? " active" : ""}`} type="button" onClick={() => go("aitutor")}>
+              <Bot size={20} /><span>AI Tutor</span><ChevronRight className="mm-chev" size={16} />
             </button>
             <button className={`mm-row${tab === "timetable" ? " active" : ""}`} type="button" onClick={() => go("timetable")}>
               <CalendarDays size={20} /><span>Schedule</span><ChevronRight className="mm-chev" size={16} />

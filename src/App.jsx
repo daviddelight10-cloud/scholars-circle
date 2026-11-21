@@ -8156,6 +8156,7 @@ function App() {
 
         </button>
 
+        {isLecturerRole ? (
         <button
 
           className={tab === "aitutor" ? "active" : ""}
@@ -8171,6 +8172,23 @@ function App() {
           <span className="nav-label">AI Tutor</span>
 
         </button>
+        ) : (
+        <button
+
+          className={["analytics", "leaderboard", "achievements", "gamification"].includes(tab) ? "active" : ""}
+
+          onClick={() => { haptics.selection(); setTab("analytics"); }}
+
+          title="Progress"
+
+        >
+
+          <BarChart3 size={20} className="nav-icon" />
+
+          <span className="nav-label">Progress</span>
+
+        </button>
+        )}
 
         {isLecturerRole ? (
         <button
@@ -8252,7 +8270,7 @@ function App() {
         {!isLecturerRole && (
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "cheatsheet", "outline", "profile", "premium", "voice-tutor", "analytics", "leaderboard", "achievements", "gamification", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "cheatsheet", "outline", "profile", "premium", "voice-tutor", "aitutor", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
           onClick={() => { haptics.selection(); setShowMobileMenu(!showMobileMenu); }}
 
