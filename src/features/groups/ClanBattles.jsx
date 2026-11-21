@@ -6,6 +6,8 @@ import { MaterialPicker } from "../feed/Composer.jsx";
 import { mcqVariant, mcqQuestionCount } from "../live-quiz/liveQuizApi.js";
 import { initials, groupGradient } from "./groupUi.js";
 import { toast } from "../../components/Toast.jsx";
+import PremiumLock from "../../components/PremiumLock.jsx";
+import { isPremium, openPremium } from "../../lib/premium.js";
 
 const POLL_MS = 15000;
 
@@ -280,10 +282,19 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
           </div>
 
           <div className="gv-sort-row" style={{ marginTop: 12 }}>
-            {[["friendly", "Friendly"], ["ranked", "Ranked 🏅"]].map(([v, l]) => (
-              <button key={v} className={`gv-sort ${mode === v ? "active" : ""}`} onClick={() => setMode(v)}>{l}</button>
-            ))}
+            <button className={`gv-sort ${mode === "friendly" ? "active" : ""}`} onClick={() => setMode("friendly")}>Friendly</button>
+            <button
+              className={`gv-sort ${mode === "ranked" ? "active" : ""}`}
+              onClick={() => (isPremium() ? setMode("ranked") : openPremium("ranked_battles"))}
+            >
+              Ranked 🏅{!isPremium() && " 🔒"}
+            </button>
           </div>
+          {!isPremium() && (
+            <div className="fd-sheet-sub" style={{ marginTop: 6 }}>
+              Put your clan's rating on the line — <button type="button" className="fd-link" onClick={() => openPremium("ranked_battles")}>ranked battles are Premium</button>. Accepting ranked stays free.
+            </div>
+          )}
 
           <button
             className="fd-go-btn"
@@ -381,14 +392,28 @@ function ChallengeSheet({ token, fromGroup, members, me, onClose, onCreated }) {
           </div>
 
           <div style={{ marginTop: 10 }}>
-            <div className="fd-sheet-sub">Schedule for later (optional)</div>
-            <input
-              type="datetime-local"
-              className="fd-sheet-search"
-              style={{ marginTop: 6 }}
-              value={scheduledFor}
-              onChange={(e) => setScheduledFor(e.target.value)}
-            />
+            <div className="fd-sheet-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span>Schedule for later (optional)</span>
+              {!isPremium() && <PremiumLock feature="scheduled_wars" />}
+            </div>
+            {isPremium() ? (
+              <input
+                type="datetime-local"
+                className="fd-sheet-search"
+                style={{ marginTop: 6 }}
+                value={scheduledFor}
+                onChange={(e) => setScheduledFor(e.target.value)}
+              />
+            ) : (
+              <button
+                type="button"
+                className="fd-sheet-search"
+                style={{ marginTop: 6, textAlign: "left", color: "var(--app-faint)", cursor: "pointer" }}
+                onClick={() => openPremium("scheduled_wars")}
+              >
+                🔒 Pick a war date — Premium
+              </button>
+            )}
           </div>
 
           {error && <div className="fd-sheet-sub" style={{ color: "#FF5470", marginTop: 8 }}>{error}</div>}

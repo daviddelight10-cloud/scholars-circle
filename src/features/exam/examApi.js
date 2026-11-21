@@ -1,5 +1,6 @@
 import { callAI, extractJSON } from "../../lib/aiClient";
 import { API_BASE } from "../../lib/constants";
+import { openPremium, premiumRequiredError } from "../../lib/premium.js";
 import { isWrittenType, normalizeExamPayload } from "./examSchema";
 
 function getAuthHeaders() {
@@ -182,6 +183,14 @@ async function chFetch(path, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // Server-side premium gate — open the modal with the feature headline.
+    if (data.code === "premium_required") {
+      openPremium(data.feature);
+      const err = premiumRequiredError(data);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
     const err = new Error(data.error || `Failed (${res.status})`);
     err.status = res.status;
     err.data = data;

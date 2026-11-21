@@ -13,6 +13,10 @@ const rooms = new Map(); // roomId -> room
 const roomByCode = new Map(); // code -> roomId
 
 export const MAX_PARTICIPANTS = 50;
+// Premium social tier: a free host gets a study-group-sized room on the
+// default format; Premium hosts seat the full room and unlock pacing.
+export const FREE_MAX_PLAYERS = 8;
+export const FREE_MAX_QUESTIONS = 10;
 const TRANSITION_MS = 2500;
 const REVEAL_SECONDS = [5, 10, 20, 30]; // host-selectable auto-advance after each reveal
 const DEFAULT_REVEAL_SECONDS = 10;
@@ -144,6 +148,8 @@ function publicParticipant(p) {
     points: p.points || 0,
     team: p.team || null,
     spectator: !!p.spectator,
+    waitlisted: !!p.waitlisted,
+    premium: !!p.premium,
     isHost: false, // filled by caller
   };
 }
@@ -159,7 +165,7 @@ function publicParticipants(room) {
 
 // ── Room lifecycle ───────────────────────────────────────────────────────────
 
-export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title, questions, settings, battle }) {
+export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title, questions, settings, battle, maxPlayers, hostPremium }) {
   const code = generateCode();
   const room = {
     id: crypto.randomUUID(),
@@ -169,10 +175,14 @@ export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title,
     resourceId: resourceId || null,
     mcqResourceId: mcqResourceId || null,
     allQuestions: questions, // full shuffled pool from mcqData
+    // Room-level Premium tier, decided once by the HOST's plan: joiners never
+    // pay to play, they inherit the host's room size and voice access.
+    maxPlayers: maxPlayers || MAX_PARTICIPANTS,
+    hostPremium: !!hostPremium,
     settings: {
-      timePerQuestion: settings?.timePerQuestion || 30,
-      numQuestions: Math.min(settings?.numQuestions || 5, questions.length),
-      revealSeconds: REVEAL_SECONDS.includes(settings?.revealSeconds) ? settings.revealSeconds : DEFAULT_REVEAL_SECONDS,
+      timePerQuestion: hostPremium ? (settings?.timePerQuestion || 30) : 30,
+      numQuestions: Math.min(settings?.numQuestions || 5, questions.length, hostPremium ? questions.length : FREE_MAX_QUESTIONS),
+      revealSeconds: hostPremium && REVEAL_SECONDS.includes(settings?.revealSeconds) ? settings.revealSeconds : DEFAULT_REVEAL_SECONDS,
     },
     phase: "lobby",
     participants: new Map(),
@@ -257,11 +267,13 @@ function buildSnapshot(room, forUserId) {
     phase: room.phase,
     isHost: forUserId === room.hostId,
     mySpectator: !!room.participants.get(forUserId)?.spectator,
+    myWaitlisted: !!room.participants.get(forUserId)?.waitlisted,
+    hostPremium: !!room.hostPremium,
     presenterMode: room.presenterMode,
     settings: room.settings,
     maxQuestions: room.allQuestions.length,
     poolSize: room.allQuestions.length,
-    maxParticipants: MAX_PARTICIPANTS,
+    maxParticipants: room.maxPlayers || MAX_PARTICIPANTS,
     participants: publicParticipants(room),
     talkedThrough: room.talkedThrough,
     groupStreak: room.groupStreak,
@@ -318,13 +330,20 @@ export function registerParticipant(room, userId, username, avatar, opts = {}) {
   if (p) {
     if (username && p.username === "Scholar") p.username = username;
     if (avatar && avatar !== p.avatar) p.avatar = avatar;
+    if (opts.premium !== undefined) p.premium = !!opts.premium;
     p.left = false; // deliberate leaver coming back — seat and score restored
     return { ok: true, participant: p };
   }
   // Capacity counts players only — spectators don't consume a seat.
   const seats = [...room.participants.values()].filter((x) => !x.left && !x.spectator).length;
-  const wantsSeat = !opts.spectator;
-  if (wantsSeat && seats >= MAX_PARTICIPANTS) return { ok: false, error: "Room is full" };
+  let waitlisted = false;
+  if (!opts.spectator && seats >= (room.maxPlayers || MAX_PARTICIPANTS)) {
+    // A full lobby keeps the door open: joiners wait as spectators until a
+    // seat frees (or the host upgrades). Battle rooms stay hard-capped —
+    // lineups are the whole point.
+    if (room.battle) return { ok: false, error: "Room is full" };
+    waitlisted = true;
+  }
   p = {
     userId,
     username: username || "Scholar",
@@ -333,7 +352,9 @@ export function registerParticipant(room, userId, username, avatar, opts = {}) {
     ws: null,
     connected: false,
     connectedAt: 0,
-    spectator: !!opts.spectator && !room.battle,
+    spectator: (!!opts.spectator || waitlisted) && !room.battle,
+    waitlisted,
+    premium: !!opts.premium,
     left: false,
     lobbyReady: userId === room.hostId,
     score: 0,
@@ -420,6 +441,25 @@ export function handleMessage(room, userId, msg) {
     case "settings":
       // Battle terms were agreed in the challenge — no mid-lobby tweaking.
       if (room.phase !== "lobby" || !isHost || room.battle) return;
+      if (!room.hostPremium) {
+        // Free hosts run the default format — the only dial they own is
+        // trimming the set to ≤FREE_MAX_QUESTIONS questions. The client always
+        // echoes all settings, so "locked control attempted" = a timing field
+        // differing from the room's defaults, or a count above the free cap.
+        const n = parseInt(msg.numQuestions, 10);
+        const timingTouched =
+          (msg.timePerQuestion != null && Number(msg.timePerQuestion) !== room.settings.timePerQuestion) ||
+          (msg.revealSeconds != null && Number(msg.revealSeconds) !== room.settings.revealSeconds);
+        if (timingTouched || (Number.isFinite(n) && n > FREE_MAX_QUESTIONS)) {
+          send(p.ws, { type: "premium_required", feature: "host_controls" });
+          return;
+        }
+        if (Number.isFinite(n) && n >= 1) {
+          room.settings.numQuestions = Math.min(n, room.allQuestions.length, FREE_MAX_QUESTIONS);
+          broadcast(room, { type: "lobby_state", participants: publicParticipants(room), settings: room.settings });
+        }
+        return;
+      }
       applySettings(room, msg);
       broadcast(room, { type: "lobby_state", participants: publicParticipants(room), settings: room.settings });
       return;
@@ -428,6 +468,10 @@ export function handleMessage(room, userId, msg) {
       // between questions (lobby/reveal), not while answers are live.
       if (!isHost || room.battle) return;
       if (room.phase !== "lobby" && room.phase !== "reveal") return;
+      if (!room.hostPremium) {
+        send(p.ws, { type: "premium_required", feature: "host_controls" });
+        return;
+      }
       room.presenterMode = !!msg.on;
       broadcast(room, { type: "presenter_mode", on: room.presenterMode });
       return;
@@ -440,6 +484,10 @@ export function handleMessage(room, userId, msg) {
       return;
     case "pause": {
       if (!isHost || room.phase !== "question" || room.paused) return;
+      if (!room.hostPremium) {
+        send(p.ws, { type: "premium_required", feature: "host_controls" });
+        return;
+      }
       room.paused = true;
       room.pausedRemainingMs = Math.max(0, room.phaseDeadline - Date.now());
       if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
@@ -448,6 +496,10 @@ export function handleMessage(room, userId, msg) {
     }
     case "resume": {
       if (!isHost || room.phase !== "question" || !room.paused) return;
+      if (!room.hostPremium) {
+        send(p.ws, { type: "premium_required", feature: "host_controls" });
+        return;
+      }
       room.paused = false;
       room.phaseDeadline = Date.now() + (room.pausedRemainingMs || 0);
       scheduleTimer(room, room.pausedRemainingMs || 0, () => revealQuestion(room));
@@ -458,11 +510,12 @@ export function handleMessage(room, userId, msg) {
       // Late joiner flips from watching to playing (not in battles).
       if (!p.spectator || room.battle) return;
       const seats = [...room.participants.values()].filter((x) => !x.left && !x.spectator).length;
-      if (seats >= MAX_PARTICIPANTS) {
+      if (seats >= (room.maxPlayers || MAX_PARTICIPANTS)) {
         send(p.ws, { type: "spectator_denied", reason: "Room is full" });
         return;
       }
       p.spectator = false;
+      p.waitlisted = false;
       p.lobbyReady = false;
       send(p.ws, buildSnapshot(room, userId));
       broadcast(room, { type: "player_joined", participants: publicParticipants(room) }, userId);
@@ -544,6 +597,10 @@ export function handleMessage(room, userId, msg) {
     }
     case "mic_mode":
       if (!isHost) return;
+      if (!room.hostPremium) {
+        send(p.ws, { type: "premium_required", feature: "voice" });
+        return;
+      }
       room.micOpen = !!msg.open;
       broadcast(room, { type: "mic_mode", open: room.micOpen });
       return;
@@ -920,6 +977,8 @@ async function completeSession(room) {
       color: p.color,
       score: p.score,
       points: p.points || 0,
+      premium: !!p.premium,
+      isHost: p.userId === room.hostId,
       totalTimeMs: Math.round(p.stats.times.reduce((a, b) => a + b, 0) * 1000),
       xp: room.xp.get(p.userId) || 0,
     }))

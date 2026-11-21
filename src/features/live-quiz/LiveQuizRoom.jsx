@@ -11,6 +11,8 @@ import { IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconMore
 import { ConfirmSheet, HostSheet } from "./Sheets.jsx";
 import { ScoreStrip } from "./LiveBoard.jsx";
 import AvatarMark from "../../components/AvatarMark.jsx";
+import { toast } from "../../components/Toast.jsx";
+import { openPremium } from "../../lib/premium.js";
 
 const EMOJIS = ["💡", "🔥", "👏", "❤️", "😂"];
 
@@ -120,8 +122,10 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
   useEffect(() => { roomRef.current = room; });
   const [soundOn, setSoundOn] = useState(() => !sounds.muted);
 
-  // Voice connects once the session is live (and stays for lobby so friends can talk while waiting)
-  const voice = useLiveKitVoice(roomId, room.phase !== "connecting" && room.phase !== "ended" && room.phase !== "error");
+  // Voice connects once the session is live (and stays for lobby so friends can
+  // talk while waiting). Per-room host model: voice only exists when the HOST
+  // is Premium — free-host rooms never request a token.
+  const voice = useLiveKitVoice(roomId, room.hostPremium === true && room.phase !== "connecting" && room.phase !== "ended" && room.phase !== "error");
 
   // Voice windows: mics auto-mute while answers are being cast (so nobody can
   // call out the answer) unless the host opened the floor. Auto-restore after.
@@ -369,15 +373,26 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
           <button className="lq-footer-btn labelled" onClick={() => setEmojiOpen((o) => !o)} aria-label="Send reaction">
             <IconBulb size={19} /><span>React</span>
           </button>
-          <button
-            className={`lq-footer-btn labelled${!voice.muted ? " mic-on" : " active-mic"}`}
-            onClick={voice.toggleMic}
-            disabled={!voice.voiceAvailable || !voice.connected || micLocked}
-            aria-label="Toggle microphone"
-            title={micLocked ? "Mic opens when answers reveal" : voice.voiceAvailable ? (voice.muted ? "Unmute mic" : "Mute mic") : "Voice not configured"}
-          >
-            {voice.muted ? <IconMicOff size={19} /> : <IconMic size={19} />}<span>{voice.muted ? "Muted" : "Mic on"}</span>
-          </button>
+          {room.hostPremium ? (
+            <button
+              className={`lq-footer-btn labelled${!voice.muted ? " mic-on" : " active-mic"}`}
+              onClick={voice.toggleMic}
+              disabled={!voice.voiceAvailable || !voice.connected || micLocked}
+              aria-label="Toggle microphone"
+              title={micLocked ? "Mic opens when answers reveal" : voice.voiceAvailable ? (voice.muted ? "Unmute mic" : "Mute mic") : "Voice not configured"}
+            >
+              {voice.muted ? <IconMicOff size={19} /> : <IconMic size={19} />}<span>{voice.muted ? "Muted" : "Mic on"}</span>
+            </button>
+          ) : (
+            <button
+              className="lq-footer-btn labelled"
+              onClick={() => (room.isHost ? openPremium("voice") : toast.info("Voice chat unlocks when the host goes Premium"))}
+              aria-label="Voice locked — Premium host feature"
+              title={room.isHost ? "Voice chat is Premium — unlock mics for the whole room" : "Voice chat unlocks when the host is on Premium"}
+            >
+              <IconMicOff size={19} /><span>🔒 Voice</span>
+            </button>
+          )}
           <button
             className="lq-footer-btn labelled"
             onClick={() => { sounds.setMuted(soundOn); setSoundOn(!soundOn); }}
@@ -430,6 +445,7 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
           presenterMode={room.presenterMode}
           micOpen={room.micOpen}
           canPresent={!room.battle}
+          hostPremium={room.hostPremium}
           onPresenter={() => room.actions.setPresenter(!room.presenterMode)}
           onMic={() => room.actions.setMicMode(!room.micOpen)}
           onEnd={() => { setHostOpen(false); setConfirm("end"); }}

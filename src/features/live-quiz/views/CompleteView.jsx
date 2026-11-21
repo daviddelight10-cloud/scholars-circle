@@ -106,7 +106,7 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
                 {u.avatar
                   ? <AvatarMark avatar={u.avatar} name={u.username} size={i === 0 ? 52 : 42} className="lq-board-ava" />
                   : <span className="lq-board-ava" style={{ width: i === 0 ? 52 : 42, height: i === 0 ? 52 : 42, background: u.color, fontSize: 14 }}>{initials(u.username)}</span>}
-                <span className="lq-podium-name">{u.userId === myId ? "You" : u.username}</span>
+                <span className="lq-podium-name">{u.premium && <span className="lq-prem" title="Premium">⭐</span>}{u.userId === myId ? "You" : u.username}{u.isHost ? " · Host" : ""}</span>
                 <span className="lq-podium-pts">{u.points ?? u.score} pts</span>
                 <div className="lq-podium-block" />
               </div>
@@ -179,7 +179,7 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
             {u.avatar
               ? <AvatarMark avatar={u.avatar} name={u.username} size={36} className="lq-lb-avatar" />
               : <span className="lq-lb-avatar" style={{ background: u.color }}>{initials(u.username)}</span>}
-            <p className="lq-lb-name">{u.username}{u.userId === myId ? " (You)" : ""}</p>
+            <p className="lq-lb-name">{u.premium && <span className="lq-prem" title="Premium">⭐</span>}{u.username}{u.userId === myId ? " (You)" : ""}{u.isHost ? " · Host" : ""}</p>
             <p className="lq-lb-score">{u.points ?? u.score}<span className="lq-lb-score-sub"> pts · {u.score}/{c.totalQuestions}</span></p>
           </div>
         ); })}

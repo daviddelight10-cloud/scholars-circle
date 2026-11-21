@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getWsUrl, refreshTicket } from "./liveQuizApi";
 import { sounds } from "./sounds";
+import { toast } from "../../components/Toast.jsx";
+import { openPremium, PREMIUM_HEADLINES } from "../../lib/premium.js";
 
 const PING_MS = 20000;
 const RECONNECT_DELAY_MS = 1500;
@@ -13,6 +15,8 @@ const initialState = {
   title: "",
   isHost: false,
   mySpectator: false,
+  myWaitlisted: false,
+  hostPremium: false,
   presenterMode: false,
   settings: { timePerQuestion: 30, numQuestions: 5, revealSeconds: 10 },
   maxQuestions: 20,
@@ -79,6 +83,8 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           title: msg.title,
           isHost: msg.isHost,
           mySpectator: !!msg.mySpectator,
+          myWaitlisted: !!msg.myWaitlisted,
+          hostPremium: !!msg.hostPremium,
           presenterMode: !!msg.presenterMode,
           settings: msg.settings,
           maxQuestions: msg.maxQuestions,
@@ -136,6 +142,10 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
         break;
       case "spectator_denied":
         patch({ error: msg.reason });
+        break;
+      case "premium_required":
+        toast.warning(PREMIUM_HEADLINES[msg.feature] || "That's a Premium host feature");
+        openPremium(msg.feature);
         break;
       case "phase":
         if (msg.phase === "transition") {

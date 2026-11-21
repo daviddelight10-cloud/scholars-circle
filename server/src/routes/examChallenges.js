@@ -6,6 +6,18 @@ import crypto from "node:crypto";
 import { prisma } from "../db.js";
 import { requireAuth, optionalAuth } from "../middleware/auth.js";
 import { rankAttempts, questionStats } from "../lib/challengeRank.js";
+import { isPremium, premiumRequired } from "../lib/premium.js";
+
+// Free creators run one capped challenge at a time; Premium unlocks options.
+const FREE_DEADLINE_MAX_MS = 7 * 24 * 3600000;
+
+function premiumFlag(user) {
+  const role = String(user?.role || "").toUpperCase();
+  return (
+    ["TEACHER", "LECTURER", "ADMIN"].includes(role) ||
+    (user?.isActivated === true && (!user.activationExpiry || new Date(user.activationExpiry) > new Date()))
+  );
+}
 
 const router = Router();
 
@@ -47,6 +59,7 @@ function leaderboardEntries(attempts, scoring, currentUserId) {
     name: a.user?.fullName || a.user?.username || "Scholar",
     username: a.user?.username || null,
     avatar: a.user?.userProfile?.avatar || null,
+    premium: premiumFlag(a.user),
     score: a.score,
     total: a.total,
     pct: a.total > 0 ? Math.round((a.score / a.total) * 100) : 0,
@@ -84,6 +97,24 @@ router.post("/", requireAuth, async (req, res) => {
     } else {
       const hours = Number(deadlineHours);
       if (Number.isFinite(hours) && hours > 0) deadline = new Date(Date.now() + hours * 3600000);
+    }
+
+    // Free creators: one active challenge, 24h–7d deadline, first-attempt
+    // scoring with immediate reveal. Premium unlocks the creator options.
+    if (!(await isPremium(req.user.sub))) {
+      if (scoring !== "first" || reveal !== "immediate") {
+        return premiumRequired(res, "challenge_options", "Best-score scoring and reveal-when-ended are Premium creator options.");
+      }
+      const now = Date.now();
+      if (!deadline || deadline.getTime() < now + 24 * 3600000 - 60000 || deadline.getTime() > now + FREE_DEADLINE_MAX_MS + 60000) {
+        return premiumRequired(res, "challenge_deadline", "Free challenges run 24 hours to 7 days — Premium unlocks custom and open-ended deadlines.");
+      }
+      const active = await prisma.examChallenge.count({
+        where: { creatorId: req.user.sub, OR: [{ deadline: null }, { deadline: { gt: new Date() } }] },
+      });
+      if (active >= 1) {
+        return premiumRequired(res, "unlimited_challenges", "One challenge at a time on the free plan — let it finish or go Premium for unlimited.");
+      }
     }
 
     const challenge = await prisma.examChallenge.create({
@@ -185,7 +216,7 @@ router.get("/:token/leaderboard", requireAuth, async (req, res) => {
       orderBy: { createdAt: "asc" },
       select: {
         userId: true, score: true, total: true, durationMs: true, createdAt: true, details: true,
-        user: { select: { fullName: true, username: true, userProfile: { select: { avatar: true } } } },
+        user: { select: { fullName: true, username: true, isActivated: true, activationExpiry: true, role: true, userProfile: { select: { avatar: true } } } },
       },
     });
     const entries = leaderboardEntries(attempts, c.scoring, req.user.sub);
@@ -202,10 +233,14 @@ router.get("/:token/leaderboard", requireAuth, async (req, res) => {
     };
     if (c.creatorId === req.user.sub && attempts.length) {
       const pctList = attempts.map((a) => (a.total > 0 ? a.score / a.total : 0));
-      body.creatorStats = {
-        ...questionStats(attempts),
-        avgPct: Math.round((pctList.reduce((s, p) => s + p, 0) / pctList.length) * 100),
-      };
+      const avgPct = Math.round((pctList.reduce((s, p) => s + p, 0) / pctList.length) * 100);
+      if (await isPremium(req.user.sub)) {
+        body.creatorStats = { ...questionStats(attempts), avgPct };
+      } else {
+        // Free creators see a one-line teaser; per-question stats are Premium.
+        body.creatorStatsLocked = true;
+        body.creatorStatsTeaser = `Your challengers average ${avgPct}%`;
+      }
     }
     res.json(body);
   } catch (err) {

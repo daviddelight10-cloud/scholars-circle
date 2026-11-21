@@ -120,7 +120,7 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onN
         <p>
           {isActivated
             ? "You have everything unlocked. Extend below — days stack automatically."
-            : "Unlimited practice, AI tutor, analytics & more — built for scholars who want first class."}
+            : "Host 50-player live rooms, ranked clan wars, unlimited challenges & more — friends always join free."}
         </p>
       </section>
 
@@ -140,9 +140,11 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onN
           </div>
           <div className="st-lockgrid">
             <div className="st-litem">🤖 AI Tutor — locked</div>
+            <div className="st-litem">⚡ Live host tools — locked</div>
+            <div className="st-litem">🏅 Ranked battles — locked</div>
             <div className="st-litem">📊 Analytics — locked</div>
             <div className="st-litem">🃏 Flashcards — locked</div>
-            <div className="st-litem">🎯 Weak-area mode — locked</div>
+            <div className="st-litem">📖 Full explanations — locked</div>
           </div>
         </section>
       )}
@@ -258,12 +260,14 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onN
       <section className="st-benefits">
         <h4>✨ What you get with Premium</h4>
         <div className="st-bgrid">
+          <div className="st-bitem"><span className="st-tick">✓</span>Host live rooms — 50 seats + voice</div>
+          <div className="st-bitem"><span className="st-tick">✓</span>Ranked & scheduled clan battles</div>
+          <div className="st-bitem"><span className="st-tick">✓</span>Unlimited exam challenges + stats</div>
+          <div className="st-bitem"><span className="st-tick">✓</span>All explanations & insights</div>
+          <div className="st-bitem"><span className="st-tick">✓</span>⭐ Gold badge on leaderboards</div>
           <div className="st-bitem"><span className="st-tick">✓</span>Unlimited practice questions</div>
           <div className="st-bitem"><span className="st-tick">✓</span>AI Tutor access</div>
-          <div className="st-bitem"><span className="st-tick">✓</span>Spaced repetition flashcards</div>
           <div className="st-bitem"><span className="st-tick">✓</span>Detailed analytics & insights</div>
-          <div className="st-bitem"><span className="st-tick">✓</span>Weak-area focus mode</div>
-          <div className="st-bitem"><span className="st-tick">✓</span>XP, streaks & badges</div>
           <div className="st-bitem"><span className="st-tick">✓</span>Offline access</div>
           <div className="st-bitem"><span className="st-tick">✓</span>Priority support</div>
         </div>

@@ -1,5 +1,6 @@
 // Small themed bottom sheets used inside the live room — replace the native
 // window.confirm dialogs (which look broken in dark/PWA) and hold host tools.
+import PremiumLock from "../../components/PremiumLock.jsx";
 
 export function ConfirmSheet({ title, body, confirmLabel = "Confirm", danger = false, onConfirm, onCancel }) {
   return (
@@ -16,22 +17,34 @@ export function ConfirmSheet({ title, body, confirmLabel = "Confirm", danger = f
 }
 
 // Host-only tools, kept out of the player footer.
-export function HostSheet({ presenterMode, micOpen, canPresent, onPresenter, onMic, onEnd, onClose }) {
+export function HostSheet({ presenterMode, micOpen, canPresent, hostPremium = true, onPresenter, onMic, onEnd, onClose }) {
   return (
     <div className="lq-sheet-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Host tools">
       <div className="lq-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="lq-sheet-grab" />
         <p className="lq-sheet-title">Host tools</p>
-        {canPresent && (
+        {canPresent && (hostPremium ? (
           <button className="lq-host-row" onClick={onPresenter} aria-pressed={presenterMode}>
             <span className="lq-host-row-t"><b>Present mode</b><i>Watch answers live without playing</i></span>
             <span className={`lq-switch${presenterMode ? " on" : ""}`} />
           </button>
+        ) : (
+          <div className="lq-host-row locked">
+            <span className="lq-host-row-t"><b>Present mode</b><i>Watch answers live without playing</i></span>
+            <PremiumLock feature="host_controls" />
+          </div>
+        ))}
+        {hostPremium ? (
+          <button className="lq-host-row" onClick={onMic} aria-pressed={micOpen}>
+            <span className="lq-host-row-t"><b>Open floor</b><i>Keep mics on during questions</i></span>
+            <span className={`lq-switch${micOpen ? " on" : ""}`} />
+          </button>
+        ) : (
+          <div className="lq-host-row locked">
+            <span className="lq-host-row-t"><b>Open floor</b><i>Keep mics on during questions</i></span>
+            <PremiumLock feature="voice" />
+          </div>
         )}
-        <button className="lq-host-row" onClick={onMic} aria-pressed={micOpen}>
-          <span className="lq-host-row-t"><b>Open floor</b><i>Keep mics on during questions</i></span>
-          <span className={`lq-switch${micOpen ? " on" : ""}`} />
-        </button>
         <button className="lq-host-row danger" onClick={onEnd}>
           <span className="lq-host-row-t"><b>End session for everyone</b></span>
         </button>

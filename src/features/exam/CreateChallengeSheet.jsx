@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { createChallenge } from "./examApi";
+import { createChallenge, listMyChallenges } from "./examApi";
 import { challengeUrl } from "./challengeUtils";
 import { groupsApi } from "../groups/groupsApi";
 import { feedApi } from "../feed/feedApi";
 import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
+import PremiumLock from "../../components/PremiumLock.jsx";
+import { isPremium, openPremium } from "../../lib/premium.js";
 import "./exam.css";
 
 const DEADLINES = [
@@ -28,6 +30,10 @@ const dtLocalMin = () => {
  */
 export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClose, onCreated }) {
   useOverlayBackClose(onClose, { open: true });
+  // Free creators: one active challenge, preset deadlines, first/immediate
+  // scoring. Premium unlocks every option on this sheet.
+  const premium = isPremium();
+  const [activeCount, setActiveCount] = useState(null);
   const [deadlineHours, setDeadlineHours] = useState(168);
   const [customAt, setCustomAt] = useState(""); // datetime-local string
   const [customInvalid, setCustomInvalid] = useState(true); // starts empty = invalid
@@ -47,6 +53,16 @@ export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClos
       .then((d) => setGroups(d?.groups || d?.classrooms || []))
       .catch(() => setGroups([]));
   }, [fixedGroupId]);
+
+  useEffect(() => {
+    if (premium) return;
+    listMyChallenges()
+      .then((d) => {
+        const now = Date.now();
+        setActiveCount((d?.challenges || []).filter((c) => !c.deadline || new Date(c.deadline).getTime() > now).length);
+      })
+      .catch(() => {});
+  }, [premium]);
 
   const submit = async () => {
     if (busy || (deadlineHours === "custom" && customInvalid)) return;
@@ -109,13 +125,20 @@ export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClos
               Share a link — everyone takes <b>{exam?.title || "this exam"}</b> on their own time and ranks on one board.
             </p>
 
-            <div className="exh-section">Deadline</div>
+            <div className="exh-section">Deadline {!premium && <PremiumLock feature="challenge_deadline" />}</div>
             <div className="exc-pills">
-              {DEADLINES.map(([h, label]) => (
-                <button key={label} className={`exr-fchip${deadlineHours === h ? " on" : ""}`} onClick={() => setDeadlineHours(h)}>
-                  {label}
-                </button>
-              ))}
+              {DEADLINES.map(([h, label]) => {
+                const locked = !premium && (h === null || h === "custom");
+                return (
+                  <button
+                    key={label}
+                    className={`exr-fchip${deadlineHours === h ? " on" : ""}`}
+                    onClick={() => (locked ? openPremium("challenge_deadline") : setDeadlineHours(h))}
+                  >
+                    {label}{locked ? " 🔒" : ""}
+                  </button>
+                );
+              })}
             </div>
             {deadlineHours === "custom" && (
               <input
@@ -134,27 +157,33 @@ export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClos
               <div className="exc-dt-hint">Pick a time in the future.</div>
             )}
 
-            <div className="exh-section">Scoring</div>
+            <div className="exh-section">Scoring {!premium && <PremiumLock feature="challenge_options" />}</div>
             <div className="exc-opts">
               <button className={`exc-opt${scoring === "first" ? " on" : ""}`} onClick={() => setScoring("first")}>
                 <b>🎯 First attempt counts</b>
                 <span>One shot each — fairest for a real exam feel</span>
               </button>
-              <button className={`exc-opt${scoring === "best" ? " on" : ""}`} onClick={() => setScoring("best")}>
-                <b>🔁 Best score wins</b>
-                <span>Unlimited retakes, best attempt ranks</span>
+              <button
+                className={`exc-opt${scoring === "best" ? " on" : ""}`}
+                onClick={() => (premium ? setScoring("best") : openPremium("challenge_options"))}
+              >
+                <b>🔁 Best score wins{premium ? "" : " 🔒"}</b>
+                <span>Unlimited retakes, best attempt ranks{premium ? "" : " — Premium"}</span>
               </button>
             </div>
 
-            <div className="exh-section">Answers</div>
+            <div className="exh-section">Answers {!premium && <PremiumLock feature="challenge_options" />}</div>
             <div className="exc-opts">
               <button className={`exc-opt${reveal === "immediate" ? " on" : ""}`} onClick={() => setReveal("immediate")}>
                 <b>👀 Right away</b>
                 <span>Takers review answers as soon as they finish</span>
               </button>
-              <button className={`exc-opt${reveal === "onClose" ? " on" : ""}`} onClick={() => setReveal("onClose")}>
-                <b>🔒 When it ends</b>
-                <span>Answer review unlocks for everyone at once</span>
+              <button
+                className={`exc-opt${reveal === "onClose" ? " on" : ""}`}
+                onClick={() => (premium ? setReveal("onClose") : openPremium("challenge_options"))}
+              >
+                <b>🔒 When it ends{premium ? "" : " 🔒"}</b>
+                <span>Answer review unlocks for everyone at once{premium ? "" : " — Premium"}</span>
               </button>
             </div>
 
@@ -173,9 +202,20 @@ export default function CreateChallengeSheet({ exam, fixedGroupId = null, onClos
             )}
 
             {err && <div className="exr-warn" style={{ marginTop: 10 }}>⚠️ {err}</div>}
-            <button className="exr-btn primary big" style={{ marginTop: 14 }} onClick={submit} disabled={busy || (deadlineHours === "custom" && customInvalid)}>
-              {busy ? "Creating…" : "Create challenge →"}
-            </button>
+            {!premium && activeCount > 0 ? (
+              <>
+                <div className="exr-warn" style={{ marginTop: 10 }}>
+                  1 of 1 free challenge in use — let it finish, or go Premium for unlimited.
+                </div>
+                <button className="exr-btn primary big" style={{ marginTop: 10 }} onClick={() => openPremium("unlimited_challenges")}>
+                  ⭐ Go Premium — unlimited challenges
+                </button>
+              </>
+            ) : (
+              <button className="exr-btn primary big" style={{ marginTop: 14 }} onClick={submit} disabled={busy || (deadlineHours === "custom" && customInvalid)}>
+                {busy ? "Creating…" : "Create challenge →"}
+              </button>
+            )}
           </>
         ) : (
           <>

@@ -146,9 +146,9 @@ export function Leaderboard({ token }) {
       >
         <div className="lb-pod-av">
           {rank === 1 && <span className="lb-pod-crown">👑</span>}
-          <Avatar user={e} size={rank === 1 ? 56 : 44} />
+          <Avatar user={e} size={rank === 1 ? 56 : 44} premium={e.premium} />
         </div>
-        <span className="lb-pod-name">{name}</span>
+        <span className="lb-pod-name">{e.premium && <span className="prem-star" title="Premium">⭐</span>}{name}</span>
         <LvlChip xp={e.totalXP} />
         <span className="lb-pod-xp">{(e.xp || 0).toLocaleString()} XP</span>
       </button>
@@ -235,9 +235,9 @@ export function Leaderboard({ token }) {
                 onClick={() => openProfile(e)}
               >
                 <span className="lb-rank">{rank}</span>
-                <Avatar user={e} size={34} />
+                <Avatar user={e} size={34} premium={e.premium} />
                 <span className="lb-name">
-                  <span className="lb-nm">{e.isMe ? "You" : (e.fullName || e.username)}</span>
+                  <span className="lb-nm">{e.premium && <span className="prem-star" title="Premium">⭐</span>}{e.isMe ? "You" : (e.fullName || e.username)}</span>
                   <span className="lb-meta">
                     {e.streak > 0 && <>🔥 {e.streak}d</>}
                     {e.streak > 0 && " · "}
@@ -277,9 +277,9 @@ export function Leaderboard({ token }) {
             ) : profile ? (
               <>
                 <div className="lb-sheet-head">
-                  <Avatar user={profile} size={52} />
+                  <Avatar user={profile} size={52} premium={selectedUser.premium} />
                   <div className="lb-sheet-id">
-                    <h3>{profile.fullName || profile.username}</h3>
+                    <h3>{selectedUser.premium && <span className="prem-star" title="Premium">⭐</span>}{profile.fullName || profile.username}</h3>
                     <span>
                       @{profile.username}
                       {profile.level ? ` · ${profile.level}` : ""}

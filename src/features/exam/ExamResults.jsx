@@ -2,6 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { gradeObjectiveAnswer, isWrittenType, countByType, QUESTION_TYPES } from "./examSchema";
 import { getExamAttempts, addMissedToDeck } from "./examApi";
+import { canUse } from "../../lib/freeTier.js";
+import { openPremium } from "../../lib/premium.js";
+
+// Result insights are a paid feature: free users keep their score, marks and
+// the first two missed-question explanations; the rest blurs behind unlock.
+function LockedInsight({ children }) {
+  return (
+    <div className="exr-insight-lock">
+      <div className="exr-insight-blur" aria-hidden="true">{children}</div>
+      <button type="button" className="exr-insight-cta" onClick={() => openPremium("resultInsights")}>
+        🔓 Premium — unlock this insight
+      </button>
+    </div>
+  );
+}
 
 function fmtTime(ms) {
   const s = Math.floor(ms / 1000);
@@ -42,8 +57,18 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
     return { q, i, obj, ai, answer: answers[i] };
   });
 
-  const wrongCount = rows.filter((r) => r.obj && !r.obj.correct).length
-    + rows.filter((r) => r.ai && r.ai.marksAwarded < r.ai.maxMarks * 0.5).length;
+  const isMissed = (r) => (r.obj && !r.obj.correct) || (r.ai && r.ai.marksAwarded < r.ai.maxMarks * 0.5);
+  const wrongCount = rows.filter(isMissed).length;
+
+  // Insight lock — first 2 missed questions explain themselves for free.
+  const insightsOpen = canUse("resultInsights");
+  const lockedInsightIds = new Set();
+  if (!insightsOpen) {
+    let shown = 0;
+    for (const r of rows) {
+      if (isMissed(r)) { shown += 1; if (shown > 2) lockedInsightIds.add(r.i); }
+    }
+  }
 
   // Missed objective questions that can be added to the practice deck
   // (mcq + truefalse only — written types don't map to the deck format).
@@ -119,12 +144,22 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
             {result.streak > 0 && <div className="exr-score-cell"><b>🔥 {result.streak}</b><span>streak</span></div>}
           </div>
 
-          {/* Per-type breakdown */}
-          <div className="exr-type-chips">
-            {Object.entries(byType).map(([t, n]) => (
-              <span key={t} className={`exr-chip t-${t}`}>{QUESTION_TYPES[t]?.icon} {n} {QUESTION_TYPES[t]?.label || t}</span>
-            ))}
-          </div>
+          {/* Per-type breakdown — an insight: free users see it blurred */}
+          {insightsOpen ? (
+            <div className="exr-type-chips">
+              {Object.entries(byType).map(([t, n]) => (
+                <span key={t} className={`exr-chip t-${t}`}>{QUESTION_TYPES[t]?.icon} {n} {QUESTION_TYPES[t]?.label || t}</span>
+              ))}
+            </div>
+          ) : (
+            <LockedInsight>
+              <div className="exr-type-chips">
+                {Object.entries(byType).map(([t, n]) => (
+                  <span key={t} className={`exr-chip t-${t}`}>{QUESTION_TYPES[t]?.icon} {n} {QUESTION_TYPES[t]?.label || t}</span>
+                ))}
+              </div>
+            </LockedInsight>
+          )}
           {gradingFailed && (
             <div className="exr-warn">
               ⚠️ Some written answers couldn't be AI-marked — compare them to the model answers below and grade yourself.
@@ -197,9 +232,17 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
         </div>
         )}
 
+        {/* Locked-insights banner */}
+        {!revealLocked && lockedInsightIds.size > 0 && (
+          <div className="exr-insight-banner">
+            🔒 {lockedInsightIds.size} explanation{lockedInsightIds.size !== 1 ? "s" : ""} locked —
+            <button type="button" onClick={() => openPremium("resultInsights")}>unlock all with Premium</button>
+          </div>
+        )}
+
         {/* Review list */}
         {!revealLocked && visible.map(({ q, i, obj, ai, answer }) => (
-          <ReviewRow key={q.id || i} q={q} n={i + 1} obj={obj} ai={ai} answer={answer} />
+          <ReviewRow key={q.id || i} q={q} n={i + 1} obj={obj} ai={ai} answer={answer} lockInsights={lockedInsightIds.has(i)} />
         ))}
       </div>
     </div>
@@ -229,7 +272,7 @@ function ScoreRing({ pct, score, total, passed }) {
   );
 }
 
-function ReviewRow({ q, n, obj, ai, answer }) {
+function ReviewRow({ q, n, obj, ai, answer, lockInsights }) {
   const status = obj ? (obj.correct ? "ok" : "bad") : ai ? (ai.marksAwarded >= ai.maxMarks * 0.5 ? "ok" : "bad") : "na";
   const marksText = obj
     ? `${obj.marksAwarded}/${obj.maxMarks}`
@@ -279,33 +322,38 @@ function ReviewRow({ q, n, obj, ai, answer }) {
             <div className="exr-ans-label">Your answer</div>
             <p>{answer?.trim() ? answer : <i>No answer given.</i>}</p>
           </div>
-          {ai ? (
-            <div className="exr-ai-grade">
-              <div className="exr-ans-label ai">🤖 AI marking — {ai.marksAwarded}/{ai.maxMarks}</div>
-              {ai.feedback && <p>{ai.feedback}</p>}
-              {ai.coveredPoints?.length > 0 && (
-                <div className="exr-scheme ok">✓ {ai.coveredPoints.join(" · ")}</div>
-              )}
-              {ai.missedPoints?.length > 0 && (
-                <div className="exr-scheme bad">✗ missed: {ai.missedPoints.join(" · ")}</div>
-              )}
-            </div>
-          ) : (
-            <div className="exr-ai-grade">
-              <div className="exr-ans-label">Model answer — grade yourself</div>
-              <p>{q.modelAnswer}</p>
-              {Array.isArray(q.markingScheme) && q.markingScheme.length > 0 && (
-                <ul className="exr-scheme-list">
-                  {q.markingScheme.map((p, j) => <li key={j}>{p}</li>)}
-                </ul>
-              )}
-            </div>
-          )}
+          {(() => {
+            const gradeBlock = ai ? (
+              <div className="exr-ai-grade">
+                <div className="exr-ans-label ai">🤖 AI marking — {ai.marksAwarded}/{ai.maxMarks}</div>
+                {ai.feedback && <p>{ai.feedback}</p>}
+                {ai.coveredPoints?.length > 0 && (
+                  <div className="exr-scheme ok">✓ {ai.coveredPoints.join(" · ")}</div>
+                )}
+                {ai.missedPoints?.length > 0 && (
+                  <div className="exr-scheme bad">✗ missed: {ai.missedPoints.join(" · ")}</div>
+                )}
+              </div>
+            ) : (
+              <div className="exr-ai-grade">
+                <div className="exr-ans-label">Model answer — grade yourself</div>
+                <p>{q.modelAnswer}</p>
+                {Array.isArray(q.markingScheme) && q.markingScheme.length > 0 && (
+                  <ul className="exr-scheme-list">
+                    {q.markingScheme.map((p, j) => <li key={j}>{p}</li>)}
+                  </ul>
+                )}
+              </div>
+            );
+            return lockInsights ? <LockedInsight>{gradeBlock}</LockedInsight> : gradeBlock;
+          })()}
         </>
       )}
 
       {q.explanation && !isWrittenType(q.type) && (
-        <div className="exr-review-exp"><b>Explanation:</b> {q.explanation}</div>
+        lockInsights
+          ? <LockedInsight><div className="exr-review-exp"><b>Explanation:</b> {q.explanation}</div></LockedInsight>
+          : <div className="exr-review-exp"><b>Explanation:</b> {q.explanation}</div>
       )}
     </div>
   );

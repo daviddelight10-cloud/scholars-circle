@@ -49,12 +49,12 @@ export function useLiveKitVoice(roomId, enabled) {
         // Join muted; user taps the mic to unmute
         await room.localParticipant.setMicrophoneEnabled(false);
       } catch (err) {
-        if (String(err?.message).includes("voice_unavailable")) {
-          setVoiceAvailable(false);
-        } else {
+        // premium_required = free-hosted room; voice_unavailable = no LiveKit
+        // credentials. Either way the mic just stays off.
+        if (err?.code !== "premium_required" && !String(err?.message).includes("voice_unavailable")) {
           console.warn("LiveKit connect failed:", err.message);
-          setVoiceAvailable(false);
         }
+        setVoiceAvailable(false);
       }
     })();
 

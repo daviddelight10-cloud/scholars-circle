@@ -154,6 +154,9 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
       username: true,
       fullName: true,
       email: true,
+      isActivated: true,
+      activationExpiry: true,
+      role: true,
       progress: { select: { xp: true, streak: true, mastery: true } },
       userProfile: { select: { avatar: true } },
     },
@@ -179,6 +182,8 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
       totalXP: user.progress?.xp || 0,
       dailyXP: dailyMap.get(id) || 0,
       streak: user.progress?.streak || 0,
+      premium: ["TEACHER", "LECTURER", "ADMIN"].includes(String(user.role || "").toUpperCase())
+        || (user.isActivated === true && (!user.activationExpiry || new Date(user.activationExpiry) > new Date())),
       avgMastery: Math.round(avgMastery),
       trend: startDate && prevStartDate ? (prevRanks.get(id) || (totalCount + 1)) - currentRank : 0,
       dailyRank: dailyRanks.get(id) || 0,

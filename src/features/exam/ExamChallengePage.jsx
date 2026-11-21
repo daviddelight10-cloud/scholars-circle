@@ -5,6 +5,7 @@ import { fmtDeadline as fmtLeft, fmtDuration as fmtDur, challengeUrl, canTakeCha
 import ExamRunner from "./ExamRunner";
 import AvatarMark from "../../components/AvatarMark.jsx";
 import { ensureAppSession } from "../../lib/authToken.js";
+import { openPremium } from "../../lib/premium.js";
 import "./exam.css";
 
 const authData = () => {
@@ -199,7 +200,7 @@ export default function ExamChallengePage() {
             <div key={e.userId || i} className={`exc-row${e.you ? " you" : ""}`}>
               <span className={`exc-rank${i < 3 ? " top" : ""}`}>{i < 3 ? ["🥇", "🥈", "🥉"][i] : `#${e.rank ?? i + 1}`}</span>
               <AvatarMark avatar={e.avatar} name={e.name} size={30} className="exc-ava" />
-              <span className="exc-name">{e.name}{e.you ? " (you)" : ""}{e.attempts > 1 ? ` · ${e.attempts} attempts` : ""}</span>
+              <span className="exc-name">{e.premium && <span className="prem-star" title="Premium">⭐</span>}{e.name}{e.you ? " (you)" : ""}{e.attempts > 1 ? ` · ${e.attempts} attempts` : ""}</span>
               <span className="exc-score">
                 <b>{e.pct}%</b>
                 {e.durationMs != null && <i>{fmtDur(e.durationMs)}</i>}
@@ -229,6 +230,15 @@ export default function ExamChallengePage() {
                   </div>
                 ))}
                 <div className="exc-qhint">Hardest questions by correct rate</div>
+              </div>
+            )}
+            {(meta.creatorStatsLocked || board?.creatorStatsLocked) && (
+              <div className="exc-qstats locked">
+                <div className="exc-board-head"><b>Question stats</b><span>🔒</span></div>
+                <div className="exc-qhint">{meta.creatorStatsTeaser || board?.creatorStatsTeaser} — see which questions people missed.</div>
+                <button className="exr-btn ghost" onClick={() => openPremium("creator_stats")}>
+                  🔓 Unlock question stats
+                </button>
               </div>
             )}
           </div>

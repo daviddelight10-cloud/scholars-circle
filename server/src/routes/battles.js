@@ -13,6 +13,7 @@ import {
 } from "../lib/battles.js";
 import { normalizeMcqData, shuffle, identityFor } from "./liveQuiz.js";
 import { generateTicket } from "./voiceSession.js";
+import { isPremium, premiumRequired } from "../lib/premium.js";
 
 const router = Router();
 
@@ -211,6 +212,18 @@ router.post("/", requireAuth, challengeLimiter, async (req, res) => {
       }
     }
 
+    // Ranked stakes and scheduled wars are Premium — gate the SENDER only.
+    // Accepting a ranked challenge stays free so a free clan can still defend.
+    if ((ranked || scheduled) && !(await isPremium(uid))) {
+      return premiumRequired(
+        res,
+        ranked ? "ranked_battles" : "scheduled_wars",
+        ranked
+          ? "Ranked battles are a Premium feature — put your clan's rating on the line."
+          : "Scheduled wars are a Premium feature — upgrade to plan ahead."
+      );
+    }
+
     // One open challenge per pairing at a time.
     const open = await prisma.groupBattle.findFirst({
       where: { status: { in: ["pending", "active"] }, challengerId: fromId, challengedId: toId },
@@ -386,6 +399,9 @@ router.post("/:id/accept", requireAuth, async (req, res) => {
       title: `${b.challenger.name} vs ${b.challenged.name}`,
       questions: shuffle(questions),
       settings: { timePerQuestion: b.timePerQuestion, numQuestions: b.numQuestions },
+      // Battle rooms keep full host controls + voice regardless of plan —
+      // they're competitive fixtures agreed by both clans, not casual lobbies.
+      hostPremium: true,
       battle: {
         id: b.id,
         mode: b.mode,
@@ -397,7 +413,7 @@ router.post("/:id/accept", requireAuth, async (req, res) => {
     // The accepting captain only enters the room when they're in the lineup —
     // a captain can set a lineup and spectate from the battle list otherwise.
     const playing = lineupCheck.lineup.includes(uid);
-    if (playing) registerParticipant(room, uid, host.name, host.avatar);
+    if (playing) registerParticipant(room, uid, host.name, host.avatar, { premium: host.premium });
 
     const battle = await prisma.groupBattle.update({
       where: { id: b.id },

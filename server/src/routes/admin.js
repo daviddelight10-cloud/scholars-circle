@@ -4,6 +4,7 @@ import { prisma } from "../db.js";
 import { requireAuth, requireRole, invalidateUserCache } from "../middleware/auth.js";
 import { sendPushToUsers, isPushConfigured } from "../lib/pushSender.js";
 import { logSecurityEvent } from "../lib/logger.js";
+import { invalidatePremium } from "../lib/premium.js";
 import { deleteFile } from "../lib/supabaseStorage.js";
 
 const router = express.Router();
@@ -604,6 +605,7 @@ router.post("/users/:id/approve-payment", ...admin, async (req, res) => {
       },
       select: { id: true, username: true, isActivated: true, planType: true, activationExpiry: true },
     });
+    invalidatePremium(target.id);
     logSecurityEvent(req.user.sub, "admin_payment_approved", { targetUser: target.id, plan, bankedDaysApplied: banked }, req);
     res.json(updated);
   } catch (e) {

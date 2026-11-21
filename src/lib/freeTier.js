@@ -175,7 +175,7 @@ export function exitFreeTier() {
 
 // ---------- Feature caps ----------
 // Feature keys: "summary" | "mcqGen" | "guidedStudy" | "aiTutor" |
-//               "exam" | "voiceTutor" (premium-only post-trial)
+//               "exam" | "voiceTutor" | "resultInsights" (premium-only post-trial)
 
 const CAPS = {
   summary: "summariesTotal",
@@ -184,7 +184,7 @@ const CAPS = {
   aiTutor: "aiTutorDaily",
 };
 
-const PREMIUM_ONLY = new Set(["exam", "voiceTutor"]);
+const PREMIUM_ONLY = new Set(["exam", "voiceTutor", "resultInsights"]);
 
 function usageKeyFor(feature) {
   return { summary: "summaries", mcqGen: "mcqGens", guidedStudy: "guidedStudies" }[feature];

@@ -104,7 +104,7 @@ function nameHash(name) {
   return Math.abs(h);
 }
 
-export function Avatar({ user, uri, name, size = 38, live = false }) {
+export function Avatar({ user, uri, name, size = 38, live = false, premium = false }) {
   const displayName = name || user?.name || user?.fullName || user?.username || "?";
   const src = uri || user?.avatar;
   const [failedSrc, setFailedSrc] = useState(null);
@@ -114,7 +114,7 @@ export function Avatar({ user, uri, name, size = 38, live = false }) {
   const showImg = okSrc && !def && !emoji;
   const inner = (
     <div
-      className="fd-avatar"
+      className={`fd-avatar${premium ? " prem" : ""}`}
       style={live
         ? { fontSize: size * 0.36, background: def || emoji ? "transparent" : AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }
         : { width: size, height: size, fontSize: size * 0.36, background: def || emoji ? "transparent" : AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }}

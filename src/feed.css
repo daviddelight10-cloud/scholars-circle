@@ -413,6 +413,8 @@ html[data-theme="light"] .fd-tag.question.answered { color: #0b5a3a; background:
   flex-shrink: 0;
 }
 .fd-avatar img { width: 100%; height: 100%; object-fit: cover; }
+/* Premium prestige — gold ring, pure cosmetic */
+.fd-avatar.prem { border: 2px solid #F5C542; box-shadow: 0 0 10px rgba(245, 197, 66, 0.35); }
 
 /* ─── Resource block ─── */
 .fd-resource, .fd-folder {

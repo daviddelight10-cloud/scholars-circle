@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconClock, IconCopy, IconCrown, IconList, IconShare, IconSpinner, IconUserMinus, IconUsers } from "../icons.jsx";
 import { messagesApi } from "../../messages/messagesApi.js";
 import AvatarMark from "../../../components/AvatarMark.jsx";
+import PremiumLock from "../../../components/PremiumLock.jsx";
+import { openPremium } from "../../../lib/premium.js";
 import { ConfirmSheet } from "../Sheets.jsx";
 
 const TIMES = [15, 20, 30, 45, 60];
 const REVEALS = [5, 10, 20, 30];
+const FREE_QUESTIONS = 10;  // free hosts run up to 10 questions
 const HOLD_DELAY_MS = 350;   // pause before press-and-hold starts repeating
 const HOLD_REPEAT_MS = 120;  // repeat cadence while held
 const SEND_THROTTLE_MS = 250; // coalesce WS sends — stays under the server rate limit
@@ -32,7 +35,10 @@ export default function LobbyView({ room, myId, actions }) {
   const sendTimerRef = useRef(null);
   const pendingNRef = useRef(null);
   const settingsRef = useRef(settings);
-  const maxQ = room.maxQuestions || 20;
+  // A free host runs the default format — only the question count is theirs
+  // to trim (≤10). Everything else is locked behind Premium host controls.
+  const hostIsFree = isHost && !room.hostPremium && !battle;
+  const maxQ = hostIsFree ? Math.min(room.maxQuestions || FREE_QUESTIONS, FREE_QUESTIONS) : (room.maxQuestions || 20);
   const displayNumQ = localNumQ ?? settings.numQuestions;
 
   // Keep refs synced post-render (event handlers read these, never render).
@@ -93,7 +99,10 @@ export default function LobbyView({ room, myId, actions }) {
 
   const me = participants.find((p) => p.userId === myId);
   const hostOffline = participants.find((p) => p.isHost)?.connected === false;
+  const seatedCount = participants.filter((p) => !p.spectator).length;
   const spectatorCount = participants.filter((p) => p.spectator).length;
+  const waitingCount = participants.filter((p) => p.waitlisted).length;
+  const roomCap = room.maxParticipants || 50;
   const hasSpectators = spectatorCount > 0;
   const inviteUrl = `${window.location.origin}/live/${code}`;
   const inviteText = `Join my live quiz on Scholar's Circle — "${title}" ⚡\n${inviteUrl}`;
@@ -210,12 +219,16 @@ export default function LobbyView({ room, myId, actions }) {
       {isHost && !battle ? (
         <div className="lq-setup-grid">
           <div className="lq-section">
-            <p className="lq-label">Time per question</p>
+            <div className="lq-lock-row">
+              <p className="lq-label">Time per question</p>
+              {hostIsFree && <PremiumLock feature="host_controls" />}
+            </div>
             <div className="lq-time-chips">
               {TIMES.map((t) => (
                 <button
                   key={t}
                   className={`lq-time-chip${settings.timePerQuestion === t ? " selected" : ""}`}
+                  disabled={hostIsFree}
                   onClick={() => actions.updateSettings(t, settings.numQuestions)}
                 >
                   {t}s
@@ -226,7 +239,9 @@ export default function LobbyView({ room, myId, actions }) {
           <div className="lq-section">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <p className="lq-label" style={{ marginBottom: 0 }}>Number of questions</p>
-              <p style={{ fontSize: 11, color: "var(--app-dim)", margin: 0 }}>Max: {room.maxQuestions || 20}</p>
+              <p style={{ fontSize: 11, color: "var(--app-dim)", margin: 0 }}>
+                {hostIsFree ? `Max: ${maxQ} free` : `Max: ${room.maxQuestions || 20}`}
+              </p>
             </div>
             <div className="lq-stepper">
               <button
@@ -255,18 +270,25 @@ export default function LobbyView({ room, myId, actions }) {
             </div>
           </div>
           <div className="lq-section">
-            <p className="lq-label">Time to review each answer</p>
+            <div className="lq-lock-row">
+              <p className="lq-label">Time to review each answer</p>
+              {hostIsFree && <PremiumLock feature="host_controls" />}
+            </div>
             <div className="lq-time-chips">
               {REVEALS.map((t) => (
                 <button
                   key={t}
                   className={`lq-time-chip${(settings.revealSeconds || 10) === t ? " selected" : ""}`}
+                  disabled={hostIsFree}
                   onClick={() => actions.updateSettings(settings.timePerQuestion, settings.numQuestions, t)}
                 >
                   {t}s
                 </button>
               ))}
             </div>
+            {hostIsFree && (
+              <p className="lq-free-hint">Free rooms run 30s a question, up to {FREE_QUESTIONS} questions.</p>
+            )}
           </div>
         </div>
       ) : (
@@ -282,7 +304,23 @@ export default function LobbyView({ room, myId, actions }) {
       )}
 
       <div className="lq-section">
-        <p className="lq-label"><IconUsers size={12} style={{ verticalAlign: "-2px" }} /> Participants ({participants.length}/{room.maxParticipants || 50}){hasSpectators ? ` · ${spectatorCount} watching` : ""}</p>
+        <p className="lq-label"><IconUsers size={12} style={{ verticalAlign: "-2px" }} /> Participants ({seatedCount}/{roomCap}){hasSpectators ? ` · ${spectatorCount} watching` : ""}</p>
+        {hostIsFree && (
+          <p className="lq-free-hint">
+            Room fills at {roomCap} · <button type="button" className="lq-link" onClick={() => openPremium("live_seats")}>Premium hosts seat 50</button>
+          </p>
+        )}
+        {waitingCount > 0 && (
+          <p className="lq-wait-banner" role="status">
+            ⏳ {waitingCount} {waitingCount === 1 ? "person is" : "people are"} waiting for a seat
+            {isHost && !room.hostPremium && <> — <button type="button" className="lq-link" onClick={() => openPremium("live_seats")}>go Premium to seat them</button></>}
+          </p>
+        )}
+        {me?.waitlisted && (
+          <p className="lq-wait-banner" role="status">
+            ⏳ You're on the waitlist — you'll keep watching and get a seat when one frees up.
+          </p>
+        )}
         {hostOffline && (
           <p className="lq-host-offline" role="status">
             👑 Host is offline — waiting for them to reconnect. The session can't start without the host.
@@ -297,7 +335,9 @@ export default function LobbyView({ room, myId, actions }) {
                 <AvatarMark avatar={p.avatar} name={p.username} size={40} className="lq-invite-avatar"
                   style={{ background: p.avatar ? "unset" : p.color, opacity: p.connected ? 1 : 0.4 }} />
                 <p className="lq-invite-name">
-                  {p.username}{p.userId === myId ? " (You)" : ""}{p.isHost ? " · Host" : ""}
+                  {p.premium && <span className="lq-prem" title="Premium">⭐</span>}
+                  {p.username}{p.userId === myId ? " (You)" : ""}
+                  {p.isHost ? <span className={p.premium ? "lq-host-tag prem" : "lq-host-tag"}> · Host</span> : ""}
                 </p>
                 {isHost && p.userId !== myId ? (
                   <span className="lq-host-tools">
@@ -316,7 +356,7 @@ export default function LobbyView({ room, myId, actions }) {
                   </span>
                 ) : (
                   <span className={`lq-invite-status ${ready ? "lq-status-ready" : "lq-status-waiting"}`}>
-                    {p.spectator ? "👁 watching" : ready ? <><IconCheck size={12} /> Ready</> : <><IconSpinner size={12} /> Waiting…</>}
+                    {p.waitlisted ? "⏳ waitlist" : p.spectator ? "👁 watching" : ready ? <><IconCheck size={12} /> Ready</> : <><IconSpinner size={12} /> Waiting…</>}
                   </span>
                 )}
               </div>
@@ -336,8 +376,18 @@ export default function LobbyView({ room, myId, actions }) {
               {battle ? "Lineup members can join until the first question starts." : "Anyone can still join after you start — latecomers watch first, then play from a later question."}
             </p>
           </>
+        ) : me?.waitlisted ? (
+          <button
+            className="lq-btn-primary"
+            disabled={seatedCount >= roomCap}
+            onClick={actions.spectatorJoin}
+          >
+            {seatedCount < roomCap ? "Claim a seat — one just freed!" : "On the waitlist — watching for a seat…"}
+          </button>
         ) : me?.lobbyReady ? (
           <button className="lq-btn-primary loading" disabled>Waiting for host to start…</button>
+        ) : me?.spectator ? (
+          <button className="lq-btn-primary" onClick={actions.spectatorJoin}>Join as a player</button>
         ) : (
           <button className="lq-btn-primary" onClick={() => actions.lobbyReady(true)}>Ready Up!</button>
         )}

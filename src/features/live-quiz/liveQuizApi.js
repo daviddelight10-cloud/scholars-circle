@@ -1,10 +1,15 @@
 import { API_BASE } from "../../lib/constants";
 import { authFetch } from "../../lib/authToken.js";
+import { openPremium, premiumRequiredError } from "../../lib/premium.js";
 
 async function request(path, options = {}) {
   const res = await authFetch(`${API_BASE}${path}`, options);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    // Server-side premium gate — open the modal with the feature headline.
+    if (data.code === "premium_required") openPremium(data.feature);
+    throw data.code === "premium_required" ? premiumRequiredError(data) : new Error(data.error || `Request failed (${res.status})`);
+  }
   return data;
 }
 

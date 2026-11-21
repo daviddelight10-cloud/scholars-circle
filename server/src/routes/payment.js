@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createHmac } from "crypto";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { invalidatePremium } from "../lib/premium.js";
 
 const router = Router();
 
@@ -129,6 +130,7 @@ router.post("/verify", requireAuth, async (req, res) => {
       },
       select: { id: true, isActivated: true, planType: true, activationExpiry: true, username: true, role: true },
     });
+    invalidatePremium(req.user.sub);
 
     // No new token — Supabase handles tokens. Frontend refreshes via /auth/refresh.
     res.json({ activated: true, user: updated });
@@ -231,6 +233,7 @@ router.post("/webhook", async (req, res) => {
           paymentStatus: "verified",
         },
       });
+      invalidatePremium(user.id);
 
       console.log("Webhook: User activated", { userId: user.id, plan, reference });
     }
@@ -264,6 +267,7 @@ router.get("/status", requireAuth, async (req, res) => {
         where: { id: req.user.sub },
         data: { isActivated: false, planType: null },
       });
+      invalidatePremium(req.user.sub);
       return res.json({ isActivated: false, expired: true });
     }
 

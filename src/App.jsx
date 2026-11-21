@@ -79,6 +79,7 @@ import {
   LECTURER_ALLOWED_TABS, LECTURER_HOME_TAB,
 } from "./lib/constants";
 import { PLANS, getPlan, naira, waPaymentProofLink } from "./lib/plans.js";
+import { PREMIUM_HEADLINES } from "./lib/premium.js";
 import { adoptServerGems } from "./features/streak-survival/survivalStore.js";
 import { localDayKey, tzOffsetMinutes } from "./lib/dayKey.js";
 import {
@@ -614,7 +615,10 @@ function App() {
 
   // Listen for custom event from ResourceViewer (works when rendered in-app)
   useEffect(() => {
-    const handleOpenPremium = () => setShowPaymentModal(true);
+    const handleOpenPremium = (e) => {
+      setPremiumFeature(e?.detail?.feature || null);
+      setShowPaymentModal(true);
+    };
     window.addEventListener("sc-open-premium", handleOpenPremium);
     return () => window.removeEventListener("sc-open-premium", handleOpenPremium);
   }, []);
@@ -945,6 +949,7 @@ function App() {
 
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState(null);
 
   const paymentModalA11y = useModalA11y({
     isOpen: showPaymentModal,
@@ -7576,6 +7581,12 @@ function App() {
               <button onClick={() => setShowPaymentModal(false)} aria-label="Close dialog" style={{ background: "none", border: "none", color: "#7b82b8", fontSize: 20, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: "16px 20px" }}>
+              {/* Feature headline — what the user tried to do when the gate fired */}
+              {premiumFeature && (
+                <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 10, background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.25)", fontSize: 13, fontWeight: 600, color: "#FFD700", lineHeight: 1.4 }}>
+                  ⭐ {PREMIUM_HEADLINES[premiumFeature] || PREMIUM_HEADLINES.premium}
+                </div>
+              )}
               {/* Plan picker — horizontal row */}
               <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                 {PLANS.map((p) => (

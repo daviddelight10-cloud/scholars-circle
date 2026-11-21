@@ -15,7 +15,9 @@ import {
   handleMessage,
   endRoom,
   MAX_PARTICIPANTS,
+  FREE_MAX_PLAYERS,
 } from "../lib/liveQuizRooms.js";
+import { isPremium, premiumRequired } from "../lib/premium.js";
 
 const router = Router();
 
@@ -35,16 +37,24 @@ function userId(req) {
 }
 
 // Prefer the display name (what friends know them as) over the username handle.
-// One lookup also grabs the profile avatar so lobbies can show real characters.
+// One lookup also grabs the profile avatar so lobbies can show real characters,
+// and the premium flag for the gold marks.
 export async function identityFor(id, fallback) {
   try {
     const u = await prisma.user.findUnique({
       where: { id },
-      select: { username: true, fullName: true, userProfile: { select: { avatar: true } } },
+      select: {
+        username: true, fullName: true, isActivated: true, activationExpiry: true, role: true,
+        userProfile: { select: { avatar: true } },
+      },
     });
-    return { name: u?.fullName || u?.username || fallback || "Scholar", avatar: u?.userProfile?.avatar || null };
+    const role = String(u?.role || "").toUpperCase();
+    const premium =
+      ["TEACHER", "LECTURER", "ADMIN"].includes(role) ||
+      (u?.isActivated === true && (!u.activationExpiry || new Date(u.activationExpiry) > new Date()));
+    return { name: u?.fullName || u?.username || fallback || "Scholar", avatar: u?.userProfile?.avatar || null, premium };
   } catch {
-    return { name: fallback || "Scholar", avatar: null };
+    return { name: fallback || "Scholar", avatar: null, premium: false };
   }
 }
 
@@ -114,7 +124,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ error: "This MCQ set is empty" });
     }
 
-    const host = await identityFor(uid, req.user.username);
+    const [host, hostIsPremium] = await Promise.all([identityFor(uid, req.user.username), isPremium(uid)]);
     const room = createRoom({
       hostId: uid,
       hostName: host.name,
@@ -123,8 +133,10 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       title: mcq.title,
       questions: shuffle(questions),
       settings: { timePerQuestion, numQuestions },
+      maxPlayers: hostIsPremium ? MAX_PARTICIPANTS : FREE_MAX_PLAYERS,
+      hostPremium: hostIsPremium,
     });
-    registerParticipant(room, uid, host.name, host.avatar);
+    registerParticipant(room, uid, host.name, host.avatar, { premium: hostIsPremium });
 
     const ticket = generateTicket(room.id, userId(req));
     res.json({
@@ -194,7 +206,7 @@ router.get("/active", requireAuth, async (req, res) => {
       if (room.phase !== "lobby" && room.phase !== "transition") continue;
       const connected = [...room.participants.values()].filter((p) => p.connected).length;
       const total = room.participants.size;
-      if (total >= MAX_PARTICIPANTS && !room.participants.has(uid)) continue;
+      if (total >= (room.maxPlayers || MAX_PARTICIPANTS) && !room.participants.has(uid)) continue;
       const host = room.participants.get(room.hostId);
       out.push({
         code: room.code,
@@ -204,7 +216,7 @@ router.get("/active", requireAuth, async (req, res) => {
         isMember: room.participants.has(uid),
         players: total,
         connected,
-        maxPlayers: MAX_PARTICIPANTS,
+        maxPlayers: room.maxPlayers || MAX_PARTICIPANTS,
         mcqResourceId: room.mcqResourceId || null,
         resourceId: room.resourceId || null,
         questions: Math.min(room.settings?.numQuestions || room.allQuestions?.length || 0, room.allQuestions?.length || 0),
@@ -282,6 +294,7 @@ router.get("/for-material/:id", requireAuth, async (req, res) => {
       const host = room.participants.get(room.hostId);
       const lobby = room.phase === "lobby" || room.phase === "transition";
       const players = [...room.participants.values()].filter((p) => !p.spectator).length;
+      const maxPlayers = room.maxPlayers || MAX_PARTICIPANTS;
       out.push({
         code: room.code,
         title: room.title,
@@ -290,9 +303,11 @@ router.get("/for-material/:id", requireAuth, async (req, res) => {
         lobby,
         players,
         connected: [...room.participants.values()].filter((p) => p.connected).length,
-        maxPlayers: MAX_PARTICIPANTS,
+        maxPlayers,
         isMember: room.participants.has(uid),
-        joinable: lobby ? (players < MAX_PARTICIPANTS ? "player" : "full") : "spectator",
+        // "waitlist" — the lobby is full but you can still watch until a seat
+        // frees (or the host upgrades). Client labels it accordingly.
+        joinable: lobby ? (players < maxPlayers ? "player" : "waitlist") : "spectator",
         createdAt: room.createdAt,
       });
     }
@@ -324,7 +339,7 @@ router.get("/:code", optionalAuth, async (req, res) => {
       // Late joiners can watch a session in progress (battles stay lineup-only).
       spectatable: !room.battle && room.phase !== "lobby" && room.phase !== "transition" && room.phase !== "complete",
       participantCount: [...room.participants.values()].filter((p) => p.connected).length,
-      maxParticipants: MAX_PARTICIPANTS,
+      maxParticipants: room.maxPlayers || MAX_PARTICIPANTS,
       settings: room.settings,
       isMember: req.user ? room.participants.has(userId(req)) : false,
     });
@@ -352,10 +367,10 @@ router.post("/join", requireAuth, async (req, res) => {
     // rooms stay lineup-only (registerParticipant enforces that).
     const spectator = !already && room.phase !== "lobby" && room.phase !== "transition";
     const who = await identityFor(uid, req.user.username);
-    const reg = registerParticipant(room, uid, who.name, who.avatar, { spectator });
+    const reg = registerParticipant(room, uid, who.name, who.avatar, { spectator, premium: who.premium });
     if (!reg.ok) return res.status(409).json({ error: reg.error });
     const ticket = generateTicket(room.id, uid);
-    res.json({ roomId: room.id, code: room.code, ticket, title: room.title, spectator: !!reg.participant.spectator });
+    res.json({ roomId: room.id, code: room.code, ticket, title: room.title, spectator: !!reg.participant.spectator, waitlisted: !!reg.participant.waitlisted });
   } catch (err) {
     console.error("Live quiz join error:", err);
     res.status(500).json({ error: "Failed to join session" });
@@ -375,6 +390,11 @@ router.post("/:roomId/voice-token", requireAuth, async (req, res) => {
   const room = getRoom(req.params.roomId);
   if (!room || room.phase === "ended") return res.status(404).json({ error: "Session not found" });
   if (!room.participants.has(userId(req))) return res.status(403).json({ error: "Not a participant" });
+  // Voice follows the host's plan — free players still get voice in a
+  // Premium-hosted room.
+  if (!room.hostPremium) {
+    return premiumRequired(res, "voice", "Voice chat needs a Premium host — upgrade to unlock mics for everyone in the room.");
+  }
 
   const { LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET } = process.env;
   if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {

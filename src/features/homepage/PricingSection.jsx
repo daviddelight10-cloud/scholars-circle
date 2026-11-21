@@ -7,16 +7,25 @@ const FREE_FEATURES = [
   'Then free forever — no card',
   '5 AI Tutor chats a day',
   'Practice questions with streaks & XP',
-  'Study live with friends',
+  'Join any live quiz or challenge — always free',
+  'Host live rooms for up to 8 friends',
+  '1 active exam challenge',
   'Works offline once installed'
 ];
 
 const PREMIUM_FEATURES = [
+  'Host live rooms — 50 seats + voice chat',
+  'Presenter mode, pause & custom pacing',
+  'Ranked & scheduled clan battles',
+  'Unlimited exam challenges — any deadline',
+  'Best-score scoring + reveal-on-close',
+  'All explanations & result insights',
+  'Challenge question stats for creators',
+  '⭐ Gold badge on leaderboards',
   'Unlimited AI Tutor & Circle to Ask',
-  'Unlimited practice questions',
-  'Voice Tutor — learn hands-free',
   'Exam simulator with topic breakdown',
   'Smart review — resurfaces what you\'ll forget',
+  'Voice Tutor — learn hands-free',
   'Clinical case simulations',
   'Drug reference & lab values',
   'Detailed progress analytics',

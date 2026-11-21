@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMaterialLives, joinLiveRoom } from "./liveQuizApi.js";
+import { isPremium, openPremium } from "../../lib/premium.js";
 import "./LiveJoinSheet.css";
 
 // "Live on this material" chooser: when someone is already live on the
@@ -89,7 +90,7 @@ export function LiveJoinSheet({ rooms, onClose, onHost }) {
               </div>
               {r.joinable !== "full" ? (
                 <button className="ljs-join" onClick={() => join(r)} disabled={!!busy}>
-                  {busy === r.code ? "Joining…" : r.lobby ? "Join" : "Watch"}
+                  {busy === r.code ? "Joining…" : r.joinable === "waitlist" ? "Waitlist" : r.lobby ? "Join" : "Watch"}
                 </button>
               ) : (
                 <span className="ljs-full">Full</span>
@@ -104,6 +105,11 @@ export function LiveJoinSheet({ rooms, onClose, onHost }) {
         <button className="ljs-host" onClick={host} disabled={!!busy}>
           {busy === "host" ? "Creating…" : "⚡ Host your own live"}
         </button>
+        {!isPremium() && (
+          <button type="button" className="ljs-host-hint" onClick={() => openPremium("live_seats")}>
+            Host up to 8 players free · <b>50 with Premium</b>
+          </button>
+        )}
       </div>
     </div>
   );
