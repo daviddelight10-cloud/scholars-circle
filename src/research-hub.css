@@ -2562,6 +2562,16 @@ html[data-theme="light"] .mc-row-new-txt { color: #8a5a00; }
   background: rgba(255,179,0,.12); color: var(--mc-accent);
   border-color: rgba(255,179,0,.4);
 }
+
+/* "Show all" expander under capped lists */
+.mc-showall {
+  display: block; width: fit-content; margin: 16px auto 4px;
+  border: 1px solid var(--mc-border); color: var(--mc-muted);
+  background: var(--app-tint-soft); font-size: 12.5px; font-weight: 700;
+  padding: 10px 18px; border-radius: 999px; cursor: pointer;
+  font-family: inherit; transition: all .15s;
+}
+.mc-showall:hover { color: var(--mc-text); border-color: var(--app-border); }
 .mc-c-count {
   font-size: 11px; font-weight: 700; color: var(--mc-muted);
   background: var(--app-tint-soft); border: 1px solid var(--app-tint-med);

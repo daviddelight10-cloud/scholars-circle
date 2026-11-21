@@ -144,9 +144,8 @@ export function Leaderboard({ token }) {
 
   return (
     <div className="lb-root">
-      {/* Header: title + league chip + my rank + reset countdown */}
+      {/* Header: league chip + my rank + reset countdown (tab title lives in pg-head) */}
       <div className="lb-head">
-        <h2>Leaderboard</h2>
         <div className="lb-head-sub">
           <span className="lb-tier" style={{ color: tier.color }}>
             {tier.icon} {cap(leagueInfo?.tier || "bronze")} Circle

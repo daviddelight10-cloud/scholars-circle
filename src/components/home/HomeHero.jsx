@@ -127,6 +127,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
     : { folder: effScope === "all" ? "__all__" : effScope, size: n || undefined });
 
   return (
+    <>
     <div className={`hm-hero${idle ? " idle" : ""}`}>
       <div className="hm-hero-glow" aria-hidden="true" />
       <div className="hm-hero-top">
@@ -205,7 +206,10 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
           Customise <Chevron />
         </span>
       </button>
+    </div>
 
+      {/* Sheets live outside .hm-hero — its idle heartbeat animates
+          transform, which would trap position:fixed children inside it */}
       <Sheet open={optsOpen} onClose={() => setOptsOpen(false)}>
         <SheetHead title="Review options" onClose={() => setOptsOpen(false)} />
         {foldersLoading && (
@@ -251,7 +255,7 @@ function ReturningHero({ fsrsStats, bankDueCount, folders, foldersLoading, prefs
         </button>
       </Sheet>
       <MaterialsSheet open={matsOpen} onClose={() => setMatsOpen(false)} materials={scopeMats} selected={pickedMats.map((m) => m.id)} onChange={setPick} />
-    </div>
+    </>
   );
 }
 

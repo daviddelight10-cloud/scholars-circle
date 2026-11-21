@@ -2542,7 +2542,7 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   @keyframes pg-content-in {
     from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: none; }
   }
   .pg-content { animation: pg-content-in 0.28s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
 }

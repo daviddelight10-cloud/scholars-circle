@@ -54,8 +54,11 @@ const TYPE_SEGMENTS = [
   { value: "pdf", label: "Documents" },
 ];
 
+// Documents tab shows this many PDFs until "Show all" is tapped
+const DOCS_PAGE = 24;
+
 const communityEmptyStates = {
-  pdf: { icon: "📕", title: "No PDFs found", message: "Try adjusting your filters or search." },
+  pdf: { icon: "📕", title: "No documents found", message: "Try a different filter or search — shared materials appear here." },
   folders: { icon: "📁", title: "No shared folders yet", message: "When teachers create shared folders, they'll appear here for you to bookmark." },
 };
 
@@ -1818,6 +1821,25 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   // Filtered PDF list (search + filters already applied upstream)
   const visiblePdfs = communityPdfs;
 
+  // Documents tab — grouped like Decks (university → popular → recent),
+  // capped so first paint isn't a wall of hundreds of cards.
+  const [docsExpanded, setDocsExpanded] = useState(false);
+  useEffect(() => { setDocsExpanded(false); }, [search, filters, communityType]);
+  const docSections = useMemo(() => {
+    const list = docsExpanded ? visiblePdfs : visiblePdfs.slice(0, DOCS_PAGE);
+    const uniName = userProfile?.university?.name;
+    const fromUni = list.filter((r) => userUniId && r.universityId && String(r.universityId) === String(userUniId));
+    const uniIds = new Set(fromUni.map((r) => r.id));
+    const popular = list.filter((r) => !uniIds.has(r.id) && (r._count?.bookmarks || 0) >= 3);
+    const popIds = new Set(popular.map((r) => r.id));
+    const rest = list.filter((r) => !uniIds.has(r.id) && !popIds.has(r.id));
+    return [
+      ...(fromUni.length > 0 ? [{ label: uniName || "Your university", pdfs: fromUni }] : []),
+      ...(popular.length > 0 ? [{ label: "Popular", pdfs: popular }] : []),
+      ...(rest.length > 0 ? [{ label: "Recent", pdfs: rest }] : []),
+    ];
+  }, [visiblePdfs, docsExpanded, userUniId, userProfile]);
+
   // Filter-pill option lists (levels + schools seen in the community feed)
   const levelOptions = useMemo(() => {
     const set = new Set();
@@ -2485,10 +2507,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                       </>
                     )}
 
-                    {/* PDFs */}
+                    {/* Documents */}
                     {communityType !== "folders" && (
                       <>
-                        <div className="mc-section-label">PDF DOCUMENTS</div>
                         {resourcesLoading ? (
                           <LoadingState grid count={4} />
                         ) : resourcesError ? (
@@ -2500,19 +2521,31 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                             message={communityEmptyStates.pdf.message}
                           />
                         ) : (
-                          <div className="mc-pdfs-grid">
-                            {visiblePdfs.map((resource) => (
-                              <PdfCard
-                                key={resource.id}
-                                resource={resource}
-                                isBookmarked={bookmarkedIds.has(resource.id)}
-                                bookmarkBusy={bookmarkBusyId === resource.id}
-                                onOpen={(r) => handleOpen(r.shareToken)}
-                                onToggleBookmark={toggleBookmark}
-                                onOpenActions={openCardActions}
-                              />
+                          <>
+                            {docSections.map((section) => (
+                              <div key={section.label}>
+                                <div className="mc-section-label">{section.label.toUpperCase()}</div>
+                                <div className="mc-pdfs-grid">
+                                  {section.pdfs.map((resource) => (
+                                    <PdfCard
+                                      key={resource.id}
+                                      resource={resource}
+                                      isBookmarked={bookmarkedIds.has(resource.id)}
+                                      bookmarkBusy={bookmarkBusyId === resource.id}
+                                      onOpen={(r) => handleOpen(r.shareToken)}
+                                      onToggleBookmark={toggleBookmark}
+                                      onOpenActions={openCardActions}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
                             ))}
-                          </div>
+                            {!docsExpanded && visiblePdfs.length > DOCS_PAGE && (
+                              <button className="mc-showall" onClick={() => setDocsExpanded(true)}>
+                                Show all {visiblePdfs.length} documents
+                              </button>
+                            )}
+                          </>
                         )}
                       </>
                     )}

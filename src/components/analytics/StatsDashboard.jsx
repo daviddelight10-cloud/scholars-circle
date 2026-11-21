@@ -187,12 +187,8 @@ export default function StatsDashboard({ stats, history, subjects }) {
 
   return (
     <div className="sd-root">
-      {/* ── Header ── */}
+      {/* ── Range chips (tab title lives in pg-head) ── */}
       <div className="sd-head">
-        <div>
-          <h2 className="sd-title">Your stats</h2>
-          <p className="sd-sub">Memory, streaks and workload from spaced repetition</p>
-        </div>
         <div className="sd-range">
           {[7, 30, 90].map((d) => (
             <button key={d} className={`sd-chip${days === d ? " on" : ""}`} onClick={() => setDays(d)}>{d}D</button>
@@ -317,7 +313,6 @@ export default function StatsDashboard({ stats, history, subjects }) {
                 <h4>{row.name}</h4>
                 <span>
                   {row.total} items{row.due > 0 ? ` · ${row.due} due` : ""}
-                  {row.diff ? ` · diff ${row.diff.toFixed ? row.diff.toFixed(1) : row.diff}/10` : ""}
                   {row.lapsePct > 0 ? ` · ${row.lapsePct}% ever missed` : ""}
                 </span>
               </div>

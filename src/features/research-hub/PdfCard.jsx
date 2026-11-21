@@ -76,12 +76,6 @@ function PdfCard({
 
       <div className="mc-p-facts">
         <span className="mc-fmt">PDF</span>
-        {resource.fileName && (
-          <>
-            <span className="mc-f">{resource.fileName}</span>
-            <span className="mc-dot">·</span>
-          </>
-        )}
         {dateLabel && (
           <>
             <span className="mc-f">{dateLabel}</span>
