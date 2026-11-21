@@ -29,6 +29,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       display: "flex",
       flexDirection: "column",
       flexShrink: 0,
+      position: "relative",
     },
     toolbarRow: {
       display: "flex",

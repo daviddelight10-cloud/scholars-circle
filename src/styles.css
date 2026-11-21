@@ -4451,36 +4451,38 @@ textarea {
 @media (max-width: 768px) {
 
   .app {
-    padding: 10px 10px calc(92px + env(safe-area-inset-bottom));
+    padding: 10px 10px calc(78px + env(safe-area-inset-bottom));
     min-height: 100dvh;
   }
 
-  /* Floating tab-bar pill — native-app chrome instead of an edge strip */
+  /* Flush tab bar — paints through the home-indicator inset like a native
+     tab bar; buttons stay above it via the padding-bottom inset below. */
   .mobile-nav {
     display: flex;
     position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 100;
-    background: rgba(var(--app-glass-rgb),0.82);
+    background: rgba(var(--app-glass-rgb),0.92);
     backdrop-filter: blur(24px) saturate(1.4);
     -webkit-backdrop-filter: blur(24px) saturate(1.4);
-    border: 1px solid var(--app-tint-med);
-    border-radius: 999px;
-    padding: 6px;
+    border: none;
+    border-top: 1px solid var(--app-tint-med);
+    border-radius: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
     gap: 4px;
     justify-content: space-around;
     align-items: center;
     overscroll-behavior: contain;
     touch-action: manipulation;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
   }
 
   .light .mobile-nav {
-    background: rgba(247, 247, 251, 0.88);
-    border-color: rgba(var(--app-glass-rgb),0.1);
-    box-shadow: 0 12px 32px rgba(var(--app-glass-rgb),0.16), 0 2px 8px rgba(var(--app-glass-rgb),0.1);
+    background: rgba(247, 247, 251, 0.94);
+    border-top-color: rgba(var(--app-glass-rgb),0.12);
+    box-shadow: 0 -8px 28px rgba(var(--app-glass-rgb),0.12);
   }
 
   .mobile-nav button {
@@ -4680,6 +4682,28 @@ textarea {
 
 @keyframes mmSlideDown {
   to { transform: translateY(105%); }
+}
+
+/* === PDF reader — circle-to-ask hints === */
+@keyframes pdfCircleHintIn {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes pdfCircleHintOut {
+  to { opacity: 0; transform: translate(-50%, 8px); }
+}
+.pdf-circle-hint {
+  animation: pdfCircleHintIn 0.3s ease both, pdfCircleHintOut 0.4s ease 5.5s forwards;
+}
+.pdf-circle-hint--sticky {
+  animation: pdfCircleHintIn 0.3s ease both;
+}
+@keyframes pdfAskPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 142, 247, 0.5); }
+  50%      { box-shadow: 0 0 0 7px rgba(79, 142, 247, 0); }
+}
+.pdf-ask-pulse {
+  animation: pdfAskPulse 1.2s ease infinite;
 }
 
 /* Staggered rise for each direct child on open */

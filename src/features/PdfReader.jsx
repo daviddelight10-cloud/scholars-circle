@@ -83,6 +83,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Tool mode: "none" | "highlight" | "erase" | "circle" | "pen"
   const [tool, setTool] = useState("none");
+  const [askNudge, setAskNudge] = useState(false); // intro "circle" — hint at the Ask AI tool instead of auto-arming it
   const [penColor, setPenColor] = useState(INK_COLORS[0].value);
 
 
@@ -1801,7 +1802,13 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   useEffect(() => {
     let intro = null;
     try { intro = sessionStorage.getItem("sc_reader_intro"); sessionStorage.removeItem("sc_reader_intro"); } catch { /* storage unavailable */ }
-    if (intro === "circle") setTool("circle");
+    // "circle" must NOT arm the tool — the user has to tap Ask AI themselves.
+    // We just nudge them toward it with a hint pill + a pulse on the button.
+    if (intro === "circle") {
+      setAskNudge(true);
+      const t = setTimeout(() => setAskNudge(false), 7000);
+      return () => clearTimeout(t);
+    }
     else if (intro === "chat") openChatDirect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2799,6 +2806,7 @@ Passage:
   // ---- Tool toggle helper ----
   const toggleTool = (t) => {
     setSelPop(null); // arming a tool clears any open selection popover/pending paint
+    setAskNudge(false);
     buzz(10);
     setTool((prev) => {
       const next = prev === t ? "none" : t;
@@ -3272,6 +3280,12 @@ Passage:
         transition: "transform 0.24s ease",
       }}>
       <div style={s.toolbar}>
+        {/* Slim reading progress — pinned to the toolbar's bottom edge */}
+        {numPages > 0 && (
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 2, pointerEvents: "none", zIndex: 1 }}>
+            <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, (currentPage / numPages) * 100))}%`, background: T.accent, borderRadius: 1, transition: "width 0.2s ease" }} />
+          </div>
+        )}
         {isMobile ? (
           <>
             {/* Mobile single-row toolbar */}
@@ -5054,6 +5068,46 @@ Passage:
         )}
       </div>{/* end workspace */}
 
+          {/* Circle-to-Ask active — Google-style light overlay (non-blocking,
+              pointer-events none so lasso/pointer drawing still works) */}
+          {circleMode && !loading && !loadError && (
+            <div style={{
+              position: "absolute", inset: 0, zIndex: 40, pointerEvents: "none",
+              boxShadow: "inset 0 0 0 1.5px rgba(79,142,247,0.5), inset 0 -100px 140px -70px rgba(79,142,247,0.32), inset 0 100px 140px -70px rgba(79,142,247,0.2)",
+              background: "linear-gradient(180deg, rgba(79,142,247,0.05), rgba(79,142,247,0.015) 40%, rgba(79,142,247,0.05))",
+            }}>
+              <div className="pdf-circle-hint" style={{
+                position: "absolute", left: "50%", bottom: 96, transform: "translateX(-50%)",
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "9px 15px", borderRadius: 22,
+                background: "rgba(15,20,32,0.88)", color: "#dbe6ff",
+                fontSize: 12.5, fontWeight: 600, fontFamily: "Manrope, system-ui, sans-serif",
+                whiteSpace: "nowrap", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
+                Circle, highlight, or tap anything — AI explains it
+              </div>
+            </div>
+          )}
+
+          {/* "Read & ask AI" nudge — the intro didn't arm the tool; point at it */}
+          {askNudge && !circleMode && !loading && !loadError && (
+            <div className="pdf-circle-hint pdf-circle-hint--sticky" style={{
+              position: "absolute", left: "50%", bottom: 96, transform: "translateX(-50%)",
+              zIndex: 60, pointerEvents: "none",
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "9px 15px", borderRadius: 22,
+              background: "rgba(15,20,32,0.88)", color: "#dbe6ff",
+              fontSize: 12.5, fontWeight: 600, fontFamily: "Manrope, system-ui, sans-serif",
+              whiteSpace: "nowrap", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
+              Tap <b style={{ color: "#8fb8ff" }}>Ask AI</b> below, then circle anything on the page
+            </div>
+          )}
+
           {/* Floating nav pill — page nav + zoom + circle-to-ask (mobile & desktop) */}
           {!chromeHidden && !loading && !loadError && (
             <div
@@ -5130,6 +5184,7 @@ Passage:
                     fontFamily: "inherit",
                     transition: "all 0.15s ease",
                   }}
+                  className={askNudge ? "pdf-ask-pulse" : undefined}
                   onClick={() => toggleTool("circle")}
                   title="Circle to Ask AI"
                 >
