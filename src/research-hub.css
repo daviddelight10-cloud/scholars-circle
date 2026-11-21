@@ -531,7 +531,7 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--app-tint-med);
-  padding-top: 14px;
+  padding-top: calc(14px + env(safe-area-inset-top));
   padding-bottom: 10px;
   margin-bottom: 18px;
 }
