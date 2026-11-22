@@ -1,16 +1,43 @@
 /* ── Faculty portal chrome ─────────────────────────────────────────────
-   Layout shell for the staff site (sidebar on desktop, top bar + drawer
-   on mobile). Screens inside reuse the app's own styles. */
+   "Sleek dark admin": cool near-black surfaces, hairline borders, indigo
+   accent. The token block below re-defines the app's CSS vars inside the
+   portal scopes, so every reused screen (Dashboard, Classroom, Space…)
+   picks up the staff palette without markup changes. */
+
+.fc-shell,
+.fc-gate,
+.fc-auth {
+  --app-bg: #0b0d10;
+  --app-panel: #11141a;
+  --app-text: #e8eaf0;
+  --app-faint: #6b7280;
+  --app-border: #1e242e;
+  --app-tint-rgb: 255, 255, 255;
+  --app-line: rgba(255, 255, 255, 0.08);
+  --app-line-strong: rgba(255, 255, 255, 0.14);
+  --app-tint-soft: rgba(255, 255, 255, 0.04);
+  --app-tint-med: rgba(255, 255, 255, 0.07);
+  --app-tint-strong: rgba(255, 255, 255, 0.11);
+  --app-hover: rgba(255, 255, 255, 0.05);
+  --app-tint: rgba(91, 140, 255, 0.14);
+  --app-shadow: rgba(0, 0, 0, 0.6);
+  --app-accent: #5b8cff;
+  --app-accent2: #4f7cff;
+  --app-accent-fill: #4f7cff;
+  --app-accent-soft: rgba(91, 140, 255, 0.14);
+  --app-accent-line: rgba(91, 140, 255, 0.35);
+}
 
 .fc-shell {
   display: flex;
   min-height: 100dvh;
   background: var(--app-bg);
+  color: var(--app-text);
 }
 
-/* Sidebar (desktop) */
+/* ── Sidebar (desktop) ─────────────────────────────────────────────── */
 .fc-side {
-  width: 236px;
+  width: 248px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -19,70 +46,138 @@
   flex-direction: column;
   border-right: 1px solid var(--app-border);
   background: var(--app-panel);
-  padding: 18px 12px;
+  padding: 20px 12px 14px;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .fc-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 8px 18px;
-  color: var(--app-accent, #F5A623);
+  padding: 2px 8px 20px;
 }
-.fc-brand div { display: flex; flex-direction: column; line-height: 1.15; }
-.fc-brand b { font-size: 0.95rem; color: var(--app-text); }
+.fc-brand-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--app-accent-soft);
+  border: 1px solid var(--app-accent-line);
+  color: var(--app-accent);
+  flex-shrink: 0;
+}
+.fc-brand div { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.fc-brand b { font-size: 0.92rem; color: var(--app-text); letter-spacing: -0.01em; }
 .fc-brand span {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--app-faint);
 }
 
-.fc-nav { flex: 1; display: flex; flex-direction: column; gap: 14px; }
-.fc-nav-sec { display: flex; flex-direction: column; gap: 2px; }
+.fc-nav { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.fc-nav-sec { display: flex; flex-direction: column; gap: 1px; }
 .fc-nav-label {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--app-faint);
-  padding: 4px 10px;
+  padding: 0 10px 5px;
 }
 
 .fc-nav-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   width: 100%;
-  padding: 10px;
+  padding: 8px 10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: none;
-  color: var(--app-text);
+  color: var(--app-faint);
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.fc-nav-item:hover { background: var(--app-hover); }
+.fc-nav-item svg { flex-shrink: 0; }
+.fc-nav-item:hover { background: var(--app-hover); color: var(--app-text); }
 .fc-nav-item.active {
   background: var(--app-tint);
-  color: var(--app-accent, #F5A623);
+  color: var(--app-accent);
+  font-weight: 600;
+}
+.fc-nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--app-accent);
 }
 
+/* Sidebar footer: student-app link + user card */
 .fc-side-foot {
   border-top: 1px solid var(--app-border);
-  padding-top: 10px;
+  padding-top: 8px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
+.fc-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--app-border);
+  background: var(--app-tint-soft);
+}
+.fc-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--app-accent-soft);
+  border: 1px solid var(--app-accent-line);
+  color: var(--app-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.fc-user-meta { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; flex: 1; }
+.fc-user-meta b {
+  font-size: 0.8rem;
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fc-user-meta span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+}
+.fc-user .fc-iconbtn { width: 30px; height: 30px; border-radius: 8px; }
 
-/* Top bar + drawer (mobile) */
+/* ── Top bar + drawer (mobile) ─────────────────────────────────────── */
 .fc-topbar {
   display: none;
   align-items: center;
@@ -95,13 +190,19 @@
   border-bottom: 1px solid var(--app-border);
   color: var(--app-text);
 }
-.fc-topbar b { font-size: 0.95rem; }
+.fc-topbar b { font-size: 0.92rem; letter-spacing: -0.01em; }
 .fc-topbar-user {
   margin-left: auto;
-  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.fc-topbar-user span {
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--app-faint);
-  max-width: 40%;
+  max-width: 40vw;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -113,19 +214,23 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--app-hover);
+  border: 1px solid var(--app-border);
+  border-radius: 9px;
+  background: var(--app-tint-soft);
   color: var(--app-text);
   cursor: pointer;
+  transition: background 0.15s ease;
 }
+.fc-iconbtn:hover { background: var(--app-hover); }
 
 .fc-drawer-veil {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.6);
+  animation: fc-fade 0.18s ease;
 }
+@keyframes fc-fade { from { opacity: 0; } }
 .fc-drawer {
   position: absolute;
   top: 0;
@@ -139,7 +244,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  animation: fc-slide 0.2s ease;
 }
+@keyframes fc-slide { from { transform: translateX(-24px); opacity: 0.4; } }
 .fc-drawer-head {
   display: flex;
   align-items: center;
@@ -147,16 +254,51 @@
   color: var(--app-text);
   padding: 0 8px;
 }
+.fc-drawer .fc-nav { flex: initial; }
+.fc-drawer-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
 
-/* Content */
+/* ── Content ───────────────────────────────────────────────────────── */
 .fc-main {
   flex: 1;
   min-width: 0;
-  padding: 22px 22px calc(28px + env(safe-area-inset-bottom, 0px));
-  max-width: 1100px;
+  padding: 26px 28px calc(32px + env(safe-area-inset-bottom, 0px));
+  max-width: 1160px;
 }
 
-/* Loading / login / gate screens */
+.fc-pagehead { margin: 0 0 20px; }
+.fc-pagehead h1 {
+  margin: 0;
+  font-size: 1.22rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+.fc-pagehead p {
+  margin: 3px 0 0;
+  font-size: 0.84rem;
+  color: var(--app-faint);
+}
+
+/* Screen polish inside the portal: tighter radii + tabular numerals on
+   numbers-heavy surfaces. Kept deliberately thin — the token swap does
+   the heavy lifting. */
+.fc-main { font-variant-numeric: tabular-nums; }
+
+/* ── Boot skeleton (initial session check) ─────────────────────────── */
+.fc-boot { pointer-events: none; }
+.fc-skel {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--app-tint-soft), var(--app-tint-med), var(--app-tint-soft));
+  background-size: 200% 100%;
+  animation: fc-shimmer 1.4s linear infinite;
+}
+@keyframes fc-shimmer { to { background-position: -200% 0; } }
+.fc-boot-nav { display: flex; flex-direction: column; gap: 10px; padding: 8px; }
+.fc-boot-main { display: flex; flex-direction: column; gap: 14px; }
+.fc-boot-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 900px) { .fc-boot-row { grid-template-columns: repeat(2, 1fr); } }
+
+/* Spinner kept for inner fallbacks */
 .fc-loader {
   display: flex;
   align-items: center;
@@ -167,11 +309,67 @@
   width: 32px;
   height: 32px;
   border: 3px solid var(--app-tint-strong);
-  border-top-color: var(--app-accent, #F5A623);
+  border-top-color: var(--app-accent);
   border-radius: 50%;
   animation: fc-spin 0.8s linear infinite;
 }
 @keyframes fc-spin { to { transform: rotate(360deg); } }
+
+/* ── Auth / gate screens ───────────────────────────────────────────── */
+.fc-auth {
+  display: grid;
+  grid-template-columns: minmax(380px, 46%) 1fr;
+  min-height: 100dvh;
+  background: var(--app-bg);
+}
+.fc-auth-side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  padding: 56px 48px;
+  border-right: 1px solid var(--app-border);
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(91, 140, 255, 0.12), transparent 60%),
+    linear-gradient(var(--app-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--app-line) 1px, transparent 1px),
+    var(--app-panel);
+  background-size: auto, 44px 44px, 44px 44px, auto;
+  color: var(--app-text);
+}
+.fc-auth-side h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  max-width: 340px;
+}
+.fc-auth-side > p { margin: 0; font-size: 0.9rem; color: var(--app-faint); max-width: 340px; }
+.fc-auth-points { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.fc-auth-points div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--app-text);
+}
+.fc-auth-points svg { color: var(--app-accent); flex-shrink: 0; }
+.fc-auth-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.fc-auth-card {
+  width: min(400px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fc-auth-card h1 { font-size: 1.35rem; margin: 6px 0 0; letter-spacing: -0.02em; color: var(--app-text); }
+.fc-auth-card > p { color: var(--app-faint); font-size: 0.9rem; margin: 0; }
 
 .fc-gate {
   display: flex;
@@ -179,12 +377,13 @@
   justify-content: center;
   min-height: 100dvh;
   padding: 20px;
+  background: var(--app-bg);
 }
 .fc-gate-card {
   width: min(400px, 100%);
   background: var(--app-panel);
   border: 1px solid var(--app-border);
-  border-radius: 18px;
+  border-radius: 16px;
   padding: 30px 24px;
   text-align: center;
   color: var(--app-text);
@@ -193,14 +392,15 @@
   align-items: center;
   gap: 10px;
 }
-.fc-gate-card h1 { font-size: 1.3rem; margin: 4px 0 0; }
+.fc-gate-card > svg { color: var(--app-accent); }
+.fc-gate-card h1 { font-size: 1.3rem; margin: 4px 0 0; letter-spacing: -0.02em; }
 .fc-gate-card p { color: var(--app-faint); font-size: 0.9rem; margin: 0; }
 .fc-login-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .fc-btn {
   display: inline-flex;
@@ -208,17 +408,19 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 13px;
+  padding: 12px;
   border: 0;
-  border-radius: 12px;
-  background: var(--app-accent, #F5A623);
-  color: #14100a;
+  border-radius: 10px;
+  background: var(--app-accent-fill);
+  color: #fff;
   font: inherit;
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: 600;
+  font-size: 0.92rem;
   text-decoration: none;
   cursor: pointer;
+  transition: filter 0.15s ease;
 }
+.fc-btn:hover { filter: brightness(1.08); }
 .fc-btn:disabled { opacity: 0.6; cursor: default; }
 .fc-error { color: #ff7a7a; font-size: 0.85rem; margin: 0; text-align: left; }
 .fc-linkbtn {
@@ -236,14 +438,19 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 0.84rem;
 }
-.fc-gate-links a { color: var(--app-accent, #F5A623); font-weight: 600; }
+.fc-gate-links a { color: var(--app-accent); font-weight: 600; }
+
+@media (max-width: 960px) {
+  .fc-auth { grid-template-columns: 1fr; }
+  .fc-auth-side { display: none; }
+}
 
 @media (max-width: 900px) {
   .fc-side { display: none; }
   .fc-topbar { display: flex; }
   .fc-shell { flex-direction: column; }
-  .fc-main { padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .fc-main { padding: 18px 14px calc(26px + env(safe-area-inset-bottom, 0px)); }
 }

@@ -10,3 +10,10 @@ export const STUDENT_APP_URL = IS_FACULTY_HOST
 export const STUDENT_SIGNUP_URL = IS_FACULTY_HOST
   ? `${window.location.protocol}//${window.location.host.replace(/^faculty\./i, "")}/signup`
   : "/signup";
+
+// Staff-portal URL for links inside the student app: the faculty.<domain>
+// subdomain on the production domain, the /faculty path elsewhere (Vercel
+// previews, localhost — subdomains aren't available there).
+export const FACULTY_PORTAL_URL = /(^|\.)scholarscircle\.com\.ng$/i.test(window.location.hostname)
+  ? "https://faculty.scholarscircle.com.ng"
+  : "/faculty";

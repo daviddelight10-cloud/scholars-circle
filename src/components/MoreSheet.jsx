@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FACULTY_PORTAL_URL } from "../faculty/env.js";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import {
   X, Gem, Stethoscope, Pill, FlaskConical, Calculator, ChevronRight,
@@ -17,7 +18,7 @@ const DISMISS_VELOCITY_PX_PER_MS = 0.4;
  * unmounts it. Drag-to-dismiss works from the grip/handle zone so it
  * never fights with content scrolling.
  */
-export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeacher, isActivated }) {
+export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeacher, isActivated, isStaff }) {
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
   const [dragY, setDragY] = useState(0);
@@ -197,6 +198,18 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
             )}
           </div>
         </section>
+
+        {/* Staff portal link — staff tools live on the faculty site now */}
+        {isStaff && (
+          <section className="mm-group">
+            <div className="mm-label">Staff</div>
+            <div className="mm-list">
+              <a className="mm-row" href={FACULTY_PORTAL_URL}>
+                <GraduationCap size={20} /><span>Staff portal</span><ChevronRight className="mm-chev" size={16} />
+              </a>
+            </div>
+          </section>
+        )}
 
         {/* Faculty-only sections — same list style */}
         {isFaculty && (

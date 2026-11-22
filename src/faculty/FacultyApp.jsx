@@ -73,9 +73,42 @@ const NAV_SECTIONS = [
   },
 ];
 
-const Loader = () => (
-  <div className="fc-loader">
-    <div className="fc-spinner" />
+const VIEW_META = {
+  insights: ["Insights", "Performance of your shared materials"],
+  classroom: ["Classroom", "Classes, live sessions and assignments"],
+  questions: ["My Questions", "Your question bank"],
+  resources: ["Resources", "Upload and manage teaching materials"],
+  announce: ["Announcements", "Campus communication"],
+  space: ["Space", "Files and study materials"],
+  directory: ["Directory", "Lecturers and public profiles"],
+  dashboard: ["Dashboard", "Platform overview and admin tools"],
+  universities: ["Universities", "Manage institutions"],
+  departments: ["Departments", "Manage departments"],
+  keys: ["Student Keys", "Activation keys and access"],
+  invites: ["Invites", "Staff invite codes"],
+  profile: ["Profile", "Your public staff profile"],
+};
+
+const Boot = () => (
+  <div className="app dark fc-shell fc-boot">
+    <aside className="fc-side">
+      <div className="fc-brand">
+        <span className="fc-brand-logo"><BookOpen size={17} /></span>
+        <div><b>Scholar's Circle</b><span>Staff</span></div>
+      </div>
+      <div className="fc-boot-nav">
+        {[96, 72, 88, 64, 80].map((w, i) => <div key={i} className="fc-skel" style={{ height: 34, width: `${w}%` }} />)}
+      </div>
+    </aside>
+    <main className="fc-main">
+      <div className="fc-boot-main">
+        <div className="fc-skel" style={{ height: 22, width: 200 }} />
+        <div className="fc-boot-row">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="fc-skel" style={{ height: 92 }} />)}
+        </div>
+        <div className="fc-skel" style={{ height: 260 }} />
+      </div>
+    </main>
   </div>
 );
 
@@ -167,6 +200,7 @@ export default function FacultyApp() {
     (s) => (!s.adminOnly || isAdmin) && s.items.some(([vid,,, roles]) => vid === id && (!roles || roles.includes(role)))
   );
   const view = allowed(raw) ? raw : homeView;
+  const [pageTitle, pageSub] = VIEW_META[view] || ["", ""];
   const go = useCallback((v) => {
     setMenuOpen(false);
     navigate(IS_FACULTY_HOST ? `/${v}` : `/faculty/${v}`);
@@ -180,7 +214,22 @@ export default function FacultyApp() {
     setStatus("guest");
   }, [setUser]);
 
-  if (status === "checking") return <div className="app dark"><Loader /></div>;
+  const displayName = authUser?.fullName || authUser?.username || authUser?.email || "Staff";
+  const roleLabel = role === "lecturer" ? "Lecturer" : "Admin";
+  const userCard = (
+    <div className="fc-user">
+      <span className="fc-avatar">{String(displayName).trim().charAt(0) || "S"}</span>
+      <div className="fc-user-meta">
+        <b>{displayName}</b>
+        <span>{roleLabel}</span>
+      </div>
+      <button type="button" className="fc-iconbtn" aria-label="Sign out" title="Sign out" onClick={logout}>
+        <LogOut size={15} />
+      </button>
+    </div>
+  );
+
+  if (status === "checking") return <Boot />;
   if (status === "guest") return <StaffLogin onSignedIn={() => setEpoch((e) => e + 1)} />;
   if (status === "student") {
     return (
@@ -200,7 +249,7 @@ export default function FacultyApp() {
     <div className="app dark fc-shell">
       <aside className="fc-side">
         <div className="fc-brand">
-          <BookOpen size={20} />
+          <span className="fc-brand-logo"><BookOpen size={17} /></span>
           <div>
             <b>Scholar's Circle</b>
             <span>Staff</span>
@@ -226,13 +275,10 @@ export default function FacultyApp() {
         </nav>
         <div className="fc-side-foot">
           <a className="fc-nav-item" href={studentAppUrl}>
-            <ExternalLink size={18} />
+            <ExternalLink size={17} />
             <span>Student app</span>
           </a>
-          <button type="button" className="fc-nav-item" onClick={logout}>
-            <LogOut size={18} />
-            <span>Sign out</span>
-          </button>
+          {userCard}
         </div>
       </aside>
 
@@ -241,7 +287,10 @@ export default function FacultyApp() {
           <Menu size={20} />
         </button>
         <b>Scholar's Circle · Staff</b>
-        <span className="fc-topbar-user">{authUser?.fullName || authUser?.username || ""}</span>
+        <span className="fc-topbar-user">
+          <span className="fc-avatar">{String(displayName).trim().charAt(0) || "S"}</span>
+          <span>{displayName}</span>
+        </span>
       </header>
 
       {menuOpen && (
@@ -269,19 +318,22 @@ export default function FacultyApp() {
                 ))}
               </div>
             ))}
-            <a className="fc-nav-item" href={studentAppUrl}>
-              <ExternalLink size={18} />
-              <span>Student app</span>
-            </a>
-            <button type="button" className="fc-nav-item" onClick={logout}>
-              <LogOut size={18} />
-              <span>Sign out</span>
-            </button>
+            <div className="fc-drawer-foot">
+              <a className="fc-nav-item" href={studentAppUrl}>
+                <ExternalLink size={17} />
+                <span>Student app</span>
+              </a>
+              {userCard}
+            </div>
           </div>
         </div>
       )}
 
       <main className="fc-main">
+        <header className="fc-pagehead">
+          <h1>{pageTitle}</h1>
+          <p>{pageSub}</p>
+        </header>
         <Suspense fallback={<TabSkeleton />}>
           {view === "insights" && <LecturerInsights token={token} />}
           {view === "classroom" && (
@@ -298,10 +350,10 @@ export default function FacultyApp() {
           {view === "questions" && (
             <TeacherQuestionManager token={token} subjects={backendSubjects} onSubjectsRefresh={refreshSubjects} />
           )}
-          {view === "resources" && <TeacherResourcesHub onBack={() => go("insights")} isLecturer={!isAdmin} />}
+          {view === "resources" && <TeacherResourcesHub onBack={() => go(homeView)} isLecturer={!isAdmin} />}
           {view === "announce" && <CampusComm token={token} currentUser={authUser} />}
           {view === "space" && (
-            <ResearchHub onBack={() => go("insights")} streak={0} onStreakUpdate={() => {}} onXpUpdate={() => {}} activeSemester={null} />
+            <ResearchHub onBack={() => go(homeView)} streak={0} onStreakUpdate={() => {}} onXpUpdate={() => {}} activeSemester={null} />
           )}
           {view === "directory" && <Lecturers token={token} currentUser={authUser} isTeacher />}
           {view === "dashboard" && isAdmin && <AdminDashboard token={token} />}

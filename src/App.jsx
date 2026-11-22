@@ -78,6 +78,7 @@ import {
   FREE_TIER_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS, BARE_TABS,
   LECTURER_ALLOWED_TABS, LECTURER_HOME_TAB,
 } from "./lib/constants";
+import { FACULTY_PORTAL_URL } from "./faculty/env.js";
 import { PLANS, getPlan, naira, waPaymentProofLink } from "./lib/plans.js";
 import { PREMIUM_HEADLINES } from "./lib/premium.js";
 import { adoptServerGems } from "./features/streak-survival/survivalStore.js";
@@ -277,17 +278,8 @@ function App() {
 
   const { quality: connQuality } = useConnectionQuality();
 
-  const [tab, setTabRaw] = useState(() => {
-
-    try {
-
-      const u = JSON.parse(localStorage.getItem("scholars-circle-auth"))?.authUser;
-
-      return String(u?.role || "").toLowerCase() === "lecturer" ? LECTURER_HOME_TAB : "today";
-
-    } catch { return "today"; }
-
-  });
+  // Staff land on the student home tab too — their tools moved to the portal.
+  const [tab, setTabRaw] = useState("today");
 
   // Deep link into the Feed's sub-tabs (Chats / Groups) from push notifications
   // and invite URLs — consumed once by <Feed>, then cleared.
@@ -564,15 +556,26 @@ function App() {
 
 
 
-  const isTeacher = userRole === "teacher"; // admin (full access)
+  // Staff authoring/management moved to the faculty portal (faculty.<domain>
+  // or /faculty). In the student app, staff use the student UI — the role
+  // only remains as data (activation bypass, the staff-portal link, badges
+  // and moderation handled by child components via userRole/auth.user).
 
 
 
-  const isLecturerRole = userRole === "lecturer"; // faculty without admin powers
+  const isStaff = ["teacher", "lecturer", "admin"].includes(userRole);
 
 
 
-  const isFaculty = isTeacher || isLecturerRole; // any faculty (TEACHER or LECTURER)
+  const isTeacher = false; // staff UI moved to the faculty portal
+
+
+
+  const isLecturerRole = false; // staff UI moved to the faculty portal
+
+
+
+  const isFaculty = false; // staff UI moved to the faculty portal
 
 
 
@@ -1123,7 +1126,7 @@ function App() {
 
 
 
-  const isActivated = isFaculty || auth.user?.isActivated === true;
+  const isActivated = isStaff || auth.user?.isActivated === true;
 
 
 
@@ -1142,6 +1145,18 @@ function App() {
     if (isLecturerRole && !LECTURER_ALLOWED_TABS.includes(tab)) setTab(LECTURER_HOME_TAB);
 
   }, [isLecturerRole, tab, setTab]);
+
+
+
+  // Staff-only tabs moved to the faculty portal — stale deep links land Home
+
+  const PORTAL_ONLY_TABS = ["insights", "teacher-questions", "teacher-resources", "campus-comm", "universities", "departments", "keys", "invites", "admin"];
+
+  useEffect(() => {
+
+    if (PORTAL_ONLY_TABS.includes(tab)) setTab("today");
+
+  }, [tab, setTab]);
 
   
 
@@ -8298,6 +8313,7 @@ function App() {
           isFaculty={isFaculty}
           isTeacher={isTeacher}
           isActivated={isActivated}
+          isStaff={isStaff}
           onNavigate={setTab}
           onClose={() => setShowMobileMenu(false)}
         />
@@ -8527,6 +8543,30 @@ function App() {
             ))}
 
           </div>
+
+          {isStaff && (
+
+            <div className="app-sidebar-section">
+
+              <span className="app-sidebar-label">Staff</span>
+
+              <button
+
+                className="app-sidebar-item"
+
+                onClick={() => { window.location.href = FACULTY_PORTAL_URL; }}
+
+              >
+
+                <GraduationCap size={18} className="app-sidebar-icon" />
+
+                <span className="app-sidebar-text">Staff portal</span>
+
+              </button>
+
+            </div>
+
+          )}
 
           {isFaculty && (
 
