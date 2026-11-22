@@ -1,0 +1,249 @@
+/* ── Faculty portal chrome ─────────────────────────────────────────────
+   Layout shell for the staff site (sidebar on desktop, top bar + drawer
+   on mobile). Screens inside reuse the app's own styles. */
+
+.fc-shell {
+  display: flex;
+  min-height: 100dvh;
+  background: var(--app-bg);
+}
+
+/* Sidebar (desktop) */
+.fc-side {
+  width: 236px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--app-border);
+  background: var(--app-panel);
+  padding: 18px 12px;
+  overflow-y: auto;
+}
+
+.fc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 18px;
+  color: var(--app-accent, #F5A623);
+}
+.fc-brand div { display: flex; flex-direction: column; line-height: 1.15; }
+.fc-brand b { font-size: 0.95rem; color: var(--app-text); }
+.fc-brand span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+}
+
+.fc-nav { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.fc-nav-sec { display: flex; flex-direction: column; gap: 2px; }
+.fc-nav-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+  padding: 4px 10px;
+}
+
+.fc-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--app-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+}
+.fc-nav-item:hover { background: var(--app-hover); }
+.fc-nav-item.active {
+  background: var(--app-tint);
+  color: var(--app-accent, #F5A623);
+}
+
+.fc-side-foot {
+  border-top: 1px solid var(--app-border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Top bar + drawer (mobile) */
+.fc-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  background: var(--app-panel);
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-text);
+}
+.fc-topbar b { font-size: 0.95rem; }
+.fc-topbar-user {
+  margin-left: auto;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--app-faint);
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--app-hover);
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.fc-drawer-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.55);
+}
+.fc-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(300px, 84vw);
+  background: var(--app-panel);
+  border-right: 1px solid var(--app-border);
+  padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fc-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--app-text);
+  padding: 0 8px;
+}
+
+/* Content */
+.fc-main {
+  flex: 1;
+  min-width: 0;
+  padding: 22px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+  max-width: 1100px;
+}
+
+/* Loading / login / gate screens */
+.fc-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+}
+.fc-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--app-tint-strong);
+  border-top-color: var(--app-accent, #F5A623);
+  border-radius: 50%;
+  animation: fc-spin 0.8s linear infinite;
+}
+@keyframes fc-spin { to { transform: rotate(360deg); } }
+
+.fc-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 20px;
+}
+.fc-gate-card {
+  width: min(400px, 100%);
+  background: var(--app-panel);
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  padding: 30px 24px;
+  text-align: center;
+  color: var(--app-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.fc-gate-card h1 { font-size: 1.3rem; margin: 4px 0 0; }
+.fc-gate-card p { color: var(--app-faint); font-size: 0.9rem; margin: 0; }
+.fc-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+.fc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--app-accent, #F5A623);
+  color: #14100a;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+.fc-btn:disabled { opacity: 0.6; cursor: default; }
+.fc-error { color: #ff7a7a; font-size: 0.85rem; margin: 0; text-align: left; }
+.fc-linkbtn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--app-faint);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fc-gate-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.84rem;
+}
+.fc-gate-links a { color: var(--app-accent, #F5A623); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .fc-side { display: none; }
+  .fc-topbar { display: flex; }
+  .fc-shell { flex-direction: column; }
+  .fc-main { padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px)); }
+}

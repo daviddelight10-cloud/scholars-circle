@@ -4,6 +4,8 @@ import HomePage from './features/HomePage';
 import AuthPages from './pages/AuthPages';
 import { lazyWithRetry } from './lib/lazyWithRetry.js';
 import { ensureAppSession } from './lib/authToken.js';
+// faculty.<domain> serves the staff shell for every path; /faculty/* elsewhere.
+import { IS_FACULTY_HOST } from './faculty/env.js';
 
 const App = lazyWithRetry(() => import('./App'));
 const ResearchHub = lazyWithRetry(() => import('./features/research-hub/ResearchHub'));
@@ -15,6 +17,7 @@ const ExamChallengePage = lazyWithRetry(() => import('./features/exam/ExamChalle
 const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
 const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
 const BlogPost = lazyWithRetry(() => import('./blog/BlogPost'));
+const FacultyApp = lazyWithRetry(() => import('./faculty/FacultyApp'));
 const PrivacyPage = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPage })));
 const TermsPage = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })));
 const CopyrightPolicyPage = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.CopyrightPolicyPage })));
@@ -70,6 +73,15 @@ function LandingPageWrapper() {
 }
 
 export default function AppRouter() {
+  if (IS_FACULTY_HOST) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="*" element={<FacultyApp />} />
+        </Routes>
+      </Suspense>
+    );
+  }
   return (
     <Suspense fallback={<PageLoader />}>
     <Routes>
@@ -84,6 +96,9 @@ export default function AppRouter() {
 
       {/* Main app route */}
       <Route path="/app" element={<App />} />
+
+      {/* Staff portal — same shell as the faculty.<domain> deployment */}
+      <Route path="/faculty/*" element={<div className="app dark"><FacultyApp /></div>} />
 
       {/* Research Hub routes - requires auth */}
       <Route path="/resources" element={<RequireAuth><div className="app dark"><ResearchHub /></div></RequireAuth>} />
