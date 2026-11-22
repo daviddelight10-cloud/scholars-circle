@@ -351,14 +351,23 @@ router.get("/refresh", requireAuth, async (req, res) => {
     // the next request carries the corrected token.
     let roleStale = false;
     if (req.user.metaMissing || user.role !== req.user.role || user.id !== req.user.sub) {
-      // Await so a roleStale=true response means claims are already fixed —
+      // Await (bounded) so roleStale=true means claims are already fixed —
       // the client's refreshSession then gets a token with the real role.
-      const { error: syncErr } = await supabaseAdmin.auth.admin.updateUserById(
-        req.user.supabaseId,
-        { app_metadata: { prismaId: user.id, role: user.role } }
-      );
-      if (syncErr) {
-        console.warn("[auth/refresh] app_metadata resync failed:", syncErr.message);
+      // The admin call must never hang this route: on timeout we answer with
+      // roleStale=false and the next load retries the heal.
+      const syncRes = await Promise.race([
+        supabaseAdmin.auth.admin
+          .updateUserById(req.user.supabaseId, {
+            app_metadata: { prismaId: user.id, role: user.role },
+          })
+          .then(({ error }) => error)
+          .catch((e) => e),
+        new Promise((resolve) => setTimeout(() => resolve("timeout"), 6000)),
+      ]);
+      if (syncRes === "timeout") {
+        console.warn("[auth/refresh] app_metadata resync timed out");
+      } else if (syncRes) {
+        console.warn("[auth/refresh] app_metadata resync failed:", syncRes.message || syncRes);
       } else {
         roleStale = true;
       }

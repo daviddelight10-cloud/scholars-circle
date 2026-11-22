@@ -128,16 +128,31 @@ export async function ensureAppSession({ revalidate = false } = {}) {
 
   let session = null;
   try {
-    const { data } = await supabase.auth.getSession();
+    // getSession() may internally wait on a token refresh — bound it so a
+    // stalled auth network call can't hang the bootstrap forever.
+    const { data } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise((resolve) => setTimeout(() => resolve({ data: null }), 12000)),
+    ]);
     session = data?.session || null;
   } catch {}
   if (!session?.access_token) return null;
 
   syncStoredToken(session.access_token);
   try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    // Bounded: a hung network/Railway restart must not leave the caller
+    // (faculty portal bootstrap) spinning forever.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    let res;
+    try {
+      res = await fetch(`${API_BASE}/auth/refresh`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     const data = await res.json().catch(() => ({}));
     const appUser = data?.user || null;
     if (!appUser) return null;
@@ -145,9 +160,13 @@ export async function ensureAppSession({ revalidate = false } = {}) {
     // Server detected the JWT's app_metadata claims are stale vs the DB
     // (e.g. role changed outside the admin route) and resynced them — pull
     // a fresh token now so subsequent requireRole checks see the real role.
+    // Bounded too: a stalled refresh must not hang the bootstrap.
     let token = session.access_token;
     if (data.roleStale) {
-      const { data: refreshed } = await supabase.auth.refreshSession().catch(() => ({ data: null }));
+      const { data: refreshed } = await Promise.race([
+        supabase.auth.refreshSession(),
+        new Promise((resolve) => setTimeout(() => resolve({ data: null }), 10000)),
+      ]).catch(() => ({ data: null }));
       const fresh = refreshed?.session?.access_token;
       if (fresh) {
         token = fresh;

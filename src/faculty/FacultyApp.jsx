@@ -107,7 +107,7 @@ export default function FacultyApp() {
       setUser?.(u);
       setToken?.(getStoredToken() || "");
       setStatus(STAFF_ROLES.has(String(u.role || "").toLowerCase()) ? "staff" : "student");
-    });
+    }).catch(() => { if (live) setStatus("guest"); });
     return () => { live = false; };
   }, [setUser, setToken, epoch]);
 
