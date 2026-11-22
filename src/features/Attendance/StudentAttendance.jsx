@@ -9,7 +9,7 @@ function readDeepLink() {
   try { return JSON.parse(sessionStorage.getItem(ATTEND_LINK_KEY) || "null"); } catch { return null; }
 }
 
-function MarkCard({ s, token, prefill, onDone }) {
+export function MarkCard({ s, token, prefill, onDone }) {
   const [code, setCode] = useState(prefill || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");

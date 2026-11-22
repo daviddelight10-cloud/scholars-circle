@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import multer from "multer";
@@ -40,20 +41,30 @@ const upload = multer({
 
 // ============ CLASSROOM MANAGEMENT ============
 
-// Create a new classroom (teacher only)
+// Create a new classroom (teacher only) — gets a short invite code for joining
 router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { name, subjectId } = req.body;
-    const classroom = await prisma.classroom.create({
-      data: {
-        name,
-        subjectId,
-        createdById: req.user.sub,
-      },
-      include: {
-        createdBy: { select: { id: true, username: true } },
-      },
-    });
+    if (!name?.trim()) return res.status(400).json({ error: "Class name required" });
+    let classroom = null;
+    for (let attempt = 0; attempt < 5 && !classroom; attempt++) {
+      try {
+        classroom = await prisma.classroom.create({
+          data: {
+            name: name.trim().slice(0, 80),
+            subjectId,
+            joinCode: genJoinCode(),
+            createdById: req.user.sub,
+          },
+          include: {
+            createdBy: { select: { id: true, username: true } },
+          },
+        });
+      } catch (e) {
+        if (e.code !== "P2002") throw e; // joinCode collision — retry
+      }
+    }
+    if (!classroom) return res.status(500).json({ error: "Failed to create classroom" });
     res.json(classroom);
   } catch (error) {
     console.error("Error creating classroom:", error);
@@ -90,6 +101,18 @@ router.get("/my", requireAuth, async (req, res) => {
         orderBy: { joinedAt: "desc" },
       });
       classrooms = memberships.map((m) => m.classroom);
+    }
+
+    // Lazily backfill invite codes for classes created before them (owner only)
+    if (isTeacher) {
+      const missing = classrooms.filter((c) => !c.joinCode);
+      for (const c of missing) {
+        for (let attempt = 0; attempt < 5 && !c.joinCode; attempt++) {
+          try {
+            await prisma.classroom.update({ where: { id: c.id }, data: { joinCode: genJoinCode() } }).then((u) => { c.joinCode = u.joinCode; });
+          } catch (e) { if (e.code !== "P2002") break; }
+        }
+      }
     }
 
     res.json(classrooms);
@@ -467,6 +490,113 @@ router.delete("/groups/:id", requireAuth, async (req, res) => {
   }
 });
 
+const joinCodeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.sub || req.ip,
+  message: { error: "Too many attempts — wait a moment and try again" },
+});
+
+// POST /classroom/join-by-code { code } — join a class via its short invite code.
+// Only kind="classroom" rows match; group codes stay on /groups/join.
+router.post("/join-by-code", requireAuth, joinCodeLimiter, async (req, res) => {
+  try {
+    const code = String(req.body?.code || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (!/^[A-Z0-9]{4,10}$/.test(code)) return res.status(400).json({ error: "Enter a valid class code" });
+    const classroom = await prisma.classroom.findUnique({
+      where: { joinCode: code },
+      include: { createdBy: { select: { id: true, username: true, fullName: true } }, _count: { select: { members: true } } },
+    });
+    if (!classroom || classroom.kind !== "classroom") {
+      return res.status(404).json({ error: "No class found with that code — check it and try again" });
+    }
+    const userId = req.user.sub;
+    await prisma.classroomMember.upsert({
+      where: { classroomId_userId: { classroomId: classroom.id, userId } },
+      create: { classroomId: classroom.id, userId },
+      update: {},
+    });
+    res.json({ classroom });
+  } catch (error) {
+    console.error("Error joining by code:", error);
+    res.status(500).json({ error: "Failed to join class" });
+  }
+});
+
+// GET /classroom/attention — per-class counts of things that need the user now,
+// powering class-list badges and the Today stack in one call.
+router.get("/attention", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const now = new Date();
+    const in7d = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+    const isTeacher = req.user.role === "TEACHER" || req.user.role === "LECTURER";
+
+    const memberships = await prisma.classroomMember.findMany({
+      where: { userId, classroom: { kind: "classroom" } },
+      select: { classroomId: true },
+    });
+    let classIds = memberships.map((m) => m.classroomId);
+    if (isTeacher) {
+      const owned = await prisma.classroom.findMany({ where: { createdById: userId, kind: "classroom" }, select: { id: true } });
+      classIds = [...new Set([...classIds, ...owned.map((o) => o.id)])];
+    }
+    const byClass = {};
+    const items = [];
+    for (const id of classIds) byClass[id] = { attendanceOpen: 0, testsOpen: 0, assignmentsDue: 0, unreadImportant: 0 };
+    if (!classIds.length) return res.json({ byClass, items });
+
+    const [attendance, tests, assignments, important] = await Promise.all([
+      prisma.attendanceSession.findMany({
+        where: { classroomId: { in: classIds }, status: "open", closesAt: { gt: now } },
+        select: { id: true, classroomId: true, title: true, closesAt: true, marks: { where: { userId }, select: { id: true } } },
+      }),
+      prisma.classTest.findMany({
+        where: { classroomId: { in: classIds }, published: true, opensAt: { lte: now }, closesAt: { gte: now } },
+        select: { id: true, classroomId: true, title: true, durationMin: true, closesAt: true, attempts: { where: { userId }, select: { status: true } } },
+      }),
+      prisma.classroomAssignment.findMany({
+        where: { classroomId: { in: classIds }, dueAt: { gte: now, lte: in7d } },
+        select: { id: true, classroomId: true, title: true, dueAt: true, submissions: { where: { studentId: userId }, select: { id: true } } },
+      }),
+      prisma.classroomAnnouncement.findMany({
+        where: { classroomId: { in: classIds }, isImportant: true, reads: { none: { userId } } },
+        select: { id: true, classroomId: true, title: true, createdAt: true },
+      }),
+    ]);
+
+    for (const s of attendance) {
+      const mine = s.marks.length > 0;
+      if (!mine) byClass[s.classroomId].attendanceOpen++;
+      items.push({ type: "attendance", classroomId: s.classroomId, id: s.id, title: s.title, closesAt: s.closesAt, marked: mine });
+    }
+    for (const t of tests) {
+      const attempt = t.attempts[0];
+      const needsAction = !attempt || attempt.status !== "submitted";
+      if (needsAction) byClass[t.classroomId].testsOpen++;
+      items.push({ type: "test", classroomId: t.classroomId, id: t.id, title: t.title, durationMin: t.durationMin, closesAt: t.closesAt, done: !needsAction });
+    }
+    if (!isTeacher) {
+      for (const a of assignments) {
+        if (a.submissions.length === 0) {
+          byClass[a.classroomId].assignmentsDue++;
+          items.push({ type: "assignment", classroomId: a.classroomId, id: a.id, title: a.title, dueAt: a.dueAt });
+        }
+      }
+      for (const a of important) {
+        byClass[a.classroomId].unreadImportant++;
+        items.push({ type: "announcement", classroomId: a.classroomId, id: a.id, title: a.title, createdAt: a.createdAt });
+      }
+    }
+    res.json({ byClass, items });
+  } catch (error) {
+    console.error("Error loading attention:", error);
+    res.status(500).json({ error: "Failed to load attention" });
+  }
+});
+
 // Get classroom by ID
 router.get("/:id", requireAuth, async (req, res) => {
   try {
@@ -509,6 +639,15 @@ router.get("/:id", requireAuth, async (req, res) => {
       }).catch(() => null);
       if (!membership) {
         return res.status(403).json({ error: "Not a member of this classroom" });
+      }
+      classroom.joinCode = undefined; // invite code is owner-only
+    } else if (!classroom.joinCode) {
+      // Backfill for classes created before invite codes existed
+      for (let attempt = 0; attempt < 5 && !classroom.joinCode; attempt++) {
+        try {
+          const u = await prisma.classroom.update({ where: { id: classroom.id }, data: { joinCode: genJoinCode() } });
+          classroom.joinCode = u.joinCode;
+        } catch (e) { if (e.code !== "P2002") break; }
       }
     }
 

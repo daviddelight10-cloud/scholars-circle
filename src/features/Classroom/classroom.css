@@ -1,0 +1,152 @@
+/* Classroom redesign — .cx- prefix. Dark tokens follow the app vars. */
+
+.cx-root { display: flex; flex-direction: column; min-height: 100%; }
+
+.cx-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.cx-title { font-size: 18px; font-weight: 800; color: var(--app-text, #f1f5f9); font-family: "Syne", sans-serif; flex: 1; }
+
+.cx-btn {
+  font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 10px;
+  border: none; cursor: pointer; background: var(--app-accent, #ffd60a); color: #0a0a0a;
+}
+.cx-btn:active { transform: scale(.97); }
+.cx-btn:disabled { opacity: .5; cursor: not-allowed; }
+.cx-btn.ghost { background: transparent; border: 1px solid var(--app-border, rgba(255,255,255,.12)); color: var(--app-text, #e2e8f0); }
+.cx-btn.small { padding: 6px 12px; font-size: 12px; }
+.cx-back {
+  background: none; border: none; color: var(--app-dim, #94a3b8); font-size: 20px;
+  cursor: pointer; padding: 2px 6px 2px 0; line-height: 1;
+}
+
+/* ── Class list ── */
+.cx-list { display: flex; flex-direction: column; gap: 10px; }
+.cx-card {
+  display: flex; align-items: center; gap: 13px; width: 100%; text-align: left;
+  background: var(--app-panel, rgba(255,255,255,.04)); border: 1px solid var(--app-border, rgba(255,255,255,.08));
+  border-radius: 14px; padding: 14px; cursor: pointer; transition: border-color .15s;
+}
+.cx-card:hover { border-color: rgba(255,214,10,.3); }
+.cx-avatar {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  display: grid; place-items: center; font-size: 15px; font-weight: 800;
+  background: rgba(255,214,10,.12); color: var(--app-accent, #ffd60a);
+}
+.cx-card-main { flex: 1; min-width: 0; }
+.cx-card-name { font-size: 14px; font-weight: 700; color: var(--app-text, #f1f5f9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-card-meta { font-size: 11px; color: var(--app-dim, #94a3b8); margin-top: 2px; }
+.cx-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.cx-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.cx-badge.live { background: rgba(16,185,129,.15); color: #34d399; }
+.cx-badge.live::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #34d399; animation: cx-pulse 1.4s infinite; }
+.cx-badge.due { background: rgba(251,191,36,.13); color: #fbbf24; }
+.cx-badge.warn { background: rgba(239,68,68,.13); color: #f87171; }
+@keyframes cx-pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+.cx-card-arrow { color: var(--app-dim, #94a3b8); font-size: 16px; flex-shrink: 0; }
+
+/* ── Class page ── */
+.cx-page-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.cx-page-name { font-size: 17px; font-weight: 800; color: var(--app-text, #f1f5f9); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-page-sub { font-size: 11px; color: var(--app-dim, #94a3b8); margin-bottom: 10px; }
+
+.cx-tabs {
+  display: flex; gap: 4px; padding: 4px; border-radius: 12px;
+  background: var(--app-panel, rgba(255,255,255,.04)); border: 1px solid var(--app-border, rgba(255,255,255,.07));
+  margin-bottom: 14px; position: sticky; top: 0; z-index: 5; backdrop-filter: blur(12px);
+}
+.cx-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 6px; border: none; border-radius: 9px; background: transparent;
+  font-size: 12px; font-weight: 600; color: var(--app-dim, #94a3b8); cursor: pointer;
+  position: relative; transition: background .15s, color .15s;
+}
+.cx-tab.active { background: rgba(255,214,10,.12); color: var(--app-accent, #ffd60a); }
+.cx-tab-dot {
+  position: absolute; top: 5px; right: calc(50% - 22px); width: 7px; height: 7px;
+  border-radius: 50%; background: #34d399; animation: cx-pulse 1.4s infinite;
+}
+
+/* ── Attention stack ── */
+.cx-attn { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.cx-attn-card {
+  display: flex; align-items: center; gap: 11px; padding: 12px 13px;
+  border-radius: 12px; border: 1px solid;
+}
+.cx-attn-card.attendance { background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.3); }
+.cx-attn-card.test { background: rgba(255,214,10,.07); border-color: rgba(255,214,10,.3); }
+.cx-attn-card.assignment { background: rgba(96,165,250,.07); border-color: rgba(96,165,250,.3); }
+.cx-attn-card.announcement { background: rgba(239,68,68,.07); border-color: rgba(239,68,68,.3); }
+.cx-attn-ic { font-size: 20px; }
+.cx-attn-main { flex: 1; min-width: 0; }
+.cx-attn-title { font-size: 13px; font-weight: 700; color: var(--app-text, #f1f5f9); }
+.cx-attn-sub { font-size: 11px; color: var(--app-dim, #94a3b8); margin-top: 2px; }
+.cx-attn-go { font-size: 12px; font-weight: 700; color: var(--app-accent, #ffd60a); white-space: nowrap; }
+
+/* ── Generic cards/rows ── */
+.cx-panel {
+  background: var(--app-panel, rgba(255,255,255,.04)); border: 1px solid var(--app-border, rgba(255,255,255,.08));
+  border-radius: 12px; padding: 13px 14px; margin-bottom: 8px;
+}
+.cx-panel-title { font-size: 13px; font-weight: 700; color: var(--app-text, #f1f5f9); }
+.cx-panel-body { font-size: 12px; color: var(--app-dim, #cbd5e1); margin-top: 5px; line-height: 1.55; }
+.cx-panel-meta { font-size: 10px; color: var(--app-dim, #94a3b8); margin-top: 7px; }
+.cx-panel.important { border-color: rgba(255,214,10,.35); }
+
+.cx-section { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--app-dim, #94a3b8); margin: 16px 0 8px; }
+.cx-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+.cx-row:last-child { border-bottom: none; }
+.cx-row-main { flex: 1; min-width: 0; }
+.cx-row-title { font-size: 13px; font-weight: 600; color: var(--app-text, #f1f5f9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-row-meta { font-size: 11px; color: var(--app-dim, #94a3b8); margin-top: 2px; }
+
+.cx-filter { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.cx-filter-btn {
+  font-size: 12px; font-weight: 600; padding: 6px 13px; border-radius: 999px;
+  border: 1px solid var(--app-border, rgba(255,255,255,.1)); background: transparent;
+  color: var(--app-dim, #94a3b8); cursor: pointer;
+}
+.cx-filter-btn.active { background: rgba(255,214,10,.12); border-color: rgba(255,214,10,.4); color: var(--app-accent, #ffd60a); }
+
+.cx-input {
+  background: var(--app-bg, rgba(0,0,0,.25)); border: 1px solid var(--app-border, rgba(255,255,255,.1));
+  border-radius: 10px; padding: 10px 13px; font-size: 13px; color: var(--app-text, #f1f5f9);
+  outline: none; width: 100%; box-sizing: border-box;
+}
+.cx-input:focus { border-color: var(--app-accent, #ffd60a); }
+textarea.cx-input { resize: vertical; font-family: inherit; }
+
+.cx-empty { text-align: center; padding: 40px 20px; }
+.cx-empty-ic { font-size: 32px; margin-bottom: 8px; }
+.cx-empty-title { font-size: 15px; font-weight: 700; color: var(--app-text, #f1f5f9); margin-bottom: 4px; }
+.cx-empty-sub { font-size: 12px; color: var(--app-dim, #94a3b8); margin-bottom: 14px; line-height: 1.5; }
+
+.cx-code-box {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(255,214,10,.07); border: 1px dashed rgba(255,214,10,.35);
+}
+.cx-code { font-size: 20px; font-weight: 800; letter-spacing: 3px; color: var(--app-accent, #ffd60a); font-variant-numeric: tabular-nums; }
+
+.cx-modal {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(4px); padding: 20px;
+}
+.cx-modal-card {
+  width: 100%; max-width: 400px; background: var(--app-panel, #14161c);
+  border: 1px solid var(--app-border, rgba(255,255,255,.1)); border-radius: 16px; padding: 20px;
+}
+.cx-modal-title { font-size: 15px; font-weight: 700; color: var(--app-text, #f1f5f9); margin-bottom: 12px; }
+.cx-modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+.cx-modal-actions > * { flex: 1; }
+
+.cx-exam-banner {
+  display: flex; align-items: center; gap: 10px; padding: 10px 13px; margin-bottom: 14px;
+  border-radius: 12px; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25);
+  font-size: 12px; font-weight: 600; color: #fbbf24;
+}
+
+@media (min-width: 768px) {
+  .cx-list { max-width: 560px; }
+  .cx-page { max-width: 720px; margin: 0 auto; width: 100%; }
+}
