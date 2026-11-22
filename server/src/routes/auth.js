@@ -343,7 +343,29 @@ router.get("/refresh", requireAuth, async (req, res) => {
         .catch((e) => console.warn("termsAcceptedAt stamp failed:", e.message));
     }
 
+    // Self-heal stale JWT claims: requireAuth's fast path trusts
+    // app_metadata.role/prismaId — a role changed outside the admin route
+    // leaves every requireRole check reading the OLD claim while the DB
+    // says something else (this route reads the DB, so it can detect it).
+    // Resync app_metadata and tell the client to refresh its session so
+    // the next request carries the corrected token.
+    let roleStale = false;
+    if (req.user.metaMissing || user.role !== req.user.role || user.id !== req.user.sub) {
+      // Await so a roleStale=true response means claims are already fixed —
+      // the client's refreshSession then gets a token with the real role.
+      const { error: syncErr } = await supabaseAdmin.auth.admin.updateUserById(
+        req.user.supabaseId,
+        { app_metadata: { prismaId: user.id, role: user.role } }
+      );
+      if (syncErr) {
+        console.warn("[auth/refresh] app_metadata resync failed:", syncErr.message);
+      } else {
+        roleStale = true;
+      }
+    }
+
     return res.json({
+      roleStale,
       user: {
         id: user.id,
         email: user.email,

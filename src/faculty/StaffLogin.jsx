@@ -32,6 +32,10 @@ export default function StaffLogin({ onSignedIn }) {
         password: password.trim(),
       });
       if (authError) throw authError;
+      // Drop any stale blob first — ensureAppSession's fast path prefers the
+      // stored authUser over the fresh session, so an earlier sign-in on this
+      // origin would shadow the account just entered.
+      try { localStorage.removeItem("scholars-circle-auth"); } catch { /* noop */ }
       const user = await ensureAppSession();
       if (!user) {
         setError("Signed in, but your profile could not be loaded. Please try again.");

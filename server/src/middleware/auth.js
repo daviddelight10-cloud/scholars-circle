@@ -119,6 +119,7 @@ export async function requireAuth(req, res, next) {
       email: decoded.email || null,
       role: prismaUser.role,
       username: prismaUser.username || decoded.user_metadata?.username || null,
+      metaMissing: true, // no app_metadata claims — /auth/refresh backfills them
     };
 
     trackActivity(req);

@@ -38,7 +38,9 @@ const NAV_SECTIONS = [
   {
     label: "Teach",
     items: [
-      ["insights", "Insights", BarChart3],
+      // Insights is lecturer-facing (per-uploader material stats); admins
+      // get the Dashboard as their home instead.
+      ["insights", "Insights", BarChart3, ["lecturer"]],
       ["classroom", "Classroom", School],
       ["questions", "My Questions", FileText],
       ["resources", "Resources", Laptop],
@@ -98,7 +100,7 @@ export default function FacultyApp() {
   useEffect(() => {
     let live = true;
     setStatus("checking");
-    ensureAppSession().then((u) => {
+    ensureAppSession({ revalidate: true }).then((u) => {
       if (!live) return;
       if (!u) { setStatus("guest"); return; }
       setAuthUser(u);
@@ -144,11 +146,13 @@ export default function FacultyApp() {
     }
   }, []);
 
+  const homeView = isAdmin ? "dashboard" : "insights";
   const seg = location.pathname.split("/").filter(Boolean);
-  const raw = IS_FACULTY_HOST ? (seg[0] || "insights") : (seg[1] || "insights");
-  const known = NAV_SECTIONS.some((s) => s.items.some(([id]) => id === raw));
-  const adminView = NAV_SECTIONS.some((s) => s.adminOnly && s.items.some(([id]) => id === raw));
-  const view = known && (!adminView || isAdmin) ? raw : "insights";
+  const raw = IS_FACULTY_HOST ? (seg[0] || homeView) : (seg[1] || homeView);
+  const allowed = (id) => NAV_SECTIONS.some(
+    (s) => (!s.adminOnly || isAdmin) && s.items.some(([vid,,, roles]) => vid === id && (!roles || roles.includes(role)))
+  );
+  const view = allowed(raw) ? raw : homeView;
   const go = useCallback((v) => {
     setMenuOpen(false);
     navigate(IS_FACULTY_HOST ? `/${v}` : `/faculty/${v}`);
@@ -192,7 +196,7 @@ export default function FacultyApp() {
           {NAV_SECTIONS.map((sec) => (sec.adminOnly && !isAdmin) ? null : (
             <div key={sec.label} className="fc-nav-sec">
               <span className="fc-nav-label">{sec.label}</span>
-              {sec.items.map(([id, label, Icon]) => (
+              {sec.items.filter(([,,, roles]) => !roles || roles.includes(role)).map(([id, label, Icon]) => (
                 <button
                   key={id}
                   type="button"
@@ -238,7 +242,7 @@ export default function FacultyApp() {
             {NAV_SECTIONS.map((sec) => (sec.adminOnly && !isAdmin) ? null : (
               <div key={sec.label} className="fc-nav-sec">
                 <span className="fc-nav-label">{sec.label}</span>
-                {sec.items.map(([id, label, Icon]) => (
+                {sec.items.filter(([,,, roles]) => !roles || roles.includes(role)).map(([id, label, Icon]) => (
                   <button
                     key={id}
                     type="button"

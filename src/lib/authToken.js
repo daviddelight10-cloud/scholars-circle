@@ -116,11 +116,14 @@ export const authFetch = fetchWithAuth;
  * OAuth hash returns, where Supabase is signed in but nothing wrote
  * scholars-circle-auth), fetch the app profile, and write it back.
  * Returns the authUser object, or null when no session exists.
+ * Pass { revalidate: true } to skip the stored-blob fast path — the portal
+ * uses this so /auth/refresh always runs (it resyncs stale JWT claims and
+ * re-checks the DB role gate on every load).
  */
-export async function ensureAppSession() {
+export async function ensureAppSession({ revalidate = false } = {}) {
   try {
     const stored = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    if (stored.authUser) return stored.authUser;
+    if (stored.authUser && !revalidate) return stored.authUser;
   } catch {}
 
   let session = null;
@@ -138,10 +141,23 @@ export async function ensureAppSession() {
     const data = await res.json().catch(() => ({}));
     const appUser = data?.user || null;
     if (!appUser) return null;
+
+    // Server detected the JWT's app_metadata claims are stale vs the DB
+    // (e.g. role changed outside the admin route) and resynced them — pull
+    // a fresh token now so subsequent requireRole checks see the real role.
+    let token = session.access_token;
+    if (data.roleStale) {
+      const { data: refreshed } = await supabase.auth.refreshSession().catch(() => ({ data: null }));
+      const fresh = refreshed?.session?.access_token;
+      if (fresh) {
+        token = fresh;
+        syncStoredToken(fresh);
+      }
+    }
     try {
       localStorage.setItem("scholars-circle-auth", JSON.stringify({
         authUser: appUser,
-        authToken: session.access_token,
+        authToken: token,
       }));
     } catch {}
     return appUser;

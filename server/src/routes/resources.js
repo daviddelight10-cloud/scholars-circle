@@ -213,7 +213,7 @@ router.get("/teacher/my", requireAuth, async (req, res) => {
 });
 
 // GET /api/resources/teacher/insights — aggregate analytics for the uploader's materials (LECTURER)
-router.get("/teacher/insights", requireAuth, requireRole("LECTURER"), async (req, res) => {
+router.get("/teacher/insights", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const uid = req.user.sub;
     const mine = await prisma.resource.findMany({
