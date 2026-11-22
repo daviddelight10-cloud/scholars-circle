@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useToast } from "./Toast";
 import { LiveSessionsPanel } from "../features/LiveSessions/LiveSessionsPanel.jsx";
 import { ClassroomAssignmentsPanel } from "../features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
-import { AttendancePanel } from "../features/LiveSessions/AttendancePanel.jsx";
+import { AttendancePanel } from "../features/Attendance/AttendancePanel.jsx";
 import { GroupView } from "../features/groups/GroupView.jsx";
 import { BulkImport, AIQuestionGen } from "./SmallComponents";
 import { API_BASE } from "../lib/constants";

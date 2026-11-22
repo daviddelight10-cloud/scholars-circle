@@ -91,7 +91,7 @@ export const TAB_LABELS = {
   profile: "👤 Profile", lectures: "🎓 Lectures",
   pastpapers: "📄 Past Papers", notifications: "🔔 Notifications",
   "teacher-questions": "📝 My Questions", "campus-comm": "📢 Announcements",
-  premium: "💎 Premium",
+  premium: "💎 Premium", attendance: "📋 Attendance",
   "clinical-cases": "🩺 Clinical Cases",
   "drug-ref": "💊 Drug Reference", "lab-values": "🧪 Lab Values",
   "medical-calculators": "🧮 Med Calculators",

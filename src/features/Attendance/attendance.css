@@ -1,0 +1,53 @@
+.att { display: flex; flex-direction: column; gap: 12px; color: var(--app-text); }
+.att-card { background: var(--app-card, var(--app-panel, #111)); border: 1px solid var(--app-border); border-radius: 14px; padding: 14px; }
+.att-card h3 { margin: 0 0 4px; font-size: 0.98rem; font-weight: 700; }
+.att-sub { margin: 0 0 10px; font-size: 0.8rem; color: var(--app-faint); }
+.att-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.att-grow { flex: 1; min-width: 0; }
+.att-input, .att-select {
+  background: var(--app-bg); color: var(--app-text); border: 1px solid var(--app-border);
+  border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 0.9rem; min-width: 0;
+}
+.att-btn {
+  border: 0; border-radius: 10px; padding: 10px 16px; font: inherit; font-weight: 700; font-size: 0.88rem; cursor: pointer;
+  background: var(--app-accent-fill, #ffd60a); color: #14100a;
+}
+.att-btn:disabled { opacity: 0.55; cursor: default; }
+.att-btn.ghost { background: var(--app-tint-soft, rgba(255,255,255,.05)); color: var(--app-text); border: 1px solid var(--app-border); }
+.att-btn.danger { background: rgba(239, 68, 68, 0.14); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
+.att-err { color: #f87171; font-size: 0.84rem; margin: 6px 0 0; }
+.att-ok { color: #34d399; font-weight: 700; }
+.att-muted { color: var(--app-faint); font-size: 0.8rem; }
+.att-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--app-faint); }
+.att-check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--app-text); }
+
+.att-code-entry { font-size: 1.6rem; letter-spacing: 0.35em; text-align: center; font-variant-numeric: tabular-nums; max-width: 240px; font-weight: 700; }
+
+/* Lecturer present screen */
+.att-present {
+  position: fixed; inset: 0; z-index: 400; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 18px; padding: 24px; background: var(--app-bg); color: var(--app-text); text-align: center; overflow-y: auto;
+}
+.att-present h2 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.att-bigcode { font-size: clamp(3rem, 14vw, 6.5rem); font-weight: 800; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; color: var(--app-accent); line-height: 1; }
+.att-qr { background: #fff; padding: 10px; border-radius: 14px; width: min(260px, 60vw); height: min(260px, 60vw); }
+.att-bar { width: min(320px, 80vw); height: 5px; border-radius: 3px; background: var(--app-tint-med, rgba(255,255,255,.08)); overflow: hidden; }
+.att-bar > i { display: block; height: 100%; background: var(--app-accent); transition: width 1s linear; }
+.att-count { font-size: 1.15rem; font-weight: 700; }
+.att-names { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 560px; max-height: 120px; overflow-y: auto; }
+.att-chip { padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; background: var(--app-tint-soft, rgba(255,255,255,.05)); border: 1px solid var(--app-border); }
+.att-chip.warn { border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; }
+
+/* Report table */
+.att-scroll { overflow-x: auto; border: 1px solid var(--app-border); border-radius: 12px; }
+.att-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.att-table th, .att-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--app-border); white-space: nowrap; }
+.att-table th { color: var(--app-faint); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.att-table tr.low td { background: rgba(239, 68, 68, 0.06); }
+.att-cell { background: none; border: 0; cursor: pointer; font-size: 1rem; padding: 2px 6px; color: var(--app-faint); }
+.att-cell.on { color: #34d399; }
+.att-cell.warn { color: #fbbf24; }
+.att-rate { font-weight: 700; }
+
+.att-prog { height: 6px; border-radius: 3px; background: var(--app-tint-med, rgba(255,255,255,.08)); position: relative; overflow: hidden; }
+.att-prog > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--app-accent); }

@@ -19,7 +19,7 @@ import {
   CalendarDays, User, Settings, Gem, FileText, Laptop,
   Megaphone, KeyRound, Mail, Cog, GraduationCap, Building2,
   Download, Moon, Sun, Sparkles, ClipboardList, UserCircle,
-  ChevronLeft, Gift,
+  ChevronLeft, Gift, ClipboardCheck,
 } from "lucide-react";
 
 
@@ -51,6 +51,7 @@ import { getDepartments, getUserDepartment } from "./lib/departments.js";
 import NotificationBell from "./features/NotificationBellImproved.jsx";
 
 const NotificationsTab = lazyWithRetry(() => import("./features/NotificationsTab.jsx"));
+const StudentAttendance = lazyWithRetry(() => import("./features/Attendance/StudentAttendance.jsx"));
 
 import { InstallPrompt } from "./features/InstallPrompt.jsx";
 
@@ -2393,6 +2394,15 @@ function App() {
         const chatWith = bootParams.get("chatWith");
         if (feedTab || joinCode || chatWith) setFeedDeepLink({ feedTab, joinCode, chatWith });
       }
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
+    // Scanned attendance QR → ?attend=SESSION&c=CODE: stash for the Attendance
+    // screen (it may mount after login) and open it.
+    const attend = bootParams.get("attend");
+    if (attend) {
+      try { sessionStorage.setItem("sc_attend_link", JSON.stringify({ sid: attend, code: bootParams.get("c") || "" })); } catch { /* noop */ }
+      setTab("attendance");
       window.history.replaceState(null, "", window.location.pathname);
     }
 
@@ -8285,7 +8295,7 @@ function App() {
         {!isLecturerRole && (
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "cheatsheet", "outline", "profile", "premium", "voice-tutor", "aitutor", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "cheatsheet", "outline", "profile", "premium", "voice-tutor", "aitutor", "attendance", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
           onClick={() => { haptics.selection(); setShowMobileMenu(!showMobileMenu); }}
 
@@ -8489,6 +8499,8 @@ function App() {
               ["discuss", "Social", MessageCircle],
 
               ["timetable", "Schedule", CalendarDays],
+
+              ["attendance", "Attendance", ClipboardCheck],
 
             ].map(([id, label, Icon]) => (
 
@@ -9470,6 +9482,16 @@ function App() {
       )}
 
 
+
+      {tab === "attendance" && (
+        <ErrorBoundary>
+          <Suspense fallback={<TabSkeleton />}>
+            <div style={{ padding: "16px", maxWidth: 720, margin: "0 auto" }}>
+              <StudentAttendance token={token} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      )}
 
       {tab === "notifications" && (
         <Suspense fallback={<TabSkeleton />}>

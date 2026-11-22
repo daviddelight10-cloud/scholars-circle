@@ -5,7 +5,7 @@ import {
   X, Gem, Stethoscope, Pill, FlaskConical, Calculator, ChevronRight,
   Bot, CalendarDays, User, Settings, Gift,
   BookOpen, School, GraduationCap, FileText, Laptop, Megaphone,
-  Building2, KeyRound, Mail, Cog,
+  Building2, KeyRound, Mail, Cog, ClipboardCheck,
 } from "lucide-react";
 
 const CLOSE_ANIMATION_MS = 240;
@@ -177,6 +177,9 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
             </button>
             <button className={`mm-row${tab === "timetable" ? " active" : ""}`} type="button" onClick={() => go("timetable")}>
               <CalendarDays size={20} /><span>Schedule</span><ChevronRight className="mm-chev" size={16} />
+            </button>
+            <button className={`mm-row${tab === "attendance" ? " active" : ""}`} type="button" onClick={() => go("attendance")}>
+              <ClipboardCheck size={20} /><span>Attendance</span><ChevronRight className="mm-chev" size={16} />
             </button>
           </div>
         </section>
