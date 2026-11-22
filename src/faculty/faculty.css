@@ -8,10 +8,10 @@
 .fc-gate,
 .fc-auth {
   --app-bg: #0b0d10;
-  --app-panel: #11141a;
+  --app-panel: #151b26;
   --app-text: #e8eaf0;
-  --app-faint: #6b7280;
-  --app-border: #1e242e;
+  --app-faint: #8a93a6;
+  --app-border: #273041;
   --app-tint-rgb: 255, 255, 255;
   --app-line: rgba(255, 255, 255, 0.08);
   --app-line-strong: rgba(255, 255, 255, 0.14);
