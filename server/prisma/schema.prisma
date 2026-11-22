@@ -157,6 +157,8 @@ model User {
 
   attendanceMarks  AttendanceMark[]
 
+  classTestAttempts ClassTestAttempt[]
+
   announcementReads AnnouncementRead[]
 
   documentDownloads DocumentDownload[]
@@ -887,6 +889,8 @@ model Classroom {
   members     ClassroomMember[]
 
   attendanceSessions AttendanceSession[]
+
+  classTests    ClassTest[]
 
   classroomAssignments ClassroomAssignment[]
 
@@ -2469,5 +2473,70 @@ model AttendanceMark {
   distanceM Int?
 
   @@unique([sessionId, userId])
+  @@index([userId])
+}
+
+// Lecturer-run class tests (CBT / continuous assessment). Questions are
+// snapshotted into ClassTestQuestion so editing the bank later can't change
+// a published test. Answers are graded server-side — `answerIndex` is never
+// sent to students.
+model ClassTest {
+  id            String              @id @default(cuid())
+  classroomId   String
+  classroom     Classroom           @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  createdById   String
+  title         String
+  instructions  String?
+  durationMin   Int
+  opensAt       DateTime
+  closesAt      DateTime
+  shuffleQ      Boolean             @default(true)
+  shuffleOpt    Boolean             @default(true)
+  showScore     Boolean             @default(true)  // student sees own score after submit
+  published     Boolean             @default(true)  // false = draft, hidden from students
+  createdAt     DateTime            @default(now())
+  questions     ClassTestQuestion[]
+  attempts      ClassTestAttempt[]
+
+  @@index([classroomId, opensAt])
+}
+
+model ClassTestQuestion {
+  id          String    @id @default(cuid())
+  testId      String
+  test        ClassTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  order       Int
+  question    String
+  optionA     String
+  optionB     String
+  optionC     String
+  optionD     String
+  answerIndex Int       // 0-3 → optionA-D
+  explanation String?
+  marks       Int       @default(1)
+  topic       String?
+
+  @@index([testId])
+}
+
+model ClassTestAttempt {
+  id          String    @id @default(cuid())
+  testId      String
+  test        ClassTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order       Json      @default("[]")  // question ids in the order served
+  optMap      Json      @default("{}")  // {questionId: [origIdx per served position]}
+  answers     Json      @default("{}")  // {questionId: servedOptionIndex}
+  detail      Json?                      // per-question grading breakdown
+  score       Int       @default(0)
+  maxScore    Int       @default(0)
+  percent     Float?
+  late        Boolean   @default(false)  // submitted after the deadline grace
+  status      String    @default("in_progress") // in_progress | submitted
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+
+  @@unique([testId, userId])
   @@index([userId])
 }

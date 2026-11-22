@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useToast } from "./Toast";
 import { ClassroomAssignmentsPanel } from "../features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
 import { AttendancePanel } from "../features/Attendance/AttendancePanel.jsx";
+import { ClassTestPanel } from "../features/ClassTests/ClassTestPanel.jsx";
 import { GroupView } from "../features/groups/GroupView.jsx";
 import { BulkImport, AIQuestionGen } from "./SmallComponents";
 import { API_BASE } from "../lib/constants";
@@ -10,6 +11,7 @@ const TABS = [
   { id: "announcements", icon: "📢", label: "Announcements" },
   { id: "hub", icon: "💬", label: "Group Hub" },
   { id: "assignments", icon: "📝", label: "Assignments" },
+  { id: "tests", icon: "✍️", label: "Tests" },
   { id: "docs", icon: "📄", label: "Docs & Links" },
   { id: "attendance", icon: "📋", label: "Attendance" },
 ];
@@ -436,6 +438,10 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                       onBack={null}
                     />
                   </div>
+                )}
+
+                {classTab === "tests" && (
+                  <ClassTestPanel classroomId={selectedClassroom.id} isHost={isHost} token={token} subjects={subjects} classroomName={selectedClassroom.name} />
                 )}
 
                 {classTab === "attendance" && (
