@@ -14,6 +14,7 @@ const SharedFolderView = lazyWithRetry(() => import('./features/SharedFolderView
 const SharedResourceView = lazyWithRetry(() => import('./features/SharedResourceView'));
 const LiveQuizPage = lazyWithRetry(() => import('./features/live-quiz/LiveQuizPage'));
 const ExamChallengePage = lazyWithRetry(() => import('./features/exam/ExamChallengePage'));
+const ClassTestSharePage = lazyWithRetry(() => import('./features/ClassTests/ClassTestSharePage'));
 const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
 const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
 const BlogPost = lazyWithRetry(() => import('./blog/BlogPost'));
@@ -116,6 +117,10 @@ export default function AppRouter() {
       {/* Exam challenge — share-link landing. Public: guests see the exam meta
           and get sent to login; taking requires auth. */}
       <Route path="/exam/:token" element={<ExamChallengePage />} />
+
+      {/* Shared class test — share-link landing. Public: guests see the test
+          meta and get sent to login; taking requires auth. */}
+      <Route path="/t/:token" element={<ClassTestSharePage />} />
 
       {/* Blog routes */}
       <Route path="/blog" element={<BlogList />} />

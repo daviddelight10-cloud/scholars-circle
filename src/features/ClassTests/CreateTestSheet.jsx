@@ -6,7 +6,20 @@ const toLocalInput = (d) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-/** Lecturer: build a class test from the question bank. */
+const TYPE_LABEL = { mcq: "MCQ", truefalse: "T/F", fillblank: "Fill-in" };
+const EMPTY_MANUAL = { type: "mcq", question: "", options: ["", "", "", ""], answerIndex: 0, answerText: "", marks: 1, topic: "", explanation: "", saveToBank: false, secure: true };
+
+function bankToSelected(q) {
+  return {
+    question: q.question,
+    optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD,
+    answerIndex: q.answerIndex, explanation: q.explanation, topic: q.topic,
+    questionType: q.questionType || "mcq", answerText: q.answerText || null,
+    marks: 1, _secure: q.secure,
+  };
+}
+
+/** Lecturer: build a class test — pick from the bank and/or write questions inline. */
 export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel }) {
   const now = new Date();
   const [form, setForm] = useState({
@@ -18,12 +31,15 @@ export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel
     shuffleQ: true,
     shuffleOpt: true,
     showScore: true,
+    showAnswers: false,
     published: true,
   });
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || "");
   const [bank, setBank] = useState(null); // null = loading
   const [topicFilter, setTopicFilter] = useState("");
-  const [selected, setSelected] = useState(new Map()); // bankId → question payload
+  const [selected, setSelected] = useState(new Map()); // key → question payload
+  const [quota, setQuota] = useState({}); // topic → count input
+  const [manual, setManual] = useState(null); // null | manual draft
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -37,37 +53,94 @@ export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel
 
   const topics = useMemo(() => [...new Set((bank || []).map((q) => q.topic).filter(Boolean))].sort(), [bank]);
   const visible = useMemo(() => (bank || []).filter((q) => !topicFilter || q.topic === topicFilter), [bank, topicFilter]);
+  const byTopic = useMemo(() => {
+    const m = new Map();
+    for (const q of visible) {
+      const k = q.topic || "General";
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(q);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [visible]);
 
+  const selKey = (q) => q.id;
   const toggle = (q) => {
     setSelected((prev) => {
       const next = new Map(prev);
-      if (next.has(q.id)) next.delete(q.id);
-      else next.set(q.id, {
-        question: q.question, optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD,
-        answerIndex: q.answerIndex, explanation: q.explanation, topic: q.topic, marks: 1,
-      });
+      if (next.has(selKey(q))) next.delete(selKey(q));
+      else next.set(selKey(q), bankToSelected(q));
       return next;
     });
   };
 
-  const addRandom = (n) => {
-    const pool = visible.filter((q) => !selected.has(q.id));
-    const pick = [...pool].sort(() => Math.random() - 0.5).slice(0, n);
+  const addRandom = (n, pool = visible) => {
+    const avail = pool.filter((q) => !selected.has(selKey(q)));
+    const pick = [...avail].sort(() => Math.random() - 0.5).slice(0, n);
     if (!pick.length) return;
     setSelected((prev) => {
       const next = new Map(prev);
-      for (const q of pick) next.set(q.id, {
-        question: q.question, optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD,
-        answerIndex: q.answerIndex, explanation: q.explanation, topic: q.topic, marks: 1,
-      });
+      for (const q of pick) next.set(selKey(q), bankToSelected(q));
       return next;
     });
+  };
+
+  const addTopicQuota = (topic) => {
+    const n = Math.max(1, parseInt(quota[topic]) || 5);
+    const pool = (bank || []).filter((q) => (q.topic || "General") === topic);
+    addRandom(n, pool);
+  };
+
+  const setMarks = (key, v) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      const q = next.get(key);
+      if (q) next.set(key, { ...q, marks: Math.min(20, Math.max(1, parseInt(v) || 1)) });
+      return next;
+    });
+  };
+
+  const manualValid = () => {
+    if (!manual) return false;
+    if (!manual.question.trim()) return false;
+    if (manual.type === "fillblank") return !!manual.answerText.trim();
+    if (manual.type === "truefalse") return [0, 1].includes(manual.answerIndex);
+    return manual.options.filter((o) => o.trim()).length >= 2 && !!manual.options[manual.answerIndex]?.trim();
+  };
+
+  const addManual = async () => {
+    if (!manualValid()) return;
+    let payload;
+    if (manual.type === "fillblank") {
+      payload = { questionType: "fillblank", question: manual.question.trim(), answerText: manual.answerText.trim(), marks: manual.marks, topic: manual.topic.trim() || null, explanation: manual.explanation.trim() || null };
+    } else if (manual.type === "truefalse") {
+      payload = { questionType: "truefalse", question: manual.question.trim(), optionA: "True", optionB: "False", optionC: "", optionD: "", answerIndex: manual.answerIndex, marks: manual.marks, topic: manual.topic.trim() || null, explanation: manual.explanation.trim() || null };
+    } else {
+      payload = {
+        questionType: "mcq", question: manual.question.trim(),
+        optionA: manual.options[0].trim(), optionB: manual.options[1].trim(),
+        optionC: manual.options[2].trim(), optionD: manual.options[3].trim(),
+        answerIndex: manual.answerIndex, marks: manual.marks,
+        topic: manual.topic.trim() || null, explanation: manual.explanation.trim() || null,
+      };
+    }
+    const key = `manual-${Date.now()}`;
+    if (manual.saveToBank && subjectId) {
+      try {
+        const saved = await classTestApi.addBankQuestion({ ...payload, subjectId, secure: manual.secure }, token);
+        setBank((b) => (b ? [...b, saved] : b));
+        setSelected((prev) => new Map(prev).set(saved.id, { ...bankToSelected(saved), marks: payload.marks }));
+        setManual(null);
+        return;
+      } catch { /* fall through — keep it as a test-only question */ }
+    }
+    setSelected((prev) => new Map(prev).set(key, payload));
+    setManual(null);
   };
 
   const submit = async () => {
     setErr(null);
     if (!form.title.trim()) return setErr("Give the test a title");
-    if (selected.size === 0) return setErr("Pick at least one question");
+    if (selected.size === 0) return setErr("Add at least one question");
     if (new Date(form.closesAt) <= new Date(form.opensAt)) return setErr("Closing time must be after opening time");
     setSaving(true);
     try {
@@ -113,11 +186,31 @@ export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center" }}>
             <label className="ct-toggle"><input type="checkbox" checked={form.showScore} onChange={set("showScore")} /> Show score on submit</label>
+            <label className="ct-toggle"><input type="checkbox" checked={form.showAnswers} onChange={set("showAnswers")} /> Review answers after close</label>
             <label className="ct-toggle"><input type="checkbox" checked={form.published} onChange={set("published")} /> Publish now</label>
           </div>
         </div>
 
-        <div className="ct-label">Questions — {selected.size} selected</div>
+        {/* Selected summary — marks editable per question */}
+        {selected.size > 0 && (
+          <div className="ct-selbox">
+            <div className="ct-label" style={{ marginBottom: 4 }}>Selected — {selected.size} questions · {[...selected.values()].reduce((s, q) => s + q.marks, 0)} marks</div>
+            {[...selected.entries()].map(([key, q]) => (
+              <div key={key} className="ct-selrow">
+                <span className="ct-typebadge">{TYPE_LABEL[q.questionType || "mcq"]}</span>
+                <span className="ct-selrow-text">{q.question}</span>
+                <input
+                  className="ct-input ct-marks" type="number" min={1} max={20}
+                  value={q.marks} title="Marks"
+                  onChange={(e) => setMarks(key, e.target.value)}
+                />
+                <button className="ct-selrow-x" onClick={() => setSelected((p) => { const n = new Map(p); n.delete(key); return n; })}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="ct-label">Questions — pick from your bank or write new ones</div>
         <div className="ct-picker">
           <div className="ct-picker-bar">
             <select className="ct-input" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setTopicFilter(""); }}>
@@ -132,24 +225,95 @@ export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel
             <button className="ct-btn ghost small" onClick={() => addRandom(10)}>+10 random</button>
             <button className="ct-btn ghost small" onClick={() => addRandom(20)}>+20 random</button>
             <button className="ct-btn ghost small" onClick={() => addRandom(visible.length)}>All shown ({visible.length})</button>
+            <button className="ct-btn small" style={{ marginLeft: "auto" }} onClick={() => setManual(manual ? null : { ...EMPTY_MANUAL })}>✍️ Write question</button>
             {selected.size > 0 && <button className="ct-btn danger small" onClick={() => setSelected(new Map())}>Clear</button>}
           </div>
+
+          {/* Inline question writer */}
+          {manual && (
+            <div className="ct-manual">
+              <div className="ct-typebar">
+                {[["mcq", "Multiple choice"], ["truefalse", "True / False"], ["fillblank", "Fill in the blank"]].map(([v, l]) => (
+                  <button key={v} className={`ct-btn small${manual.type === v ? "" : " ghost"}`} onClick={() => setManual((m) => ({ ...m, type: v }))}>{l}</button>
+                ))}
+              </div>
+              <textarea className="ct-input" rows={2} placeholder="Question" value={manual.question} onChange={(e) => setManual((m) => ({ ...m, question: e.target.value }))} />
+              {manual.type === "mcq" && manual.options.map((o, i) => (
+                <div key={i} className="ct-optrow">
+                  <input type="radio" name="ct-correct" checked={manual.answerIndex === i} onChange={() => setManual((m) => ({ ...m, answerIndex: i }))} title="Correct answer" />
+                  <input className="ct-input" placeholder={`Option ${"ABCD"[i]}`} value={o} onChange={(e) => setManual((m) => { const opts = [...m.options]; opts[i] = e.target.value; return { ...m, options: opts }; })} />
+                </div>
+              ))}
+              {manual.type === "truefalse" && (
+                <div style={{ display: "flex", gap: 12 }}>
+                  {[["True", 0], ["False", 1]].map(([l, v]) => (
+                    <label key={v} className="ct-toggle"><input type="radio" name="ct-tf" checked={manual.answerIndex === v} onChange={() => setManual((m) => ({ ...m, answerIndex: v }))} /> {l}</label>
+                  ))}
+                </div>
+              )}
+              {manual.type === "fillblank" && (
+                <input className="ct-input" placeholder="Accepted answer (separate variants with | )" value={manual.answerText} onChange={(e) => setManual((m) => ({ ...m, answerText: e.target.value }))} />
+              )}
+              <div className="ct-row">
+                <input className="ct-input" type="number" min={1} max={20} placeholder="Marks" value={manual.marks} onChange={(e) => setManual((m) => ({ ...m, marks: Math.min(20, Math.max(1, parseInt(e.target.value) || 1)) }))} />
+                <input className="ct-input" placeholder="Topic (optional)" value={manual.topic} onChange={(e) => setManual((m) => ({ ...m, topic: e.target.value }))} />
+              </div>
+              <input className="ct-input" placeholder="Explanation shown in review (optional)" value={manual.explanation} onChange={(e) => setManual((m) => ({ ...m, explanation: e.target.value }))} />
+              {manual.type === "mcq" && subjectId && (
+                <label className="ct-toggle">
+                  <input type="checkbox" checked={manual.saveToBank} onChange={(e) => setManual((m) => ({ ...m, saveToBank: e.target.checked }))} />
+                  Also save to question bank
+                  {manual.saveToBank && (
+                    <span style={{ marginLeft: 4 }}>
+                      (<input type="checkbox" checked={manual.secure} onChange={(e) => setManual((m) => ({ ...m, secure: e.target.checked }))} /> CA-only — hidden from student practice)
+                    </span>
+                  )}
+                </label>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="ct-btn ghost small" style={{ flex: 1 }} onClick={() => setManual(null)}>Cancel</button>
+                <button className="ct-btn small" style={{ flex: 1 }} disabled={!manualValid()} onClick={addManual}>Add to test</button>
+              </div>
+            </div>
+          )}
+
           <div className="ct-picker-list">
             {bank === null ? (
               <div className="ct-empty-sub" style={{ padding: 16 }}>Loading question bank…</div>
-            ) : visible.length === 0 ? (
+            ) : byTopic.length === 0 ? (
               <div className="ct-empty-sub" style={{ padding: 16 }}>
-                No bank questions for this subject yet — add some via Question Tools below, then come back.
+                No bank questions for this subject — write one above, or add via Question Tools.
               </div>
             ) : (
-              visible.slice(0, 300).map((q) => (
-                <label key={q.id} className="ct-qrow">
-                  <input type="checkbox" checked={selected.has(q.id)} onChange={() => toggle(q)} />
-                  <div>
-                    <div className="ct-qrow-text">{q.question}</div>
-                    <div className="ct-qrow-meta">{q.topic || "General"}{q.difficulty ? ` · ${q.difficulty}` : ""}</div>
+              byTopic.map(([topic, qs]) => (
+                <div key={topic}>
+                  <div className="ct-topic-head">
+                    <span>{topic} ({qs.length})</span>
+                    <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        className="ct-quota" type="number" min={1} max={99}
+                        value={quota[topic] ?? ""} placeholder="5"
+                        onChange={(e) => setQuota((q) => ({ ...q, [topic]: e.target.value }))}
+                      />
+                      <button onClick={() => addTopicQuota(topic)}>+ pick random</button>
+                    </span>
                   </div>
-                </label>
+                  {qs.slice(0, 100).map((q) => (
+                    <label key={q.id} className="ct-qrow">
+                      <input type="checkbox" checked={selected.has(selKey(q))} onChange={() => toggle(q)} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="ct-qrow-text">
+                          {(q.questionType && q.questionType !== "mcq") && <span className="ct-typebadge">{TYPE_LABEL[q.questionType]}</span>}{" "}
+                          {q.question}
+                        </div>
+                        <div className="ct-qrow-meta">
+                          {q.topic || "General"}{q.difficulty ? ` · ${q.difficulty}` : ""}
+                          {q.secure && <span className="ct-chip draft" style={{ marginLeft: 6 }}>CA-only</span>}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               ))
             )}
           </div>

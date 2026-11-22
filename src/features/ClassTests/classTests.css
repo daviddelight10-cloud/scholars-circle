@@ -124,3 +124,83 @@
 .ct-stat-l { font-size: 10px; color: var(--app-dim, #94a3b8); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
 
 .ct-back { background: none; border: none; color: var(--app-accent, #ffd60a); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0; margin-bottom: 8px; }
+
+/* ── Selected questions (create sheet) ── */
+.ct-selbox {
+  border: 1px solid rgba(255,214,10,.25); background: rgba(255,214,10,.04);
+  border-radius: 10px; padding: 8px 10px; max-height: 200px; overflow-y: auto;
+}
+.ct-selrow { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+.ct-selrow:last-child { border-bottom: none; }
+.ct-selrow-text { flex: 1; min-width: 0; font-size: 11px; color: var(--app-text, #e2e8f0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-selrow-x { background: none; border: none; color: var(--app-dim, #94a3b8); cursor: pointer; font-size: 11px; padding: 2px 4px; }
+.ct-selrow-x:hover { color: #f87171; }
+.ct-marks { width: 52px !important; padding: 4px 6px !important; font-size: 11px !important; text-align: center; flex-shrink: 0; }
+.ct-typebadge {
+  display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .4px;
+  padding: 1px 6px; border-radius: 5px; background: rgba(96,165,250,.15); color: #60a5fa;
+  text-transform: uppercase; flex-shrink: 0;
+}
+.ct-quota { width: 44px; background: var(--app-bg, rgba(0,0,0,.25)); border: 1px solid var(--app-border, rgba(255,255,255,.1)); border-radius: 6px; padding: 2px 5px; font-size: 10px; color: var(--app-text, #f1f5f9); text-align: center; }
+
+/* ── Manual question writer ── */
+.ct-manual {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px; border-bottom: 1px solid var(--app-border, rgba(255,255,255,.08));
+  background: rgba(96,165,250,.04);
+}
+.ct-typebar { display: flex; gap: 6px; flex-wrap: wrap; }
+.ct-optrow { display: flex; align-items: center; gap: 8px; }
+.ct-optrow input[type="radio"] { accent-color: var(--app-accent, #ffd60a); flex-shrink: 0; }
+
+/* ── Runner: details step / fill-in / warn / review ── */
+.ctr-details { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; text-align: left; }
+.ctr-fillin { font-size: 15px !important; padding: 14px 16px !important; }
+.ctr-submit-warn {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 11px; color: #fbbf24; background: rgba(251,191,36,.08);
+  border: 1px solid rgba(251,191,36,.25); border-radius: 9px; padding: 8px 10px; margin: 10px 0;
+}
+.ctr-review-card { align-items: flex-start; }
+.ctr-review-opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.ctr-review-opt {
+  font-size: 12px; padding: 6px 10px; border-radius: 8px;
+  background: rgba(255,255,255,.04); color: var(--app-text, #e2e8f0);
+}
+.ctr-review-opt.right { background: rgba(16,185,129,.12); color: #34d399; }
+.ctr-review-opt.wrong { background: rgba(239,68,68,.12); color: #f87171; }
+.ctr-review-expl {
+  margin-top: 8px; font-size: 11px; color: var(--app-dim, #94a3b8);
+  border-left: 2px solid var(--app-accent, #ffd60a); padding-left: 10px; line-height: 1.5;
+}
+
+/* ── Share / clone sheets ── */
+.ct-share-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ct-share-code {
+  flex: 1; text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 4px;
+  font-variant-numeric: tabular-nums; color: var(--app-accent, #ffd60a);
+  background: rgba(255,214,10,.06); border: 1px dashed rgba(255,214,10,.3); border-radius: 10px; padding: 10px;
+}
+.ct-card-btn { cursor: pointer; width: 100%; text-align: left; border: 1px solid var(--app-border, rgba(255,255,255,.08)); }
+.ct-card-btn:hover { border-color: rgba(255,214,10,.35); }
+.ct-card-btn:disabled { opacity: .5; cursor: wait; }
+.ct-row-guest td { background: rgba(96,165,250,.03); }
+.ct-override { display: flex; align-items: center; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
+
+/* ── Share landing page (/t/:token) ── */
+.cts-root {
+  min-height: 100dvh; display: grid; place-items: center; padding: 20px;
+  background: var(--app-bg, #0a0a0a);
+}
+.cts-card {
+  width: 100%; max-width: 440px; text-align: center;
+  background: var(--app-panel, rgba(255,255,255,.04));
+  border: 1px solid var(--app-border, rgba(255,255,255,.09));
+  border-radius: 18px; padding: 28px 22px;
+}
+.cts-eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--app-accent, #ffd60a); margin-bottom: 8px;
+}
+.cts-take { width: 100%; padding: 13px !important; font-size: 14px !important; }
+.cts-submitted { display: flex; flex-direction: column; align-items: center; gap: 4px; }

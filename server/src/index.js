@@ -54,6 +54,7 @@ import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
 import { startExamChallengeJob } from "./lib/examChallengeJob.js";
+import { startClassTestJob } from "./lib/classTestJob.js";
 import { seedBadges } from "./lib/badges.js";
 import { startLeagueJob } from "./lib/leagueJob.js";
 import { prisma } from "./db.js";
@@ -71,6 +72,8 @@ startLeagueJob();
 startBattleJobs();
 // Exam-challenge sweep: 24h deadline reminders + closed-winner notices.
 startExamChallengeJob();
+// Class-test sweep: ~30min open reminders + ~15min closing nudges.
+startClassTestJob();
 
 const app = express();
 

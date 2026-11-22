@@ -25,12 +25,26 @@ export const classTestApi = {
   remove: (id, token) => req(`/class-tests/tests/${id}`, { method: "DELETE", token }),
   results: (id, token) => req(`/class-tests/tests/${id}/results`, { token }),
   analysis: (id, token) => req(`/class-tests/tests/${id}/analysis`, { token }),
-  start: (id, token) => req(`/class-tests/tests/${id}/start`, { method: "POST", token }),
+  start: (id, details, token) => req(`/class-tests/tests/${id}/start`, { method: "POST", token, body: details }),
   submit: (id, answers, token) => req(`/class-tests/tests/${id}/submit`, { method: "POST", token, body: { answers } }),
   mine: (id, token) => req(`/class-tests/tests/${id}/my`, { token }),
-  // Question bank for the picker
+  flagFocus: (id, token) => req(`/class-tests/tests/${id}/focus`, { method: "POST", token }),
+  // owner actions
+  share: (id, enabled, token) => req(`/class-tests/tests/${id}/share`, { method: "POST", token, body: { enabled } }),
+  clone: (id, classroomId, token, extra = {}) => req(`/class-tests/tests/${id}/clone`, { method: "POST", token, body: { classroomId, ...extra } }),
+  resetAttempt: (id, attemptId, token) => req(`/class-tests/tests/${id}/attempts/${attemptId}/reset`, { method: "POST", token }),
+  forceSubmit: (id, token) => req(`/class-tests/tests/${id}/force-submit`, { method: "POST", token }),
+  adjustScore: (id, attemptId, score, note, token) => req(`/class-tests/tests/${id}/attempts/${attemptId}/score`, { method: "PATCH", token, body: { score, note } }),
+  // share link (public-ish)
+  shareMeta: (shareToken, token) => req(`/class-tests/share/${shareToken}`, { token }),
+  shareByCode: (code, token) => req(`/class-tests/share/code/${encodeURIComponent(code)}`, { token }),
+  shareStart: (shareToken, details, token) => req(`/class-tests/share/${shareToken}/start`, { method: "POST", token, body: details }),
+  // Question bank + authoring
   bankQuestions: (subjectId, token) => req(`/questions?subjectId=${encodeURIComponent(subjectId)}`, { token }),
+  addBankQuestion: (payload, token) => req(`/questions`, { method: "POST", token, body: payload }),
 };
+
+export const shareUrl = (shareToken) => `${window.location.origin}/t/${shareToken}`;
 
 export function testPhase(test, now = Date.now()) {
   const open = new Date(test.opensAt).getTime();

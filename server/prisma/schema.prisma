@@ -427,6 +427,10 @@ model Question {
 
   topicRel    Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
 
+  questionType String  @default("mcq") // mcq | truefalse | fillblank
+  answerText   String?                  // accepted answer for fillblank
+  secure       Boolean @default(false)  // CA-only — hidden from non-staff practice pool
+
   subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   answers     AttemptAnswer[]
@@ -2493,7 +2497,13 @@ model ClassTest {
   shuffleQ      Boolean             @default(true)
   shuffleOpt    Boolean             @default(true)
   showScore     Boolean             @default(true)  // student sees own score after submit
+  showAnswers   Boolean             @default(false) // release per-question review after close
   published     Boolean             @default(true)  // false = draft, hidden from students
+  shareEnabled  Boolean             @default(false) // anyone with the link/code can sit it
+  shareToken    String?             @unique
+  shareCode     String?             @unique
+  openNotifiedAt  DateTime?  // reminder sweep flags
+  closeNotifiedAt DateTime?
   createdAt     DateTime            @default(now())
   questions     ClassTestQuestion[]
   attempts      ClassTestAttempt[]
@@ -2515,6 +2525,8 @@ model ClassTestQuestion {
   explanation String?
   marks       Int       @default(1)
   topic       String?
+  questionType String   @default("mcq") // mcq | truefalse | fillblank
+  answerText   String?                   // accepted answer for fillblank
 
   @@index([testId])
 }
@@ -2533,6 +2545,13 @@ model ClassTestAttempt {
   maxScore    Int       @default(0)
   percent     Float?
   late        Boolean   @default(false)  // submitted after the deadline grace
+  viaShare    Boolean   @default(false)  // took it via share link, not class membership
+  forceClosed Boolean   @default(false)  // lecturer force-submitted the attempt
+  displayName String?                    // name entered on the start screen
+  matricNo    String?                    // matric/reg number entered on the start screen
+  focusLost   Int       @default(0)      // blur/visibility-loss events during the attempt
+  scoreOverride Int?
+  overrideNote  String?
   status      String    @default("in_progress") // in_progress | submitted
   startedAt   DateTime  @default(now())
   submittedAt DateTime?

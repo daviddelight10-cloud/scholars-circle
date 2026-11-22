@@ -106,7 +106,7 @@ export function WorkTab({ classroom, filter, onFilter, isHost, teacherMode, toke
   const testsSection = (
     <div>
       {filter === "all" && <div className="cx-section">✍️ Class tests</div>}
-      <ClassTestPanel classroomId={classroom.id} isHost={isHost} token={token} subjects={subjects} classroomName={classroom.name} />
+      <ClassTestPanel classroomId={classroom.id} isHost={isHost} token={token} subjects={subjects} classroomName={classroom.name} me={currentUser} />
     </div>
   );
 
