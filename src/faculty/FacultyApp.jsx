@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3, School, FileText, Laptop, Megaphone, Folder,
@@ -97,37 +97,51 @@ export default function FacultyApp() {
 
   const studentAppUrl = STUDENT_APP_URL;
 
+  // AuthProvider rebuilds setUser/setToken on every render, so they must NOT
+  // be effect deps: bootstrap -> setUser -> provider re-render -> new setters
+  // -> bootstrap again was an endless spinner loop. Read them via a ref and
+  // key the bootstrap on epoch only (once per mount / per sign-in).
+  const authSettersRef = useRef({ setUser, setToken });
+  authSettersRef.current = { setUser, setToken };
+
   useEffect(() => {
     let live = true;
-    setStatus("checking");
+    if (epoch > 0) setStatus("checking");
     ensureAppSession({ revalidate: true }).then((u) => {
       if (!live) return;
       if (!u) { setStatus("guest"); return; }
+      const { setUser: su, setToken: st } = authSettersRef.current;
       setAuthUser(u);
-      setUser?.(u);
-      setToken?.(getStoredToken() || "");
+      su?.(u);
+      st?.(getStoredToken() || "");
       setStatus(STAFF_ROLES.has(String(u.role || "").toLowerCase()) ? "staff" : "student");
     }).catch(() => { if (live) setStatus("guest"); });
     return () => { live = false; };
-  }, [setUser, setToken, epoch]);
+  }, [epoch]);
+
+  // UserDataContext rebuilds its setters on every state change, so hold them
+  // in a ref — otherwise each fetch result re-creates these callbacks and the
+  // load effect below refetches forever.
+  const dataSettersRef = useRef({ setSubjects, setAssignments });
+  dataSettersRef.current = { setSubjects, setAssignments };
 
   const refreshAssignments = useCallback(async () => {
     try {
       const rows = await api("/assignments");
-      if (Array.isArray(rows)) setAssignments(rows);
+      if (Array.isArray(rows)) dataSettersRef.current.setAssignments(rows);
     } catch { /* keep local fallback */ }
-  }, [setAssignments]);
+  }, []);
 
   const refreshSubjects = useCallback(async () => {
     try {
       const rows = await api("/subjects");
       if (Array.isArray(rows)) {
         setBackendSubjects(rows);
-        setSubjects(rows); // same { id, label } shape Classroom expects
+        dataSettersRef.current.setSubjects(rows); // same { id, label } shape Classroom expects
         try { localStorage.setItem("sc_subjects_cache", JSON.stringify(rows)); } catch { /* full */ }
       }
     } catch { /* offline */ }
-  }, [setSubjects]);
+  }, []);
 
   useEffect(() => {
     if (status !== "staff") return;
