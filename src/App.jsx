@@ -157,15 +157,7 @@ const TeacherInvitesPanel = lazyWithRetry(() => import("./features/TeacherInvite
 
 
 
-const LiveSessionsPanel = lazyWithRetry(() => import("./features/LiveSessions/LiveSessionsPanel.jsx").then(m => ({ default: m.LiveSessionsPanel })));
-
-
-
 const ClassroomAssignmentsPanel = lazyWithRetry(() => import("./features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx").then(m => ({ default: m.ClassroomAssignmentsPanel })));
-
-
-
-const AttendancePanel = lazyWithRetry(() => import("./features/LiveSessions/AttendancePanel.jsx").then(m => ({ default: m.AttendancePanel })));
 
 
 

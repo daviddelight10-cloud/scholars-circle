@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useToast } from "./Toast";
-import { LiveSessionsPanel } from "../features/LiveSessions/LiveSessionsPanel.jsx";
 import { ClassroomAssignmentsPanel } from "../features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
 import { AttendancePanel } from "../features/Attendance/AttendancePanel.jsx";
 import { GroupView } from "../features/groups/GroupView.jsx";
@@ -10,7 +9,6 @@ import { API_BASE } from "../lib/constants";
 const TABS = [
   { id: "announcements", icon: "📢", label: "Announcements" },
   { id: "hub", icon: "💬", label: "Group Hub" },
-  { id: "sessions", icon: "🎥", label: "Live Sessions" },
   { id: "assignments", icon: "📝", label: "Assignments" },
   { id: "docs", icon: "📄", label: "Docs & Links" },
   { id: "attendance", icon: "📋", label: "Attendance" },
@@ -351,10 +349,6 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                       ))
                     )}
                   </div>
-                )}
-
-                {classTab === "sessions" && (
-                  <LiveSessionsPanel classroomId={selectedClassroom.id} classroomName={selectedClassroom.name} isHost={isHost} currentUser={currentUser} token={token} />
                 )}
 
                 {classTab === "assignments" && (

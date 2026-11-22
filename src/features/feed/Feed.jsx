@@ -43,7 +43,6 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [circle, setCircle] = useState({ following: [], digest: [] });
   const [rooms, setRooms] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
-  const [sessions, setSessions] = useState({ live: [], upcoming: [] });
   const [liveOpen, setLiveOpen] = useState(false); // full-screen live rooms/quizzes overlay
   const [fsrsStats, setFsrsStats] = useState(null);
   const [dailyReviews, setDailyReviews] = useState({});
@@ -160,17 +159,11 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     loadAux();
   }, [loadFeed, loadAux]);
 
-  // Live overlay data loads on demand — quizzes and class sessions aren't
-  // needed until the user opens the "See all" / "Go live" view.
+  // Live overlay data loads on demand — quizzes aren't needed until the
+  // user opens the "See all" / "Go live" view.
   useEffect(() => {
     if (!liveOpen) return;
     feedApi.getActiveQuizzes({ token }).then(setQuizzes).catch(() => setQuizzes([]));
-    Promise.all([
-      feedApi.getLiveSessions({ token }).catch(() => []),
-      feedApi.getUpcomingSessions({ token }).catch(() => []),
-    ])
-      .then(([live, upcoming]) => setSessions({ live: live || [], upcoming: upcoming || [] }))
-      .catch(() => {});
   }, [liveOpen, token]);
 
   // (title is static now — no scroll listener needed)
@@ -317,15 +310,6 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     if (!code) return;
     try { await import("../live-quiz/LiveQuizPage"); } catch {}
     navigate(`/live/${code}`, { state: { returnTo: window.location.pathname } });
-  };
-
-  const handleJoinSession = async (session) => {
-    try {
-      const res = await feedApi.joinSession({ token, sessionId: session.id });
-      if (res.roomName) window.open(`https://meet.jit.si/${res.roomName}`, "_blank");
-    } catch (err) {
-      alert(err.message);
-    }
   };
 
   const streakDays = useMemo(() => {
@@ -692,12 +676,10 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             me={me}
             rooms={rooms}
             quizzes={quizzes}
-            sessions={sessions}
             subjects={subjects}
             onJoinRoom={handleJoinRoom}
             onLeaveRoom={handleLeaveRoom}
             onEndRoom={handleEndRoom}
-            onJoinSession={handleJoinSession}
             onJoinQuiz={handleJoinQuiz}
             onOpenResource={onOpenResource}
             onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})}
@@ -757,7 +739,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   );
 }
 
-function LiveTab({ token, me, rooms, quizzes = [], sessions, subjects, onJoinRoom, onLeaveRoom, onEndRoom, onJoinSession, onJoinQuiz, onOpenResource, onRoomsChanged }) {
+function LiveTab({ token, me, rooms, quizzes = [], subjects, onJoinRoom, onLeaveRoom, onEndRoom, onJoinQuiz, onOpenResource, onRoomsChanged }) {
   return (
     <div className="fd-live">
       <Composer
@@ -807,35 +789,7 @@ function LiveTab({ token, me, rooms, quizzes = [], sessions, subjects, onJoinRoo
         </div>
       )}
 
-      {sessions.live.length > 0 && (
-        <div className="fd-section">
-          <DividerBlock label="Live class sessions" />
-          {sessions.live.map((s) => (
-            <div key={s.id} className="fd-card fd-session">
-              <div className="fd-live-badge">LIVE</div>
-              <div className="fd-session-title">{s.title}</div>
-              <div className="fd-session-meta">{s.classroom?.name || "Class session"}</div>
-              <button className="fd-join-btn" onClick={() => onJoinSession(s)}>Join session</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {sessions.upcoming.length > 0 && (
-        <div className="fd-section">
-          <DividerBlock label="Upcoming" />
-          {sessions.upcoming.map((s) => (
-            <div key={s.id} className="fd-card fd-session">
-              <div className="fd-session-title">{s.title}</div>
-              <div className="fd-session-meta">
-                {s.classroom?.name} · {new Date(s.scheduledFor).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {quizzes.length === 0 && rooms.length === 0 && sessions.live.length === 0 && sessions.upcoming.length === 0 && (
+      {quizzes.length === 0 && rooms.length === 0 && (
         <div className="fd-empty">
           <div className="fd-empty-title">Nobody's live right now</div>
           <div className="fd-empty-sub">Go live with a live quiz or a quiet study room — your circle can join.</div>

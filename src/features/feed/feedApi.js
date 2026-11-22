@@ -67,11 +67,6 @@ export const feedApi = {
   // Live quiz battles (synchronized MCQ rooms)
   getActiveQuizzes: ({ token } = {}) => req("/api/live-quiz/active", { token }),
 
-  // Classroom live sessions (only when user has classrooms)
-  getLiveSessions: ({ token } = {}) => req("/live-sessions/live", { token }),
-  getUpcomingSessions: ({ token } = {}) => req("/live-sessions/upcoming", { token }),
-  joinSession: ({ token, sessionId }) => req(`/live-sessions/${sessionId}/join`, { token, method: "POST" }),
-
   // Streak chip
   getFsrsStats: ({ token } = {}) => req("/api/resources/fsrs/stats", { token }),
   getFsrsAnalytics: ({ token } = {}) => req("/api/resources/fsrs/analytics?days=30", { token }),

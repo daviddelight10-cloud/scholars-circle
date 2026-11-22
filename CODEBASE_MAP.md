@@ -415,13 +415,13 @@ EnhancedSession (src/features/EnhancedSession/)
 ClassroomPage (src/components/Classroom.jsx)
 ├── Faculty: create classrooms, manage members, announcements
 │   upload documents, share links, create exams/assignments
-│   grade assignments, start live sessions, create polls
+│   grade assignments, run in-hall attendance sessions
 ├── Students: view content, download, submit assignments
-│   join live sessions, vote in polls, view grades
-├── Live Sessions: Jitsi Meet (room: sc-<random>), attendance tracking
-│   status: scheduled → live → ended, recording URL
+│   mark attendance with rotating code / QR, view grades
+├── Attendance: rotating 6-digit HMAC code (30s window) + QR,
+│   optional geofence, 75% exam-eligibility report, CSV export
 ├── Assignments: text/file/both, submissions, grading, due dates
-└── Backend: /classroom, /classroom-assignments, /live-sessions, /polls
+└── Backend: /classroom, /classroom-assignments, /attendance
 ```
 
 ### 5.6 Medical Reference Tools
@@ -511,9 +511,8 @@ invalidateUserCache(supabaseId): called on profile updates
 /classroom         — classrooms, members, announcements, documents, links, exams
 /lecturers         — lecturer profiles, ratings, posts, DMs
 /teacher-invites   — invite code generation + validation
-/live-sessions     — schedule, start, end, attendance
+/attendance        — in-hall attendance sessions, rotating codes, reports
 /classroom-assignments — assignments, submissions, grading
-/polls             — create, vote, end live polls
 /push              — FCM push subscription + notifications
 /gamification      — leagues, duels, weekly challenges, badges, wall
 /wall              — class social wall posts + reactions
@@ -551,7 +550,7 @@ CLASSROOM:
   ClassroomDocument → DocumentDownload
   Exam
   ClassroomAssignment → AssignmentSubmission (graded)
-  LiveSession → SessionAttendance, LivePoll → PollVote
+  AttendanceSession → AttendanceMark (rotating code + geofence)
   WeeklyChallenge → WeeklyChallengeEntry
   ChallengeDuel → DuelAnswer (1v1, XP stake)
 

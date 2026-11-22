@@ -17,7 +17,6 @@ import {
 
 const CATEGORIES = [
   { key: "announcements", icon: "📢", label: "Announcements", desc: "New classroom announcements" },
-  { key: "liveSessions", icon: "🔴", label: "Live Sessions", desc: "Alerts when a class goes live" },
   { key: "assignments", icon: "📝", label: "Assignments", desc: "New assignments and due-date reminders" },
   { key: "directMessages", icon: "💬", label: "Messages", desc: "Direct messages from peers and lecturers" },
   { key: "groups", icon: "👥", label: "Group Activity", desc: "Messages, joins, goals and battles in your study clans" },
