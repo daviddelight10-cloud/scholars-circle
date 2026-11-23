@@ -40,6 +40,7 @@ export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel
   const [selected, setSelected] = useState(new Map()); // key → question payload
   const [quota, setQuota] = useState({}); // topic → count input
   const [manual, setManual] = useState(null); // null | manual draft
+  const [gen, setGen] = useState(null); // null | AI-generate draft
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -137,6 +138,30 @@ export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel
     setManual(null);
   };
 
+  // AI-generate straight into the server bank (secure/CA-only) and select
+  // them for this test — the fix for "tests use old MCQ data".
+  const runGenerate = async () => {
+    if (!gen?.topic?.trim()) return setGen((g) => ({ ...g, error: "Enter a topic" }));
+    if (!subjectId) return setGen((g) => ({ ...g, error: "Pick a subject above" }));
+    setGen((g) => ({ ...g, busy: true, error: null }));
+    try {
+      const r = await classTestApi.generateQuestions(
+        { subjectId, topic: gen.topic.trim(), count: gen.count, difficulty: gen.difficulty, questionType: gen.qtype },
+        token
+      );
+      const rows = r.questions || [];
+      setBank((b) => (b ? [...b, ...rows] : rows));
+      setSelected((prev) => {
+        const next = new Map(prev);
+        for (const q of rows) next.set(selKey(q), bankToSelected(q));
+        return next;
+      });
+      setGen(null);
+    } catch (e) {
+      setGen((g) => ({ ...g, busy: false, error: e.message || "Generation failed" }));
+    }
+  };
+
   const submit = async () => {
     setErr(null);
     if (!form.title.trim()) return setErr("Give the test a title");
@@ -225,9 +250,40 @@ export function CreateTestSheet({ classroomId, token, subjects, onDone, onCancel
             <button className="ct-btn ghost small" onClick={() => addRandom(10)}>+10 random</button>
             <button className="ct-btn ghost small" onClick={() => addRandom(20)}>+20 random</button>
             <button className="ct-btn ghost small" onClick={() => addRandom(visible.length)}>All shown ({visible.length})</button>
+            <button className="ct-btn ghost small" onClick={() => setGen(gen ? null : { topic: "", count: 10, difficulty: "medium", qtype: "mcq", busy: false, error: null })}>✨ Generate</button>
             <button className="ct-btn small" style={{ marginLeft: "auto" }} onClick={() => setManual(manual ? null : { ...EMPTY_MANUAL })}>✍️ Write question</button>
             {selected.size > 0 && <button className="ct-btn danger small" onClick={() => setSelected(new Map())}>Clear</button>}
           </div>
+
+          {/* AI generate — server-side, lands in the bank as CA-only */}
+          {gen && (
+            <div className="ct-manual">
+              <div className="ct-row">
+                <input className="ct-input" placeholder="Topic — e.g. Cardiac cycle" value={gen.topic} onChange={(e) => setGen((g) => ({ ...g, topic: e.target.value }))} />
+                <select className="ct-input" value={gen.count} onChange={(e) => setGen((g) => ({ ...g, count: Number(e.target.value) }))}>
+                  {[5, 10, 15, 20, 25, 30].map((n) => <option key={n} value={n}>{n} questions</option>)}
+                </select>
+              </div>
+              <div className="ct-row">
+                <select className="ct-input" value={gen.difficulty} onChange={(e) => setGen((g) => ({ ...g, difficulty: e.target.value }))}>
+                  <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+                </select>
+                <select className="ct-input" value={gen.qtype} onChange={(e) => setGen((g) => ({ ...g, qtype: e.target.value }))}>
+                  <option value="mcq">Multiple choice</option><option value="truefalse">True / False</option><option value="fillblank">Fill in the blank</option>
+                </select>
+              </div>
+              {gen.error && <div style={{ fontSize: 12, color: "#f87171" }}>{gen.error}</div>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="ct-btn ghost small" style={{ flex: 1 }} onClick={() => setGen(null)}>Cancel</button>
+                <button className="ct-btn small" style={{ flex: 1 }} disabled={gen.busy} onClick={runGenerate}>
+                  {gen.busy ? "Generating…" : `✨ Generate ${gen.count} into test`}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--app-dim)" }}>
+                Saved to your bank as CA-only and auto-selected below.
+              </div>
+            </div>
+          )}
 
           {/* Inline question writer */}
           {manual && (

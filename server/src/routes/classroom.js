@@ -6,6 +6,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { getRoomByCode } from "../lib/liveQuizRooms.js";
+import { saveDocument, openDocument, removeDocument } from "../lib/storage.js";
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: (req, file, cb) => {
-    const allowedExtensions = [".pdf", ".docx", ".doc", ".txt"];
+    const allowedExtensions = [".pdf", ".docx", ".doc", ".txt", ".ppt", ".pptx", ".xlsx", ".jpg", ".jpeg", ".png", ".webp"];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedExtensions.includes(ext)) {
       cb(null, true);
@@ -807,12 +808,15 @@ router.post("/:id/documents", requireAuth, requireRole("TEACHER", "LECTURER"), u
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    // Supabase Storage when configured (survives redeploys); disk otherwise.
+    const fileUrl = await saveDocument(file);
+
     const document = await prisma.classroomDocument.create({
       data: {
         classroomId: id,
         title: title || file.originalname,
         filename: file.originalname,
-        fileUrl: `/uploads/${file.filename}`,
+        fileUrl,
         fileType: path.extname(file.originalname).toLowerCase().replace(".", ""),
         fileSize: file.size,
       },
@@ -847,6 +851,13 @@ router.get("/documents/:documentId/download", requireAuth, async (req, res) => {
       },
     }).catch(() => {}); // Ignore if already downloaded
 
+    // Storage-backed files redirect to a short-lived signed URL; legacy
+    // disk files still stream from uploads/.
+    const signed = await openDocument(document.fileUrl).catch(() => null);
+    if (signed) return res.redirect(signed);
+    if (document.fileUrl?.startsWith("storage://")) {
+      return res.status(502).json({ error: "File storage is temporarily unavailable" });
+    }
     const filePath = path.join(uploadDir, path.basename(document.fileUrl));
     res.download(filePath, document.filename);
   } catch (error) {
@@ -869,8 +880,9 @@ router.delete("/:classroomId/documents/:documentId", requireAuth, requireRole("T
     });
 
     if (document) {
-      // Delete file from disk
-      const filePath = path.join(uploadDir, path.basename(document.fileUrl));
+      // Delete file from storage or disk
+      await removeDocument(document.fileUrl);
+      const filePath = path.join(uploadDir, path.basename(document.fileUrl || ""));
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }

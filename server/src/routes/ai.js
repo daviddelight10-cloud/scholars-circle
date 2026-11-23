@@ -138,6 +138,30 @@ function providersAvailable() {
   return list;
 }
 
+// Shared provider-chain call for other routes (e.g. question generation).
+// Returns { text, provider, model } or throws an Error with a user-safe message.
+export async function callAI({ prompt, system, provider, model }) {
+  const available = providersAvailable();
+  if (available.length === 0) {
+    throw new Error("AI is temporarily unavailable on the server.");
+  }
+  const tryOrder = [];
+  if (provider && available.includes(provider)) tryOrder.push(provider);
+  for (const p of available) if (!tryOrder.includes(p)) tryOrder.push(p);
+
+  let lastError = null;
+  for (const p of tryOrder) {
+    const useModel = p === provider ? model : null;
+    const result = p === "gemini" ? await tryGemini(prompt, useModel, system, null)
+      : p === "openrouter" ? await tryOpenRouter(prompt, useModel, system, null)
+      : await tryOpenAI(prompt, useModel, system, null);
+    if (result.ok) return { text: result.text, provider: result.provider, model: result.model };
+    lastError = result.error;
+    if (!result.retriable) break;
+  }
+  throw new Error(lastError || "AI request failed");
+}
+
 router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
   const { prompt, provider, model, system, messages } = req.body || {};
   const hasPrompt = prompt && typeof prompt === "string";

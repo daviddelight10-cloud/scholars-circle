@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { classroomApi, initials, attentionBadges } from "./classroomApi.js";
+import { classroomApi, initials, attentionBadges, classPalette } from "./classroomApi.js";
 
 function JoinSheet({ token, onJoined, onClose }) {
   const [code, setCode] = useState("");
@@ -115,11 +115,12 @@ export function ClassList({ classes, attention, teacherMode, token, subjects, on
         </div>
       ) : (
         <div className="cx-list">
-          {classes.map((c) => {
+          {classes.map((c, i) => {
             const badges = attentionBadges(attention[c.id]);
+            const [c1, c2] = classPalette(c.name);
             return (
-              <button key={c.id} className="cx-card" onClick={() => onOpen(c.id)}>
-                <span className="cx-avatar">{initials(c.name)}</span>
+              <button key={c.id} className="cx-card" style={{ "--d": `${Math.min(i * 45, 400)}ms` }} onClick={() => onOpen(c.id)}>
+                <span className="cx-avatar" style={{ background: `linear-gradient(135deg, ${c1}, ${c2})`, color: "#fff" }}>{initials(c.name)}</span>
                 <span className="cx-card-main">
                   <span className="cx-card-name">{c.name}</span>
                   <span className="cx-card-meta">

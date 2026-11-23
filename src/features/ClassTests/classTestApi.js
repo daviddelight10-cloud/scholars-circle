@@ -40,8 +40,10 @@ export const classTestApi = {
   shareByCode: (code, token) => req(`/class-tests/share/code/${encodeURIComponent(code)}`, { token }),
   shareStart: (shareToken, details, token) => req(`/class-tests/share/${shareToken}/start`, { method: "POST", token, body: details }),
   // Question bank + authoring
-  bankQuestions: (subjectId, token) => req(`/questions?subjectId=${encodeURIComponent(subjectId)}`, { token }),
+  bankQuestions: (subjectId, token) => req(subjectId ? `/questions?subjectId=${encodeURIComponent(subjectId)}` : "/questions", { token }),
   addBankQuestion: (payload, token) => req(`/questions`, { method: "POST", token, body: payload }),
+  generateQuestions: (payload, token) => req(`/questions/generate`, { method: "POST", token, body: payload }),
+  bulkQuestions: (questions, token) => req(`/questions/bulk`, { method: "POST", token, body: { questions } }),
 };
 
 export const shareUrl = (shareToken) => `${window.location.origin}/t/${shareToken}`;

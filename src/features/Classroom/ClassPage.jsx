@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { classroomApi } from "./classroomApi.js";
+import { classroomApi, initials, classPalette } from "./classroomApi.js";
 import { TodayTab } from "./TodayTab.jsx";
 import { WorkTab } from "./WorkTab.jsx";
 import { MaterialsTab } from "./MaterialsTab.jsx";
 import { ManageTab } from "./ManageTab.jsx";
-import { GroupView } from "../groups/GroupView.jsx";
+import { ClassChatTab } from "./ClassChatTab.jsx";
 
 const TABS = [
   { id: "today", icon: "☀️", label: "Today" },
@@ -13,7 +13,7 @@ const TABS = [
   { id: "chat", icon: "💬", label: "Chat" },
 ];
 
-/** Level 2 — inside one class. Four labeled tabs (+ Manage for the lecturer). */
+/** Level 2 — inside one class. Banner header + four labeled tabs (+ Manage). */
 export function ClassPage(props) {
   const { classroom, attentionItems, attentionCounts, isHost, token, currentUser, subjects, onBack, onChanged } = props;
   const [detail, setDetail] = useState(classroom);
@@ -31,7 +31,7 @@ export function ClassPage(props) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Important announcements pop once until marked read (preserves old behaviour)
+  // Important announcements pop once until marked read
   useEffect(() => {
     const unread = (detail?.announcements || []).find((a) => a.isImportant && (!a.reads || a.reads.length === 0));
     if (unread && !popup) setPopup(unread);
@@ -51,6 +51,7 @@ export function ClassPage(props) {
 
   const hasLive = (attentionCounts.attendanceOpen || 0) > 0 || (attentionCounts.testsOpen || 0) > 0;
   const memberCount = detail?._count?.members ?? detail?.members?.length ?? 0;
+  const [c1, c2] = classPalette(detail?.name || classroom.name);
 
   const goWork = (filter) => { setWorkFilter(filter); setTab("work"); };
   const shareCode = async () => {
@@ -64,17 +65,23 @@ export function ClassPage(props) {
 
   return (
     <div className="cx-root">
-      <div className="cx-page">
-        <div className="cx-page-head">
+      <div className={`cx-page${tab === "chat" ? " chat-mode" : ""}`}>
+        <div className="cx-banner" style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}>
           <button className="cx-back" onClick={onBack} aria-label="Back to classes">‹</button>
-          <div className="cx-page-name">{detail?.name || classroom.name}</div>
+          <div className="cx-banner-avatar">{initials(detail?.name)}</div>
+          <div className="cx-banner-info">
+            <div className="cx-banner-name">{detail?.name || classroom.name}</div>
+            <div className="cx-banner-sub">
+              {detail?.section ? `${detail.section} · ` : ""}{memberCount} member{memberCount === 1 ? "" : "s"}
+              {detail?.lecturer?.name ? ` · ${detail.lecturer.name}` : ""}
+            </div>
+          </div>
           {isHost && detail?.joinCode && (
-            <button className="cx-btn ghost small" onClick={shareCode}>
-              {copied ? "Copied ✓" : `Code ${detail.joinCode}`}
+            <button className="cx-code-chip" onClick={shareCode} title="Share class code">
+              {copied ? "✓ Copied" : `⌗ ${detail.joinCode}`}
             </button>
           )}
         </div>
-        <div className="cx-page-sub">{memberCount} member{memberCount === 1 ? "" : "s"}</div>
 
         <div className="cx-tabs">
           {tabs.map((t) => (
@@ -83,61 +90,61 @@ export function ClassPage(props) {
               className={`cx-tab${tab === t.id ? " active" : ""}`}
               onClick={() => setTab(t.id)}
             >
-              {t.icon} {t.label}
+              <span className="cx-tab-ic">{t.icon}</span>{t.label}
               {t.id === "today" && hasLive && <span className="cx-tab-dot" />}
             </button>
           ))}
         </div>
 
-        {tab === "today" && (
-          <TodayTab
-            classroom={detail}
-            attentionItems={attentionItems}
-            isHost={isHost}
-            token={token}
-            onGoWork={goWork}
-            onGoManage={() => setTab("manage")}
-            onChanged={load}
-            onRefreshAll={onChanged}
-          />
-        )}
-        {tab === "work" && (
-          <WorkTab
-            classroom={detail}
-            filter={workFilter}
-            onFilter={setWorkFilter}
-            isHost={isHost}
-            teacherMode={props.teacherMode}
-            token={token}
-            subjects={subjects}
-            currentUser={currentUser}
-            assignments={props.assignments}
-            onComplete={props.onComplete}
-            onChanged={load}
-          />
-        )}
-        {tab === "materials" && (
-          <MaterialsTab classroom={detail} isHost={isHost} token={token} onChanged={load} />
-        )}
-        {tab === "chat" && (
-          <GroupView
-            group={{ ...detail, kind: "classroom", isCreator: isHost, memberCount }}
-            token={token}
-            currentUser={currentUser}
-            subjects={subjects}
-            isFaculty={props.teacherMode}
-            onBack={null}
-          />
-        )}
-        {tab === "manage" && isHost && (
-          <ManageTab
-            classroom={detail}
-            token={token}
-            subjects={subjects}
-            onImportQuestions={props.onImportQuestions}
-            onChanged={load}
-          />
-        )}
+        <div className="cx-body" key={tab}>
+          {tab === "today" && (
+            <TodayTab
+              classroom={detail}
+              attentionItems={attentionItems}
+              isHost={isHost}
+              token={token}
+              onGoWork={goWork}
+              onGoManage={() => setTab("manage")}
+              onChanged={load}
+              onRefreshAll={onChanged}
+            />
+          )}
+          {tab === "work" && (
+            <WorkTab
+              classroom={detail}
+              filter={workFilter}
+              onFilter={setWorkFilter}
+              isHost={isHost}
+              teacherMode={props.teacherMode}
+              token={token}
+              subjects={subjects}
+              currentUser={currentUser}
+              assignments={props.assignments}
+              onComplete={props.onComplete}
+              onChanged={load}
+            />
+          )}
+          {tab === "materials" && (
+            <MaterialsTab classroom={detail} isHost={isHost} token={token} onChanged={load} />
+          )}
+          {tab === "chat" && (
+            <ClassChatTab
+              classroom={detail}
+              memberCount={memberCount}
+              token={token}
+              currentUser={currentUser}
+              isHost={isHost}
+            />
+          )}
+          {tab === "manage" && isHost && (
+            <ManageTab
+              classroom={detail}
+              token={token}
+              subjects={subjects}
+              onChanged={load}
+            />
+          )}
+        </div>
       </div>
 
       {popup && (

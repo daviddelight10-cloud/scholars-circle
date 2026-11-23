@@ -1,14 +1,11 @@
 import { useState } from "react";
 import { AttendancePanel } from "../Attendance/AttendancePanel.jsx";
-import { BulkImport, AIQuestionGen } from "../../components/SmallComponents.jsx";
+import { QuestionTools } from "./QuestionTools.jsx";
 
-/**
- * Manage (lecturer only): run attendance, review the report, grow the
- * question bank, and share the class invite code.
- */
-export function ManageTab({ classroom, token, onImportQuestions }) {
+/** Manage (lecturer only) — iOS-settings-style grouped sections. */
+export function ManageTab({ classroom, token, subjects = [] }) {
   const [copied, setCopied] = useState(false);
-  const [showTools, setShowTools] = useState(false);
+  const [open, setOpen] = useState("attendance"); // attendance | questions | null
 
   const copyCode = async () => {
     if (!classroom.joinCode) return;
@@ -29,42 +26,51 @@ export function ManageTab({ classroom, token, onImportQuestions }) {
     } catch { copyCode(); }
   };
 
+  const Row = ({ id, icon, title, sub }) => (
+    <button className={`cx-mrow${open === id ? " on" : ""}`} onClick={() => setOpen(open === id ? null : id)}>
+      <span className="cx-mrow-ic">{icon}</span>
+      <span className="cx-mrow-tx">
+        <span className="cx-mrow-title">{title}</span>
+        <span className="cx-mrow-sub">{sub}</span>
+      </span>
+      <span className="cx-mrow-caret">{open === id ? "▲" : "▼"}</span>
+    </button>
+  );
+
   return (
-    <div>
-      {/* Invite */}
+    <div className="cx-manage">
       {classroom.joinCode && (
-        <div className="cx-code-box" style={{ marginBottom: 14 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".6px", color: "var(--app-dim)", marginBottom: 3 }}>Class invite code</div>
-            <div className="cx-code">{classroom.joinCode}</div>
+        <div className="cx-invite-card">
+          <div className="cx-invite-tx">
+            <div className="cx-invite-label">Class invite code</div>
+            <div className="cx-invite-code">{classroom.joinCode}</div>
           </div>
-          <button className="cx-btn ghost small" onClick={copyCode}>{copied ? "Copied ✓" : "Copy"}</button>
-          {"share" in navigator && <button className="cx-btn small" onClick={share}>Share</button>}
+          <div className="cx-invite-acts">
+            <button className="cx-btn ghost small" onClick={copyCode}>{copied ? "✓ Copied" : "Copy"}</button>
+            {"share" in navigator && <button className="cx-btn small" onClick={share}>Share</button>}
+          </div>
         </div>
       )}
 
-      <div className="cx-section">📋 Attendance</div>
-      <AttendancePanel classroomId={classroom.id} isHost token={token} />
-
-      <div className="cx-section">🛠️ Question bank tools</div>
-      <div className="cx-panel" style={{ padding: 0, overflow: "hidden" }}>
-        <div
-          style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
-          onClick={() => setShowTools((s) => !s)}
-        >
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--app-text)" }}>Bulk import & AI generate</span>
-          <span style={{ color: "var(--app-dim)" }}>{showTools ? "▲" : "▼"}</span>
-        </div>
-        {showTools && (
-          <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-            <BulkImport onImportQuestions={onImportQuestions} />
-            <AIQuestionGen onImportQuestions={onImportQuestions} />
+      <div className="cx-mgroup">
+        <Row id="attendance" icon="📋" title="Attendance" sub="Take attendance, view the report" />
+        {open === "attendance" && (
+          <div className="cx-mbody">
+            <AttendancePanel classroomId={classroom.id} isHost token={token} />
           </div>
         )}
       </div>
 
-      <div className="cx-panel-meta" style={{ marginTop: 14 }}>
-        Question bank feeds your class tests — create a test under Work → Tests.
+      <div className="cx-mgroup">
+        <Row id="questions" icon="🧠" title="Question bank" sub="AI-generate or bulk-import questions for tests" />
+        {open === "questions" && (
+          <div className="cx-mbody">
+            <QuestionTools subjects={subjects} token={token} />
+            <div className="cx-hint" style={{ marginTop: 10 }}>
+              Bank questions feed <b>Work → Tests</b>. New questions appear in the picker immediately.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

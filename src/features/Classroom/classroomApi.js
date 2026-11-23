@@ -33,7 +33,41 @@ export const classroomApi = {
     formData.append("title", file.name);
     return req(`/classroom/${id}/documents`, { method: "POST", token, formData });
   },
+  deleteDocument: (id, documentId, token) => req(`/classroom/${id}/documents/${documentId}`, { method: "DELETE", token }),
+  uploadDocumentProgress: (id, file, token, onProgress) => {
+    // XHR for real upload progress (fetch can't report upload progress).
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${API_BASE}/classroom/${id}/documents`);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", file.name);
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100)); };
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText || "{}");
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else reject(new Error(data.error || `Upload failed (${xhr.status})`));
+        } catch { reject(new Error("Upload failed")); }
+      };
+      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.send(formData);
+    });
+  },
 };
+
+// Stable gradient palette per class name — Google-Classroom-style color coding.
+const PALETTES = [
+  ["#7c5cff", "#4a2db8"], ["#0ea5e9", "#065f8f"], ["#10b981", "#065f46"],
+  ["#f59e0b", "#92400e"], ["#ef4444", "#7f1d1d"], ["#ec4899", "#831843"],
+  ["#8b5cf6", "#4c1d95"], ["#14b8a6", "#134e4a"],
+];
+export function classPalette(name = "") {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return PALETTES[h % PALETTES.length];
+}
 
 export function initials(name) {
   if (!name) return "?";

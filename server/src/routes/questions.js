@@ -1,6 +1,8 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { aiRateLimit } from "../middleware/aiRateLimit.js";
+import { callAI } from "./ai.js";
 
 const router = express.Router();
 
@@ -171,6 +173,61 @@ router.post("/bulk", requireAuth, requireRole("TEACHER", "LECTURER"), async (req
   } catch (err) {
     console.error("Bulk create error:", err);
     res.status(500).json({ error: err.message || "Failed to create questions" });
+  }
+});
+
+// AI-generate questions straight into the bank (teacher only).
+// Generated items are marked secure (CA-only) — they never surface in the
+// student practice pool. The caller previews them and can then pick them
+// for a class test — this is what fixes "the test uses old MCQ data":
+// lecturer-made content lands in the same bank the test picker reads.
+router.post("/generate", requireAuth, requireRole("TEACHER", "LECTURER"), aiRateLimit, async (req, res) => {
+  try {
+    const { topic, count = 10, difficulty = "medium", questionType = "mcq", subjectId } = req.body || {};
+    const n = Math.max(1, Math.min(30, Number(count) || 10));
+    const type = ["mcq", "truefalse", "fillblank"].includes(questionType) ? questionType : "mcq";
+    if (!topic || !String(topic).trim()) return res.status(400).json({ error: "Topic is required" });
+    if (!subjectId) return res.status(400).json({ error: "subjectId is required" });
+    const subject = await prisma.subject.findUnique({ where: { id: String(subjectId) }, select: { id: true, label: true } });
+    if (!subject) return res.status(404).json({ error: "Subject not found" });
+
+    const typeSpec = {
+      mcq: `each item: {"question":"...","options":["A","B","C","D"],"answerIndex":0-3,"explanation":"..."}`,
+      truefalse: `each item: {"question":"... (a statement to judge)","answerIndex":0 or 1 (0=True,1=False),"explanation":"..."}`,
+      fillblank: `each item: {"question":"...with ___ for the missing term","answerText":"the correct word/short phrase","explanation":"..."}`,
+    }[type];
+    const prompt = `You are a strict exam setter for Nigerian university/polytechnic students. Write exactly ${n} ${difficulty} ${type} questions on "${String(topic).trim()}" for the subject "${subject.label}". Return ONLY a JSON array (no markdown, no prose) where ${typeSpec}. Questions must be unambiguous, have exactly one correct answer, and explanations should teach, not just restate.`;
+    const { text, provider } = await callAI({ prompt });
+    const jsonMatch = String(text || "").match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return res.status(502).json({ error: "AI returned unparseable output — try again" });
+    let rows;
+    try { rows = JSON.parse(jsonMatch[0]); } catch { return res.status(502).json({ error: "AI returned invalid JSON — try again" }); }
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(502).json({ error: "AI returned no questions — try again" });
+
+    const data = [];
+    for (const r of rows.slice(0, n)) {
+      if (!r || !String(r.question || "").trim()) continue;
+      if (type === "mcq") {
+        const opts = Array.isArray(r.options) ? r.options.map((o) => String(o)) : [];
+        const ai = Number(r.answerIndex);
+        if (opts.length !== 4 || !(ai >= 0 && ai <= 3)) continue;
+        data.push({ subjectId: subject.id, question: String(r.question).trim(), optionA: opts[0], optionB: opts[1], optionC: opts[2], optionD: opts[3], answerIndex: ai, questionType: "mcq", answerText: null, secure: true, difficulty, topic: String(topic).trim(), explanation: r.explanation ? String(r.explanation) : null });
+      } else if (type === "truefalse") {
+        const ai = Number(r.answerIndex);
+        if (![0, 1].includes(ai)) continue;
+        data.push({ subjectId: subject.id, question: String(r.question).trim(), optionA: "True", optionB: "False", optionC: "", optionD: "", answerIndex: ai, questionType: "truefalse", answerText: null, secure: true, difficulty, topic: String(topic).trim(), explanation: r.explanation ? String(r.explanation) : null });
+      } else {
+        const at = String(r.answerText || "").trim();
+        if (!at) continue;
+        data.push({ subjectId: subject.id, question: String(r.question).trim(), optionA: "", optionB: "", optionC: "", optionD: "", answerIndex: -1, questionType: "fillblank", answerText: at, secure: true, difficulty, topic: String(topic).trim(), explanation: r.explanation ? String(r.explanation) : null });
+      }
+    }
+    if (data.length === 0) return res.status(502).json({ error: "AI produced no valid questions — try again" });
+    const created = await prisma.$transaction(data.map((d) => prisma.question.create({ data: d })));
+    res.status(201).json({ count: created.length, provider, questions: created });
+  } catch (err) {
+    console.error("AI generate error:", err);
+    res.status(502).json({ error: err.message || "Generation failed" });
   }
 });
 
