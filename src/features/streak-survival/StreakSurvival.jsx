@@ -2052,7 +2052,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, snap
       )}
 
       {/* Answer-feedback edge vignette (keyed remount re-triggers the flash) */}
-      {vig && <div key={vig.n} className={`vignette ${vig.k}`} />}
+      {vig && <div key={vig.n} className={`fb-vignette ${vig.k}`} />}
 
       {/* Fly-to-HUD particles */}
       {flies.map((f) => (

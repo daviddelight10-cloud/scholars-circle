@@ -736,12 +736,12 @@
 }
 
 /* Answer-feedback edge vignette — full-screen inset glow, fades fast */
-.ss-root .vignette{
+.ss-root .fb-vignette{
   position:fixed; inset:0; pointer-events:none; z-index:60;
   animation:ssVig 0.55s ease-out both;
 }
-.ss-root .vignette.good{ box-shadow:inset 0 0 140px rgba(74,222,128,0.4); }
-.ss-root .vignette.bad { box-shadow:inset 0 0 140px rgba(255,94,126,0.5); }
+.ss-root .fb-vignette.good{ box-shadow:inset 0 0 140px rgba(74,222,128,0.4); }
+.ss-root .fb-vignette.bad { box-shadow:inset 0 0 140px rgba(255,94,126,0.5); }
 @keyframes ssVig{ 0%{opacity:0;} 20%{opacity:1;} 100%{opacity:0;} }
 
 /* Fly-to-HUD particle — arcs from the picked option to the stat counter */
