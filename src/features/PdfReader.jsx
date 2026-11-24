@@ -1565,6 +1565,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     closeAllMobileOverlays();
     setStudyToolsOpen(true);
     refreshMastery();
+    checkRankCelebration();
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     if (authData.authToken) {
       fetch(`${API_BASE}/ai-proxy/usage`, {

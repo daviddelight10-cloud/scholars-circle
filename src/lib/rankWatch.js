@@ -1,5 +1,5 @@
 // Rank watch — detects when the user climbs the (tier-scoped) leaderboard.
-// Cheap: GET /api/leaderboard?limit=1 returns myRank without loading entries.
+// Cheap: GET /users/leaderboard?limit=1 returns myRank without loading entries.
 // Called at "checkpoint" moments (chapter review finish, exam submit), not
 // per-answer — keeps traffic low and makes each celebration meaningful.
 import { API_BASE } from "./constants";
@@ -15,7 +15,7 @@ function headers() {
 
 export async function checkRankJump() {
   try {
-    const res = await fetch(`${API_BASE}/api/leaderboard?limit=1`, { headers: headers() });
+    const res = await fetch(`${API_BASE}/users/leaderboard?limit=1`, { headers: headers() });
     if (!res.ok) return null;
     const data = await res.json();
     const rank = data.myRank;
