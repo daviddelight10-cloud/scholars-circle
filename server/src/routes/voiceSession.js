@@ -783,7 +783,7 @@ router.get("/voice-preview/:voice", requireAuth, async (req, res) => {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return res.status(503).json({ error: "Preview not configured" });
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.PAGE_TUTOR_TTS_MODEL || "gemini-3.8-flash-lite-tts"}:generateContent?key=${key}`;
     const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

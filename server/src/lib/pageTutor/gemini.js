@@ -4,7 +4,7 @@
 import { LESSON_SCHEMA, validateLesson, applyGrounding } from "./lessonSchema.js";
 import { SYSTEM_PROMPT, PROMPT_VERSION } from "./prompt.js";
 
-const MODEL = process.env.PAGE_TUTOR_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.PAGE_TUTOR_MODEL || "gemini-3.8-flash";
 
 async function callGemini({ pdfBase64, pageText, page, resourceTitle }) {
   const key = process.env.GEMINI_API_KEY;
@@ -28,7 +28,7 @@ async function callGemini({ pdfBase64, pageText, page, resourceTitle }) {
       responseSchema: LESSON_SCHEMA,
       temperature: 0.3,
       maxOutputTokens: 8192,
-      thinkingConfig: { thinkingBudget: 0 }, // no paid thinking tokens on cached lessons
+      thinkingConfig: { thinkingLevel: "low" }, // cheapest supported level — "minimal" is rejected on 3.8
     },
   };
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;

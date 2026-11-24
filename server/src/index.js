@@ -81,6 +81,13 @@ startClassTestJob();
 
 const app = express();
 
+// Railway sits behind exactly one reverse proxy hop — trust it so req.ip is
+// the real client IP. Without this every rate limiter keys on the proxy's IP
+// (one shared bucket for all users) and express-rate-limit throws
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR. `1`, not `true`, so clients can't
+// spoof X-Forwarded-For through extra hops.
+app.set("trust proxy", 1);
+
 // Security Headers
 app.use(helmet({
   contentSecurityPolicy: {

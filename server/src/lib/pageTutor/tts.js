@@ -3,7 +3,7 @@
 // matters for students on mobile data.
 import { Mp3Encoder } from "@breezystack/lamejs";
 
-const TTS_MODEL = "gemini-2.5-flash-preview-tts";
+const TTS_MODEL = process.env.PAGE_TUTOR_TTS_MODEL || "gemini-3.8-flash-lite-tts";
 export const LESSON_VOICE = "Sulafat"; // fixed for the shared cache
 const SAMPLE_RATE = 24000;
 

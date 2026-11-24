@@ -90,9 +90,15 @@ router.post("/lesson", requireAuth, async (req, res) => {
     if (!promise) {
       promise = (async () => {
         if (!pdfBuf) pdfBuf = await fetchPdfBytes(resource);
-        const texts = await pageTexts(pdfBuf, resource.id).catch(() => []);
         const onePage = await singlePagePdfBase64(pdfBuf, page).catch(() => null);
-        const pageText = (texts[page - 1] || "").slice(0, MAX_PAGE_TEXT);
+        // Parse only the single page (not the whole document) — keeps pdf.js
+        // font warnings to one line per generation instead of one per page,
+        // and avoids O(n) parsing on every explain call.
+        let pageText = "";
+        if (onePage) {
+          const single = Buffer.from(onePage.base64, "base64");
+          pageText = ((await pageTexts(single, `${resource.id}:${page}`).catch(() => []))[0] || "").slice(0, MAX_PAGE_TEXT);
+        }
         if (!onePage && !pageText) throw new Error(`page ${page} unreadable`);
         const r = await generateLesson({ pdfBase64: onePage?.base64 || null, pageText, page, resourceTitle: resource.title });
         if (!r.ok) {

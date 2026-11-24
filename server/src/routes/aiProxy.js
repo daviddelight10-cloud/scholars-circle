@@ -45,7 +45,7 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
     switch (provider) {
       case "gemini":
         apiKey = process.env.GEMINI_API_KEY;
-        const geminiModel = model || "gemini-2.0-flash-exp";
+        const geminiModel = model || process.env.GEMINI_MODEL || "gemini-3.8-flash";
         apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
         headers = { "Content-Type": "application/json" };
         requestBody = {
@@ -346,7 +346,7 @@ router.post("/tutor", requireAuth, aiRateLimit, async (req, res) => {
       }
       case "gemini": {
         apiKey = process.env.GEMINI_API_KEY;
-        const geminiModel = model || "gemini-2.5-flash";
+        const geminiModel = model || process.env.GEMINI_MODEL || "gemini-3.8-flash";
         apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
         headers = { "Content-Type": "application/json" };
         requestBody = {
@@ -521,7 +521,7 @@ router.post("/generate-multimodal", requireAuth, aiRateLimit, async (req, res) =
 
       case "gemini":
         apiKey = process.env.GEMINI_API_KEY;
-        const geminiModel = model || "gemini-2.5-flash";
+        const geminiModel = model || process.env.GEMINI_MODEL || "gemini-3.8-flash";
         apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
         headers = { "Content-Type": "application/json" };
 

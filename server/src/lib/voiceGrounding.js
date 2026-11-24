@@ -5,7 +5,10 @@ import os from "os";
 const CHUNK_SIZE = 12000;
 const CHUNK_OVERLAP = 500;
 
-const GEMINI_LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
+// Live model via env so a model retirement is a Railway var change, not a
+// deploy. If Google kills the 2.5 native-audio preview for this key, set
+// GEMINI_LIVE_MODEL=gemini-3.8-live (check WS protocol changes first).
+const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || "gemini-2.5-flash-native-audio-preview-12-2025";
 
 // In-memory document text cache (10-minute TTL)
 const DOC_CACHE_TTL_MS = 10 * 60 * 1000;

@@ -88,7 +88,7 @@ async function callViaProxy(prompt, provider, model, extra = {}) {
 
 async function callDirect(prompt, aiConfig) {
   const provider = aiConfig?.provider || "openrouter";
-  const model = aiConfig?.model || (provider === "gemini" ? "gemini-2.5-flash" : 
+  const model = aiConfig?.model || (provider === "gemini" ? "gemini-3.8-flash" : 
                                      provider === "openrouter" ? "z-ai/glm-5.3-flash" : 
                                      "gpt-4o-mini");
   if (!aiConfig?.apiKey) {
@@ -156,7 +156,7 @@ export async function callAI(prompt, aiConfig = {}) {
   
   if (status?.enabled) {
     const provider = aiConfig.provider || status.defaultProvider || "openrouter";
-    const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : 
+    const model = aiConfig.model || (provider === "gemini" ? "gemini-3.8-flash" : 
                                      provider === "openrouter" ? "z-ai/glm-5.3-flash" : 
                                      "gpt-4o-mini");
     console.log(`Calling proxy with provider=${provider}, model=${model}`);
@@ -183,7 +183,7 @@ export async function callAI(prompt, aiConfig = {}) {
 export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, onMeta, fallbackCatalog = "", signal } = {}) {
   const status = await getProxyStatus();
   const provider = aiConfig.provider || status?.defaultProvider || "openrouter";
-  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : provider === "openrouter" ? "z-ai/glm-5.3-flash" : "gpt-4o-mini");
+  const model = aiConfig.model || (provider === "gemini" ? "gemini-3.8-flash" : provider === "openrouter" ? "z-ai/glm-5.3-flash" : "gpt-4o-mini");
 
   if (!status?.enabled) {
     const raw = await callDirect(prompt.replace("{{DOC_CATALOG}}", fallbackCatalog), { ...aiConfig, provider, model });
@@ -298,7 +298,7 @@ export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, 
 export async function callAIStream(prompt, aiConfig = {}, { onToken, signal } = {}) {
   const status = await getProxyStatus();
   const provider = aiConfig.provider || status?.defaultProvider || "openrouter";
-  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : provider === "openrouter" ? "z-ai/glm-5.3-flash" : "gpt-4o-mini");
+  const model = aiConfig.model || (provider === "gemini" ? "gemini-3.8-flash" : provider === "openrouter" ? "z-ai/glm-5.3-flash" : "gpt-4o-mini");
 
   if (!status?.enabled) {
     return callDirect(prompt, { ...aiConfig, provider, model });
@@ -416,7 +416,7 @@ export async function callAIMultimodal(prompt, imageOrImages, history = [], aiCo
   let provider = aiConfig.provider || "openrouter";
   let model;
   if (provider === "openrouter" || provider === "gemini") {
-    model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "z-ai/glm-5.3-flash");
+    model = aiConfig.model || (provider === "gemini" ? "gemini-3.8-flash" : "z-ai/glm-5.3-flash");
   } else {
     provider = "openrouter";
     model = "z-ai/glm-5.3-flash";
@@ -469,7 +469,7 @@ export async function callAIMultimodalStream(prompt, imageOrImages, history = []
   let provider = aiConfig.provider || "openrouter";
   let model;
   if (provider === "openrouter" || provider === "gemini") {
-    model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "z-ai/glm-5.3-flash");
+    model = aiConfig.model || (provider === "gemini" ? "gemini-3.8-flash" : "z-ai/glm-5.3-flash");
   } else {
     provider = "openrouter";
     model = "z-ai/glm-5.3-flash";
@@ -580,7 +580,7 @@ export async function callAIChat({ system, messages, provider, model } = {}) {
 
   if (status?.enabled) {
     const useProvider = provider || status.defaultProvider || "openrouter";
-    const useModel = model || (useProvider === "gemini" ? "gemini-2.5-flash" :
+    const useModel = model || (useProvider === "gemini" ? "gemini-3.8-flash" :
                                useProvider === "openrouter" ? "z-ai/glm-5.3-flash" :
                                "gpt-4o-mini");
 
