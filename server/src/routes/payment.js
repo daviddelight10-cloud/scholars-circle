@@ -13,7 +13,7 @@ const PLAN_DURATIONS = {
   semester: 180 * 24 * 60 * 60 * 1000,
 };
 
-const PLAN_PRICES = { week1: 1200, month1: 4400, semester: 25000 };
+const PLAN_PRICES = { week1: 1200, month1: 4400, semester: 23000 };
 const VALID_PLANS = ["week1", "month1", "semester"];
 
 // Apply a user's banked referral days on top of a freshly purchased plan,

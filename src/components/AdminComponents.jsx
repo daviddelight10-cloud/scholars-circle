@@ -242,7 +242,7 @@ export function KeyManagement({ token }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 16 }}>6 Months</div>
-                    <div className="muted" style={{ fontSize: 12 }}>₦25,000</div>
+                    <div className="muted" style={{ fontSize: 12 }}>₦23,000</div>
                   </div>
                   <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>180 days</div>
                 </div>

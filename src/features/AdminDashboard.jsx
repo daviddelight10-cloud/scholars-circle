@@ -300,7 +300,7 @@ function UserDrawer({ userId, token, onClose, onChanged }) {
                 <select className="ad-input" value={duration} onChange={(e) => setDuration(e.target.value)} style={{ flex: 1 }}>
                   <option value="week1">1 Week — ₦1,200</option>
                   <option value="month1">1 Month — ₦4,400</option>
-                  <option value="semester">6 Months — ₦25,000</option>
+                  <option value="semester">6 Months — ₦23,000</option>
                 </select>
                 <button className="ad-btn green" disabled={busy === "act"} onClick={() =>
                   act("act", () => api(`/keys/activate/${u.id}`, { token, method: "POST", body: { duration } }))

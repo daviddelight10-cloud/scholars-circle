@@ -5,7 +5,7 @@
 export const PLANS = [
   { id: "week1", label: "1 Week", days: 7, price: 1200, icon: "⚡", note: "Perfect for trying out" },
   { id: "month1", label: "1 Month", days: 30, price: 4400, icon: "💎", note: "Save ~₦800 vs weekly — most scholars pick this" },
-  { id: "semester", label: "6 Months", days: 180, price: 25000, icon: "🎓", note: "One payment covers the whole run — no renewals till next semester", best: true },
+  { id: "semester", label: "6 Months", days: 180, price: 23000, icon: "🎓", note: "Save ₦3,400 vs monthly — one payment till next semester", best: true },
 ];
 
 export function getPlan(id) {
