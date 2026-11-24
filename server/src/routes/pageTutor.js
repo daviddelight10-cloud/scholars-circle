@@ -210,6 +210,23 @@ router.post("/lesson", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/page-tutor/lessons?resourceId= — pages with a shared-cached lesson.
+// Powers the thumbnail dots (students can see which pages are already free).
+router.get("/lessons", requireAuth, async (req, res) => {
+  try {
+    const resource = await prisma.resource.findUnique({ where: { id: String(req.query.resourceId || "") } });
+    if (!resource || !canAccessResource(resource, req.user.sub)) return res.status(403).json({ error: "No access" });
+    if (!resource.contentHash) return res.json({ pages: [] });
+    const rows = await prisma.pageLesson.findMany({
+      where: { contentHash: resource.contentHash, level: LEVEL, promptVersion: PROMPT_VERSION, hidden: false },
+      select: { page: true },
+    });
+    res.json({ pages: rows.map((r) => r.page) });
+  } catch {
+    res.status(500).json({ error: "Failed to load lessons" });
+  }
+});
+
 // GET /api/page-tutor/audio/:lessonId — polled until audioStatus settles.
 router.get("/audio/:lessonId", requireAuth, async (req, res) => {
   try {

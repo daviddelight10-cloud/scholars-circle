@@ -2,7 +2,7 @@
 // single <audio> element that keeps playing across scrolls/page turns, and
 // the device-voice fallback engine for sections whose hosted audio failed.
 import { useRef, useState, useCallback, useEffect } from "react";
-import { explainPage, getAudio, retryAudio, saveFlashcards, reportLesson, logEvent } from "./pageTutorApi.js";
+import { explainPage, getAudio, getLessonPages, retryAudio, saveFlashcards, reportLesson, logEvent } from "./pageTutorApi.js";
 import { playableSections, SPEEDS } from "./lessonUtils.js";
 import { SpeechEngine, chunkNarration, speechSupported } from "./speech.js";
 import { openPremium } from "../../../lib/premium.js";
@@ -25,6 +25,14 @@ export function usePageTutor({ resourceId } = {}) {
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [lessonPages, setLessonPages] = useState(new Set()); // pages with a cached lesson — thumbnail dots
+
+  useEffect(() => {
+    let live = true;
+    const p = resourceId ? getLessonPages(resourceId).catch(() => []) : Promise.resolve([]);
+    p.then((pages) => { if (live) setLessonPages(new Set(pages)); });
+    return () => { live = false; };
+  }, [resourceId]);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -59,6 +67,7 @@ export function usePageTutor({ resourceId } = {}) {
     setLesson(entry);
     setStatus("ready");
     setSavedCount(null);
+    setLessonPages((s) => (s.has(page) ? s : new Set([...s, page])));
     logEvent(data.lessonId, "open");
     if (data.audioStatus === "pending" || data.audioStatus === "partial") {
       refreshAudio(data.lessonId).then(() => startPolling(data.lessonId));
@@ -319,7 +328,7 @@ export function usePageTutor({ resourceId } = {}) {
 
   return {
     lesson, status, error, setError,
-    audioSections, player, saving, savedCount, regenerating,
+    audioSections, player, saving, savedCount, regenerating, lessonPages,
     explain, regenerate, onPageChanged, playSection, playAll, toggle, seekBy, seekTo, cycleSpeed,
     retry, makeFlashcards, report, logRecall, speechSupported: SPEECH_FLAG === "failed",
   };

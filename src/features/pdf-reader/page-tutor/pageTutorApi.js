@@ -34,6 +34,13 @@ export async function explainPage(resourceId, page, extras = {}) {
   return readJson(res);
 }
 
+// Pages with a shared-cached lesson — for the thumbnail dots.
+export async function getLessonPages(resourceId) {
+  const res = await fetch(`${API_BASE}/api/page-tutor/lessons?resourceId=${encodeURIComponent(resourceId)}`, { headers: getAuthHeaders() });
+  const data = await readJson(res);
+  return data.pages || [];
+}
+
 // { audioStatus, sections: [{sectionId, status, durationMs, url}] }
 export async function getAudio(lessonId) {
   const res = await fetch(`${API_BASE}/api/page-tutor/audio/${lessonId}`, { headers: getAuthHeaders() });

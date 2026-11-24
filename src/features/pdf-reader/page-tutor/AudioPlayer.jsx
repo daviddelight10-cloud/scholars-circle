@@ -15,8 +15,9 @@ export default function AudioPlayer({ T, player, sectionHeading, onToggle, onSee
   };
   return (
     <div style={{
-      borderTop: `1px solid ${T.border}`, padding: "10px 12px", flexShrink: 0,
-      background: T.toolbar,
+      borderTop: `1px solid ${T.border}80`, padding: "10px 12px", flexShrink: 0,
+      background: `${T.toolbar}CC`, // translucent so the glass sheet reads through
+      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
     }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: T.muted, marginBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 7 }}>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{sectionHeading || "Page lesson"}</span>

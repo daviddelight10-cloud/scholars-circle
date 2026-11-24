@@ -19,7 +19,7 @@ SECTION RULES:
 - "anchor_quote": a short verbatim snippet (8-25 words) copied exactly from the page that this section explains. Used to highlight the source text. Leave empty for added_context sections.
 - "terms": hard terms on the page with one-line meanings.
 
-RECALL: 3 questions the student should be able to answer after this lesson, built only from this page. Short question, short answer. One may be exam-style ("which of the following...").
+RECALL: 3 questions the student should be able to answer after this lesson, built only from this page. Short question, short answer. Make at least one exam-style multiple-choice: for those, add "options" (exactly 4 plausible choices, one correct) and "correct_index" (0-based index of the right option). Non-MCQ questions may omit both fields.
 
 KEY POINTS: up to 6 one-line takeaways from the page.
 CLINICAL_NOTE: one clinically relevant remark about this page's content, or null if none applies.

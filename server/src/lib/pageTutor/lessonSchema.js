@@ -40,7 +40,13 @@ export const LESSON_SCHEMA = {
       maxItems: 4,
       items: {
         type: "object",
-        properties: { question: { type: "string" }, answer: { type: "string" } },
+        properties: {
+          question: { type: "string" },
+          answer: { type: "string" },
+          // Optional MCQ form — the UI renders tappable options when present.
+          options: { type: "array", minItems: 2, maxItems: 5, items: { type: "string" } },
+          correct_index: { type: "integer" },
+        },
         required: ["question", "answer"],
       },
     },
@@ -77,7 +83,18 @@ export function validateLesson(raw) {
   lesson.clinical_note = typeof lesson.clinical_note === "string" && lesson.clinical_note.trim()
     ? lesson.clinical_note.trim().slice(0, 600) : null;
   lesson.recall = (Array.isArray(lesson.recall) ? lesson.recall : [])
-    .map((r) => ({ question: String(r?.question || "").trim(), answer: String(r?.answer || "").trim() }))
+    .map((r) => {
+      const options = (Array.isArray(r?.options) ? r.options : [])
+        .map((o) => String(o || "").trim()).filter(Boolean).slice(0, 5);
+      const correctIndex = Number.isInteger(r?.correct_index) ? r.correct_index : -1;
+      const mcq = options.length >= 2 && correctIndex >= 0 && correctIndex < options.length;
+      return {
+        question: String(r?.question || "").trim(),
+        answer: String(r?.answer || "").trim(),
+        options: mcq ? options : null,
+        correct_index: mcq ? correctIndex : -1,
+      };
+    })
     .filter((r) => r.question && r.answer).slice(0, 4);
   if (lesson.recall.length === 0) problems.push("no recall questions");
   return { ok: problems.length === 0, lesson, problems };

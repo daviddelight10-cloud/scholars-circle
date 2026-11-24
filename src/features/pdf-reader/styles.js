@@ -1,7 +1,7 @@
 // All PdfReader inline styles in one parameterized factory — extracted from
 // PdfReader.jsx so the reader component stays navigable. Pure: same inputs,
 // same styles; no React or app state touched here.
-export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, circleMode, chatOpen, chatExpanded, dockMode, dockW, userZoomed, pinchActive, fullscreen, showSearch, annotatePopOpen }) {
+export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, circleMode, chatOpen, chatExpanded, dockMode, dockW, userZoomed, pinchActive, fullscreen, showSearch, annotatePopOpen, studyToolsOpen }) {
   return {
     container: {
       height: "100%",
@@ -111,7 +111,12 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       flexShrink: 0,
     },
     spacer: { flex: 1 },
-    workspace: { flex: 1, display: "flex", overflow: "hidden", minHeight: 0 },
+    workspace: {
+      flex: 1, display: "flex", overflow: "hidden", minHeight: 0,
+      // Docked study-tools panel overlays this reserved strip (same trick as
+      // the chat dock, but absolute so no 300-line JSX move was needed).
+      marginRight: studyToolsOpen && dockMode ? dockW : 0,
+    },
     thumbsAside: {
       width: showThumbs ? (isMobile ? "0" : "132px") : "0",
       overflow: "hidden",
@@ -1216,7 +1221,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
     studyBackdrop: {
       position: "fixed",
       inset: 0,
-      background: "rgba(0,0,0,0.45)",
+      background: "rgba(0,0,0,0.35)",
       zIndex: 90,
       touchAction: "manipulation",
     },
@@ -1226,16 +1231,32 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       left: 0,
       right: 0,
       height: "82dvh",
-      background: `${T.toolbar}F5`,
-      backdropFilter: "blur(20px)",
+      background: `${T.toolbar}D9`, // frosted glass — the page shows through
+      backdropFilter: "blur(24px) saturate(1.4)",
+      WebkitBackdropFilter: "blur(24px) saturate(1.4)", // iOS Safari prefix
       borderTopLeftRadius: 16,
       borderTopRightRadius: 16,
-      border: `1px solid ${T.border}`,
+      border: `1px solid ${T.border}80`,
       boxShadow: `0 -10px 30px ${T.shadow}`,
       zIndex: 100,
       display: "flex",
       flexDirection: "column",
       animation: "slideUp 0.2s ease",
+      touchAction: "auto",
+      WebkitOverflowScrolling: "touch",
+    } : dockMode ? {
+      // Docked right-hand panel — absolute against s.container while
+      // s.workspace's marginRight reserves the strip (NotebookLM-style split).
+      // paddingTop clears the floating toolbar like the viewer's 60.
+      position: "absolute",
+      top: 0, right: 0, bottom: 0,
+      width: dockW,
+      background: T.toolbar,
+      borderLeft: `1px solid ${T.border}`,
+      zIndex: 40,
+      paddingTop: 60,
+      display: "flex",
+      flexDirection: "column",
       touchAction: "auto",
       WebkitOverflowScrolling: "touch",
     } : {

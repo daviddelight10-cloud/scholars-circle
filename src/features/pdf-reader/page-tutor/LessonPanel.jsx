@@ -1,7 +1,7 @@
 // Page Tutor lesson view — collapsible sections with per-section audio,
 // hard-term chips, "extra context" labels, unreadable-content notices,
 // key points, clinical note, recall, flashcards, report, voice handoff.
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import AudioPlayer from "./AudioPlayer.jsx";
 import RecallStep from "./RecallStep.jsx";
 import GeneratingState from "./GeneratingState.jsx";
@@ -16,7 +16,15 @@ const chip = (T, active) => ({
 function Section({ T, item, expanded, onToggle, onPlay, playing, onSeeOnPage }) {
   const s = item.section;
   return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.inputBg }}>
+    <div
+      data-ptsec={item.index}
+      style={{
+        border: `1px solid ${playing ? "rgba(79,142,247,0.55)" : T.border}`,
+        borderRadius: 12, overflow: "hidden", background: T.inputBg,
+        boxShadow: playing ? "0 0 0 3px rgba(79,142,247,0.12)" : "none",
+        transition: "border-color .25s ease, box-shadow .25s ease",
+      }}
+    >
       <button
         onClick={onToggle}
         style={{
@@ -92,6 +100,16 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
   const { status, error, lesson, audioSections, player, saving, savedCount, regenerating } = tutor;
   const list = playableSections(lesson?.lesson, audioSections, { speech: tutor.speechSupported ? "failed" : false });
   const playingItem = list[player.idx];
+  const scrollRef = useRef(null);
+
+  // Follow-along: scroll the panel so the playing section stays in view.
+  // (Collapsed playing sections are force-expanded at render below — no state
+  // write needed, so the user's collapse choice returns when playback moves on.)
+  useEffect(() => {
+    if (player.idx < 0) return;
+    scrollRef.current?.querySelector(`[data-ptsec="${player.idx}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [player.idx]);
 
   if (status === "loading") return <GeneratingState T={T} page={page} />;
   if (status === "error" || status === "premium") {
@@ -132,7 +150,7 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <div style={{ overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 14px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div ref={scrollRef} style={{ overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 14px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, color: T.text, lineHeight: 1.35, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {les.page_title}
@@ -170,7 +188,7 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
               key={item.sectionId}
               T={T}
               item={{ ...item, section: les.sections[i] }}
-              expanded={openSections[i] !== false}
+              expanded={openSections[i] !== false || (player.idx === i && player.playing)}
               onToggle={() => setOpenSections((m) => ({ ...m, [i]: m[i] === false }))}
               onPlay={() => tutor.playSection(i)}
               playing={player.idx === i && player.playing}

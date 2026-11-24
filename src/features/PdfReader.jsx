@@ -3270,7 +3270,7 @@ Passage:
   }, [fullscreen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Styles ----
-  const s = buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, circleMode, chatOpen, chatExpanded, dockMode, dockW, userZoomed, pinchActive, fullscreen, showSearch, annotatePopOpen });
+  const s = buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, circleMode, chatOpen, chatExpanded, dockMode, dockW, userZoomed, pinchActive, fullscreen, showSearch, annotatePopOpen, studyToolsOpen });
 
   const filteredThumbs = thumbs.filter((t) => {
     if (pageFilter === "all") return true;
@@ -4537,7 +4537,10 @@ Passage:
                   ) : (
                     <div style={{ width: 84, height: 110, background: T.inputBg, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: T.muted }}>…</div>
                   )}
-                  <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
+                  <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>
+                    {pageTutor.lessonPages?.has(t.page) && <span style={{ color: "#F5A623", marginRight: 3 }} title="Lesson available — free to open">✦</span>}
+                    {t.page}
+                  </span>
                 </button>
                 );
               })}
@@ -4598,7 +4601,10 @@ Passage:
                   ) : (
                     <div style={{ width: 84, height: 110, background: T.inputBg, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: T.muted }}>…</div>
                   )}
-                  <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
+                  <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>
+                    {pageTutor.lessonPages?.has(t.page) && <span style={{ color: "#F5A623", marginRight: 3 }} title="Lesson available — free to open">✦</span>}
+                    {t.page}
+                  </span>
                 </button>
                 );
               })}
@@ -5197,7 +5203,7 @@ Passage:
               style={{
                 position: "absolute",
                 top: isMobile ? 108 : 62,
-                right: chatOpen && dockMode ? dockW + 12 : 12,
+                right: (chatOpen && dockMode ? dockW : 0) + (studyToolsOpen && dockMode ? dockW : 0) + 12,
                 zIndex: 48,
                 opacity: scrubVisible && !(isMobile && (showOverflow || studyToolsOpen)) ? 1 : 0,
                 transform: scrubVisible ? "translateX(0)" : "translateX(12px)",
@@ -5276,7 +5282,7 @@ Passage:
             <div
               style={{
                 ...s.navDock,
-                right: chatOpen && dockMode ? dockW : 0,
+                right: (chatOpen && dockMode ? dockW : 0) + (studyToolsOpen && dockMode ? dockW : 0),
                 // Sheets own the bottom of the screen — fade the pill out
                 // instead of letting it poke through under the panel.
                 opacity: isMobile && (showOverflow || studyToolsOpen) ? 0 : 1,
