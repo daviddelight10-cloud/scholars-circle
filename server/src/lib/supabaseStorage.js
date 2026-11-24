@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import path from "path";
 
 const accountId = (process.env.R2_ACCOUNT_ID || "").trim();
@@ -55,4 +56,32 @@ export async function deleteFile(storagePath) {
   } catch (err) {
     console.error("[r2Storage] delete error:", err.message);
   }
+}
+
+// ── Generic object helpers (Page Tutor audio, classroom docs) ────────────────
+export const r2Enabled = () => !!(accountId && accessKeyId && secretAccessKey);
+
+export async function r2Put(key, buffer, contentType = "application/octet-stream") {
+  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: buffer, ContentType: contentType }));
+}
+
+/** Presigned GET — objects stay private; URLs expire. */
+export async function r2SignedGet(key, expiresIn = 900) {
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn });
+}
+
+export async function r2Delete(key) {
+  await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+export async function r2DeletePrefix(prefix) {
+  let token;
+  do {
+    const out = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token }));
+    const objects = (out.Contents || []).map((o) => ({ Key: o.Key })).filter((o) => o.Key);
+    if (objects.length) {
+      await s3.send(new DeleteObjectsCommand({ Bucket: BUCKET, Delete: { Objects: objects } }));
+    }
+    token = out.NextContinuationToken;
+  } while (token);
 }
