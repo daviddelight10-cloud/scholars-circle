@@ -87,7 +87,7 @@ function deviceOf(ua) {
   return `${br} · ${os}`;
 }
 const REPORT_REASONS = { outdated: "🕐 Outdated", errors: "❌ Errors", course: "📚 Wrong course", spam: "🚫 Spam", copyright: "⚖️ Copyright" };
-const PLAN_LABELS = { week1: "1 Week", week2: "2 Weeks", month1: "1 Month", semester: "Semester" };
+const PLAN_LABELS = { week1: "1 Week", week2: "2 Weeks", month1: "1 Month", semester: "6 Months" };
 
 function timeAgo(ts) {
   if (!ts) return "—";
@@ -298,9 +298,9 @@ function UserDrawer({ userId, token, onClose, onChanged }) {
             ) : (
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <select className="ad-input" value={duration} onChange={(e) => setDuration(e.target.value)} style={{ flex: 1 }}>
-                  <option value="week1">1 Week — ₦700</option>
-                  <option value="week2">2 Weeks — ₦1,300</option>
-                  <option value="month1">1 Month — ₦2,400</option>
+                  <option value="week1">1 Week — ₦1,200</option>
+                  <option value="month1">1 Month — ₦4,400</option>
+                  <option value="semester">6 Months — ₦25,000</option>
                 </select>
                 <button className="ad-btn green" disabled={busy === "act"} onClick={() =>
                   act("act", () => api(`/keys/activate/${u.id}`, { token, method: "POST", body: { duration } }))

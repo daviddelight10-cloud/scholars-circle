@@ -162,7 +162,7 @@ export function KeyManagement({ token }) {
                           <>
                             <br />
                             <span style={{ color: "#facc15" }}>
-                              {s.planType === "week1" ? "1 Week" : s.planType === "week2" ? "2 Weeks" : "1 Month"}
+                              {s.planType === "week1" ? "1 Week" : s.planType === "week2" ? "2 Weeks" : s.planType === "semester" ? "6 Months" : "1 Month"}
                             </span>
                           </>
                         )}
@@ -223,28 +223,28 @@ export function KeyManagement({ token }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 16 }}>1 Week</div>
-                    <div className="muted" style={{ fontSize: 12 }}>₦700</div>
+                    <div className="muted" style={{ fontSize: 12 }}>₦1,200</div>
                   </div>
                   <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>7 days</div>
                 </div>
               </div>
               <div
-                onClick={() => setSelectedDuration("week2")}
+                onClick={() => setSelectedDuration("semester")}
                 style={{
-                  border: selectedDuration === "week2" ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
+                  border: selectedDuration === "semester" ? "2px solid #FFD700" : "1px solid var(--app-tint-strong)",
                   borderRadius: 12,
                   padding: 16,
                   cursor: "pointer",
-                  background: selectedDuration === "week2" ? "rgba(255,215,0,0.1)" : "var(--app-tint-soft)",
+                  background: selectedDuration === "semester" ? "rgba(255,215,0,0.1)" : "var(--app-tint-soft)",
                   transition: "all 0.2s"
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 16 }}>2 Weeks</div>
-                    <div className="muted" style={{ fontSize: 12 }}>₦1,300</div>
+                    <div style={{ fontWeight: 600, fontSize: 16 }}>6 Months</div>
+                    <div className="muted" style={{ fontSize: 12 }}>₦25,000</div>
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>14 days</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>180 days</div>
                 </div>
               </div>
               <div
@@ -263,7 +263,7 @@ export function KeyManagement({ token }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 16 }}>1 Month</div>
-                    <div className="muted" style={{ fontSize: 12 }}>₦2,400</div>
+                    <div className="muted" style={{ fontSize: 12 }}>₦4,400</div>
                   </div>
                   <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>30 days</div>
                 </div>
