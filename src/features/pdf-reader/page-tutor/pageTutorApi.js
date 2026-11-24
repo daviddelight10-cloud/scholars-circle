@@ -22,12 +22,14 @@ async function readJson(res) {
   return data;
 }
 
-// Cache-hit OR generate — one endpoint. Returns { cached, lessonId, lesson, audioStatus, page }.
-export async function explainPage(resourceId, page) {
+// Cache-hit OR generate — one endpoint. extras: { pageImage, pageText, regenerate }.
+// pageImage is a rendered JPEG data URL used only by the GLM fallback path;
+// pageText carries client OCR text for scanned pages.
+export async function explainPage(resourceId, page, extras = {}) {
   const res = await fetch(`${API_BASE}/api/page-tutor/lesson`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ resourceId, page }),
+    body: JSON.stringify({ resourceId, page, ...extras }),
   });
   return readJson(res);
 }

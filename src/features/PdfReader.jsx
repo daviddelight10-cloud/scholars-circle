@@ -1587,10 +1587,31 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   }, [propResourceId, voiceName, voiceLevel, currentPage, voice, getPageText]);
 
   // ── Page Tutor handlers ────────────────────────────────────────────────────
+  // Snapshot for a fresh generation: a rendered JPEG of the page (the GLM
+  // fallback's image input) plus extracted/OCR'd text (helps scanned pages).
+  const buildPageSnapshot = useCallback(async (page) => {
+    let pageImage = null, pageText = "";
+    try {
+      const pg = await pdfDocRef.current?.getPage(page);
+      if (pg) {
+        const base = pg.getViewport({ scale: 1 });
+        const scale = Math.min(2, 1400 / base.width);
+        const vp = pg.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(vp.width);
+        canvas.height = Math.ceil(vp.height);
+        await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+        pageImage = canvas.toDataURL("image/jpeg", 0.8);
+      }
+    } catch {}
+    try { pageText = String(await getPageText(page) || "").slice(0, 6000); } catch {}
+    return { pageImage, pageText };
+  }, [getPageText]);
+
   const handleExplain = useCallback(() => {
     setStudyView("lesson");
-    pageTutor.explain(currentPage);
-  }, [currentPage, pageTutor]);
+    pageTutor.explain(currentPage, { snapshot: buildPageSnapshot(currentPage) });
+  }, [currentPage, pageTutor, buildPageSnapshot]);
 
   const handleTutorAsk = useCallback(() => {
     if (pageTutor.lesson?.lessonId) tutorLogEvent(pageTutor.lesson.lessonId, "ask_voice");

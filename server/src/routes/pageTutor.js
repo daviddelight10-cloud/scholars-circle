@@ -50,11 +50,23 @@ async function audioPayload(lessonId) {
 
 const inflight = new Map(); // cacheKey -> Promise — one generation per page at a time
 
-// POST /api/page-tutor/lesson { resourceId, page }
+const lessonPayload = (l, page) => ({
+  cached: true, lessonId: l.id, lesson: l.lesson, audioStatus: l.audioStatus,
+  generationSource: l.generationSource, page,
+});
+
+// POST /api/page-tutor/lesson { resourceId, page, pageImage?, pageText?, regenerate? }
+// pageImage: client-rendered JPEG data URL — used ONLY by the GLM fallback
+// (Gemini sees the server-built one-page PDF; a forged client image can at
+// worst produce a flagged `glm` lesson, regenerable via regenerate:true).
 router.post("/lesson", requireAuth, async (req, res) => {
   try {
-    const { resourceId } = req.body || {};
+    const { resourceId, regenerate } = req.body || {};
     const page = Math.max(1, parseInt(req.body?.page, 10) || 0);
+    const pageImage = typeof req.body?.pageImage === "string" &&
+      /^data:image\/(jpeg|png|webp);base64,/.test(req.body.pageImage) &&
+      req.body.pageImage.length < 600_000 ? req.body.pageImage : null;
+    const clientPageText = String(req.body?.pageText || "").slice(0, MAX_PAGE_TEXT);
     if (!resourceId || !page) return res.status(400).json({ error: "resourceId and page are required" });
 
     const resource = await prisma.resource.findUnique({ where: { id: String(resourceId) } });
@@ -74,8 +86,11 @@ router.post("/lesson", requireAuth, async (req, res) => {
     const existing = await prisma.pageLesson.findUnique({
       where: { contentHash_page_level_promptVersion: { contentHash, page, level: LEVEL, promptVersion: PROMPT_VERSION } },
     });
-    if (existing && !existing.hidden) {
-      return res.json({ cached: true, lessonId: existing.id, lesson: existing.lesson, audioStatus: existing.audioStatus, page });
+    // Regenerate = redo a glm-produced lesson with the real engine. Falls
+    // through to fresh generation below; on failure the glm lesson is served.
+    const regenTarget = !!(regenerate && existing && !existing.hidden && existing.generationSource !== "gemini");
+    if (existing && !existing.hidden && !regenTarget) {
+      return res.json(lessonPayload(existing, page));
     }
     if (existing?.hidden) return res.status(410).json({ error: "This lesson was taken down after error reports" });
 
@@ -87,7 +102,7 @@ router.post("/lesson", requireAuth, async (req, res) => {
 
     const cacheKey = `${contentHash}:${page}:${LEVEL}:${PROMPT_VERSION}`;
     let promise = inflight.get(cacheKey);
-    if (!promise) {
+    if (!promise || regenTarget) {
       promise = (async () => {
         if (!pdfBuf) pdfBuf = await fetchPdfBytes(resource);
         const onePage = await singlePagePdfBase64(pdfBuf, page).catch(() => null);
@@ -99,20 +114,29 @@ router.post("/lesson", requireAuth, async (req, res) => {
           const single = Buffer.from(onePage.base64, "base64");
           pageText = ((await pageTexts(single, `${resource.id}:${page}`).catch(() => []))[0] || "").slice(0, MAX_PAGE_TEXT);
         }
+        // Scanned pages: server extraction is empty — client OCR text fills in.
+        if (!pageText && clientPageText) pageText = clientPageText;
         if (!onePage && !pageText) throw new Error(`page ${page} unreadable`);
-        const r = await generateLesson({ pdfBase64: onePage?.base64 || null, pageText, page, resourceTitle: resource.title });
+        const r = await generateLesson({
+          pdfBase64: onePage?.base64 || null, pageText, page,
+          resourceTitle: resource.title, pageImage, allowFallback: !regenTarget,
+        });
         if (!r.ok) {
-          if (r.lessonFailedSchema && r.rawText) return { fallback: r.rawText };
+          if (r.lessonFailedSchema && r.rawText) return { fallback: r.rawText, source: r.source || "gemini" };
           throw new Error(r.error || "generation failed");
         }
-        return { lesson: r.lesson, grounded: r.grounded, tokensIn: r.tokensIn, tokensOut: r.tokensOut, model: r.model };
-      })().finally(() => inflight.delete(cacheKey));
-      inflight.set(cacheKey, promise);
+        return { lesson: r.lesson, grounded: r.grounded, tokensIn: r.tokensIn, tokensOut: r.tokensOut, model: r.model, source: r.source };
+      })().finally(() => { if (!regenTarget) inflight.delete(cacheKey); });
+      if (!regenTarget) inflight.set(cacheKey, promise);
     }
 
     let result;
     try { result = await promise; } catch (err) {
       console.error(`[pageTutor] generation failed ${cacheKey}:`, err.message);
+      // Regen failed — the flagged lesson is still better than an error.
+      if (regenTarget && existing) {
+        return res.json({ ...lessonPayload(existing, page), regenFailed: true });
+      }
       return res.status(502).json({ error: "Could not explain this page right now — try again shortly" });
     }
 
@@ -127,6 +151,28 @@ router.post("/lesson", requireAuth, async (req, res) => {
       lessonData = result.lesson;
     }
 
+    if (regenTarget && existing) {
+      // Replace the glm lesson in place — same cache row, upgraded source.
+      const upgraded = await prisma.pageLesson.update({
+        where: { id: existing.id },
+        data: {
+          status: result.fallback ? "text_only" : "ready",
+          lesson: lessonData,
+          audioStatus: result.fallback ? "skipped" : "pending",
+          generationSource: result.source || "gemini",
+          model: result.model || null, tokensIn: result.tokensIn || 0, tokensOut: result.tokensOut || 0,
+          regenerations: { increment: 1 },
+        },
+      });
+      if (!result.fallback) {
+        await resetAudio(upgraded.id, lessonData.sections);
+        enqueueAudio(upgraded.id);
+      }
+      prisma.pageLessonEvent.create({ data: { userId: req.user.sub, lessonId: upgraded.id, kind: "regenerate" } }).catch(() => {});
+      console.log(`[pageTutor] regenerated ${cacheKey} via ${result.source}`);
+      return res.status(201).json({ cached: false, regenerated: true, lessonId: upgraded.id, lesson: lessonData, audioStatus: upgraded.audioStatus, generationSource: upgraded.generationSource, page });
+    }
+
     let lesson;
     try {
       lesson = await prisma.pageLesson.create({
@@ -135,6 +181,7 @@ router.post("/lesson", requireAuth, async (req, res) => {
           status: result.fallback ? "text_only" : "ready",
           lesson: lessonData,
           audioStatus: result.fallback ? "skipped" : "pending",
+          generationSource: result.source || "gemini",
           model: result.model || null, tokensIn: result.tokensIn || 0, tokensOut: result.tokensOut || 0,
         },
       });
@@ -143,7 +190,7 @@ router.post("/lesson", requireAuth, async (req, res) => {
         lesson = await prisma.pageLesson.findUnique({
           where: { contentHash_page_level_promptVersion: { contentHash, page, level: LEVEL, promptVersion: PROMPT_VERSION } },
         });
-        if (lesson) return res.json({ cached: true, lessonId: lesson.id, lesson: lesson.lesson, audioStatus: lesson.audioStatus, page });
+        if (lesson) return res.json(lessonPayload(lesson, page));
       }
       throw e;
     }
@@ -152,8 +199,11 @@ router.post("/lesson", requireAuth, async (req, res) => {
       await seedAudioRows(lesson.id, lessonData.sections);
       enqueueAudio(lesson.id);
     }
-    console.log(`[pageTutor] generated ${cacheKey} in ${result.tokensIn || 0}+${result.tokensOut || 0} tok (grounded ${result.grounded?.grounded ?? "-"}, demoted ${result.grounded?.demoted ?? "-"})`);
-    res.status(201).json({ cached: false, lessonId: lesson.id, lesson: lessonData, audioStatus: lesson.audioStatus, page });
+    if (result.source && result.source !== "gemini") {
+      prisma.pageLessonEvent.create({ data: { userId: req.user.sub, lessonId: lesson.id, kind: "fallback_glm" } }).catch(() => {});
+    }
+    console.log(`[pageTutor] generated ${cacheKey} via ${result.source} in ${result.tokensIn || 0}+${result.tokensOut || 0} tok (grounded ${result.grounded?.grounded ?? "-"}, demoted ${result.grounded?.demoted ?? "-"})`);
+    res.status(201).json({ cached: false, lessonId: lesson.id, lesson: lessonData, audioStatus: lesson.audioStatus, generationSource: lesson.generationSource, page });
   } catch (err) {
     console.error("[pageTutor] lesson error:", err);
     res.status(500).json({ error: "Failed to load the lesson" });
@@ -255,7 +305,7 @@ router.post("/lesson/:id/report", requireAuth, async (req, res) => {
   }
 });
 
-const EVENT_KINDS = new Set(["open", "audio_finish", "recall_answer", "section_play", "ask_voice", "explain_page"]);
+const EVENT_KINDS = new Set(["open", "audio_finish", "recall_answer", "section_play", "ask_voice", "explain_page", "fallback_glm", "tts_speech", "regenerate"]);
 
 // POST /api/page-tutor/lesson/:id/event { kind } — day-one metrics.
 router.post("/lesson/:id/event", requireAuth, async (req, res) => {

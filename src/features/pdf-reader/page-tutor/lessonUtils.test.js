@@ -29,6 +29,25 @@ describe("playableSections", () => {
     expect(playableSections(lesson, null).every((s) => !s.playable)).toBe(true);
     expect(playableSections(null, [])).toEqual([]);
   });
+  it("marks failed sections playable via speech when enabled", () => {
+    const spoken = { sections: [{ id: "s1", heading: "A", narration: "hello" }, { id: "s2", heading: "B", narration: "" }] };
+    const audio = [
+      { sectionId: "s1", status: "failed", url: null },
+      { sectionId: "s2", status: "failed", url: null },
+    ];
+    const out = playableSections(spoken, audio, { speech: "failed" });
+    expect(out[0].playable).toBe(true);
+    expect(out[0].mode).toBe("speech");
+    expect(out[1].playable).toBe(false); // nothing to speak
+    // without the flag, nothing is playable
+    expect(playableSections(spoken, audio).every((s) => !s.playable)).toBe(true);
+  });
+  it("file mode wins over speech when audio is ready", () => {
+    const spoken = { sections: [{ id: "s1", heading: "A", narration: "hi" }] };
+    const audio = [{ sectionId: "s1", status: "ready", url: "https://x/1.mp3" }];
+    const out = playableSections(spoken, audio, { speech: "always" });
+    expect(out[0].mode).toBe("file");
+  });
 });
 
 describe("buildLessonContext", () => {

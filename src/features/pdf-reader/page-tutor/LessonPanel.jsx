@@ -4,6 +4,7 @@
 import { useState } from "react";
 import AudioPlayer from "./AudioPlayer.jsx";
 import RecallStep from "./RecallStep.jsx";
+import GeneratingState from "./GeneratingState.jsx";
 import { playableSections } from "./lessonUtils.js";
 
 const chip = (T, active) => ({
@@ -31,7 +32,7 @@ function Section({ T, item, expanded, onToggle, onPlay, playing, onSeeOnPage }) 
         }}
           role="button"
           onClick={(e) => { e.stopPropagation(); if (item.playable) onPlay(); }}
-          title={item.playable ? "Play this section" : "Audio not ready"}
+          title={item.mode === "speech" ? "Play with your device's voice" : item.playable ? "Play this section" : "Audio not ready"}
         >
           {playing ? "❚❚" : "▶"}
         </span>
@@ -88,19 +89,11 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
   const [reportSent, setReportSent] = useState(false);
   const [reportNote, setReportNote] = useState("");
 
-  const { status, error, lesson, audioSections, player, saving, savedCount } = tutor;
-  const list = playableSections(lesson?.lesson, audioSections);
+  const { status, error, lesson, audioSections, player, saving, savedCount, regenerating } = tutor;
+  const list = playableSections(lesson?.lesson, audioSections, { speech: tutor.speechSupported ? "failed" : false });
   const playingItem = list[player.idx];
 
-  if (status === "loading") {
-    return (
-      <div style={{ padding: "40px 16px", textAlign: "center", color: T.muted, fontSize: 13 }}>
-        <div style={{ fontSize: 24, marginBottom: 10 }}>✨</div>
-        Writing your lesson for page {page}…
-        <div style={{ fontSize: 11, marginTop: 6, opacity: 0.75 }}>Usually a few seconds — audio follows in the background.</div>
-      </div>
-    );
-  }
+  if (status === "loading") return <GeneratingState T={T} page={page} />;
   if (status === "error" || status === "premium") {
     return (
       <div style={{ padding: "30px 16px", textAlign: "center" }}>
@@ -141,11 +134,32 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div style={{ overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 14px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: T.text, lineHeight: 1.35 }}>{les.page_title}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: T.text, lineHeight: 1.35, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {les.page_title}
+            {lesson.generationSource && lesson.generationSource !== "gemini" && (
+              <span style={{
+                fontSize: 9.5, fontWeight: 800, color: "#4F8EF7", textTransform: "uppercase",
+                letterSpacing: "0.05em", padding: "2px 7px", borderRadius: 999,
+                border: "1px solid rgba(79,142,247,0.4)", background: "rgba(79,142,247,0.1)",
+              }}>
+                Quick mode
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: 11, color: T.muted, marginTop: 3 }}>
             Page {page} · {lesson.cached ? "from the shared cache" : "generated for you"}
             {lesson.audioStatus === "pending" || lesson.audioStatus === "partial" ? " · audio loading…" : ""}
           </div>
+          {lesson.generationSource && lesson.generationSource !== "gemini" && (
+            <div style={{ fontSize: 11, color: T.muted, marginTop: 5, display: "flex", alignItems: "center", gap: 8 }}>
+              Made with the backup engine — the primary was busy.
+              <button
+                onClick={() => tutor.regenerate(page)}
+                disabled={regenerating}
+                style={{ padding: "3px 10px", borderRadius: 8, border: `1px solid ${T.border}`, background: "transparent", color: "#4F8EF7", fontSize: 10.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: regenerating ? 0.6 : 1 }}
+              >{regenerating ? "Upgrading…" : "Upgrade quality"}</button>
+            </div>
+          )}
         </div>
 
         {error ? <div style={{ fontSize: 12, color: T.accent }}>{error}</div> : null}
@@ -166,8 +180,10 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
         </div>
 
         {lesson.audioStatus === "failed" && (
-          <div style={{ fontSize: 12, color: T.muted, display: "flex", alignItems: "center", gap: 8 }}>
-            Audio couldn't be generated — the written lesson still works.
+          <div style={{ fontSize: 12, color: T.muted, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {tutor.speechSupported
+              ? "Hosted audio unavailable — sections play with your device's voice."
+              : "Audio couldn't be generated — the written lesson still works."}
             <button onClick={tutor.retry} style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${T.border}`, background: "transparent", color: "#4F8EF7", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Retry</button>
           </div>
         )}

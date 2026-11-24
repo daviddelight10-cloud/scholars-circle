@@ -61,24 +61,48 @@ async function callGemini({ pdfBase64, pageText, page, resourceTitle }) {
   }
 }
 
-// Returns { ok, lesson?, tokensIn, tokensOut, model, error? } — one retry on
-// schema failure, then the caller falls back to text_only.
-export async function generateLesson({ pdfBase64, pageText, page, resourceTitle }) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const RETRY_DELAYS = [1500, 4000]; // before attempts 2 and 3 — demand spikes clear in seconds
+
+// Gemini only: 3 attempts, backoff between them. One schema retry is folded
+// in (a bad-JSON response burns an attempt like a retriable failure).
+export async function generateWithGemini({ pdfBase64, pageText, page, resourceTitle }) {
   let lastErr = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(RETRY_DELAYS[attempt - 1] || 4000);
     const r = await callGemini({ pdfBase64, pageText, page, resourceTitle });
     if (!r.ok) { lastErr = r.error; if (!r.retriable) break; continue; }
     let parsed;
     try { parsed = JSON.parse(r.text); } catch { parsed = null; }
     const v = validateLesson(parsed);
-    if (v.ok || attempt === 1) {
-      if (!v.ok) return { ok: false, lessonFailedSchema: true, rawText: r.text, error: `schema: ${v.problems.join(", ")}`, tokensIn: r.tokensIn, tokensOut: r.tokensOut, model: r.model };
+    if (v.ok) {
       const g = applyGrounding(v.lesson, pageText || "");
       return { ok: true, lesson: v.lesson, grounded: g, tokensIn: r.tokensIn, tokensOut: r.tokensOut, model: r.model };
     }
     lastErr = `schema: ${v.problems.join(", ")}`;
+    if (attempt === 2) return { ok: false, lessonFailedSchema: true, rawText: r.text, error: lastErr, tokensIn: r.tokensIn, tokensOut: r.tokensOut, model: r.model };
   }
   return { ok: false, error: lastErr || "generation failed" };
+}
+
+// Orchestrator: Gemini → GLM (OpenRouter) → fail. GLM is skipped entirely when
+// PAGE_TUTOR_FALLBACK=off or there's no OpenRouter key, and during premium
+// regenerations (allowFallback=false) which exist to restore gemini quality.
+export async function generateLesson({ pdfBase64, pageText, page, resourceTitle, pageImage, allowFallback = true }) {
+  const r = await generateWithGemini({ pdfBase64, pageText, page, resourceTitle });
+  if (r.ok) return { ...r, source: "gemini" };
+  if (r.lessonFailedSchema) return { ...r, source: "gemini" };
+  if (!allowFallback || process.env.PAGE_TUTOR_FALLBACK === "off") {
+    return { ok: false, error: r.error || "generation failed" };
+  }
+  const { generateWithGLM } = await import("./glm.js");
+  const g = await generateWithGLM({ pageImage, pageText, page, resourceTitle });
+  if (g.ok) {
+    console.log(`[pageTutor] gemini failed (${r.error}) — glm fallback succeeded`);
+    return { ...g, source: pageImage ? "glm" : "glm_text" };
+  }
+  if (g.lessonFailedSchema) return { ...g, source: "glm" };
+  return { ok: false, error: `gemini: ${r.error} | glm: ${g.error}` };
 }
 
 export { PROMPT_VERSION };

@@ -1610,6 +1610,7 @@ model PageLesson {
   promptVersion Int      @default(1)
   status        String   @default("ready")   // ready | text_only | hidden
   hidden        Boolean  @default(false)     // auto-hidden after repeated error reports
+  generationSource String @default("gemini") // gemini | glm | glm_text — glm rows can be regenerated later
   reportCount   Int      @default(0)
   regenerations Int      @default(0)
   lesson        Json

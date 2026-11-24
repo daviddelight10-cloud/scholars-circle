@@ -8,16 +8,27 @@ export const fmtTime = (ms) => {
 
 export const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
-// Ordered, playable audio sections (only those with an mp3 ready).
-export const playableSections = (lesson, audioSections) => {
+// Ordered, playable audio sections. speech: false | "failed" | "always" —
+// "failed" lets sections whose hosted audio failed play via device voice;
+// "always" prefers files but marks everything speakable (future data-saver).
+// mode: "file" | "speech" | null.
+export const playableSections = (lesson, audioSections, { speech = false } = {}) => {
   const byId = new Map((audioSections || []).map((a) => [a.sectionId, a]));
-  return (lesson?.sections || []).map((s, i) => ({
-    index: i,
-    sectionId: s.id,
-    heading: s.heading,
-    audio: byId.get(s.id) || null,
-    playable: byId.get(s.id)?.status === "ready" && !!byId.get(s.id)?.url,
-  }));
+  return (lesson?.sections || []).map((s, i) => {
+    const a = byId.get(s.id) || null;
+    const fileReady = a?.status === "ready" && !!a?.url;
+    const speakable = !!(String(s.narration || "").trim() || String(s.explanation || "").trim());
+    const failed = a?.status === "failed";
+    const speechOk = !!speech && speakable && (speech === "always" ? !fileReady : failed);
+    return {
+      index: i,
+      sectionId: s.id,
+      heading: s.heading,
+      audio: a,
+      playable: fileReady || speechOk,
+      mode: fileReady ? "file" : speechOk ? "speech" : null,
+    };
+  });
 };
 
 // Context string handed to the live Voice Tutor on "Ask a question" —
