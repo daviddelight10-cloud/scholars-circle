@@ -103,7 +103,7 @@ async function sendSlotReminders(nowMs) {
 
   const progressRows = await prisma.userProgress.findMany({
     where: { userId: { in: allUserIds } },
-    select: { userId: true, streak: true, lastStudied: true, tzOffsetMinutes: true },
+    select: { userId: true, streak: true, lastStudied: true, tzOffsetMinutes: true, lastBoardRank: true, lastBoardTier: true },
   }).catch(() => []);
   const prog = new Map(progressRows.map((p) => [p.userId, p]));
 
@@ -125,6 +125,24 @@ async function sendSlotReminders(nowMs) {
     _count: { _all: true },
   }).catch(() => []);
   const dueCounts = new Map(dueGroups.map((g) => [g.userId, g._count._all]));
+
+  // League ranks — per-tier order by weeklyXP matches the leaderboard users see.
+  const leagueRows = await prisma.userLeague.findMany({
+    where: { userId: { in: allUserIds } },
+    select: { userId: true, tier: true, weeklyXP: true },
+  }).catch(() => []);
+  const byTier = new Map();
+  for (const l of leagueRows) {
+    if (!byTier.has(l.tier)) byTier.set(l.tier, []);
+    byTier.get(l.tier).push(l);
+  }
+  const rankOf = new Map(); // userId -> { rank, tier }
+  for (const [tier, rows] of byTier) {
+    rows.sort((a, b) => b.weeklyXP - a.weeklyXP);
+    rows.forEach((r, i) => rankOf.set(r.userId, { rank: i + 1, tier }));
+  }
+  const rankMoves = []; // { userId, from, to, dir: "up"|"down" }
+  const rankUpdates = []; // { userId, rank, tier }
 
   const morningIds = [];
   const streakRisk = []; // { userId, streak }
@@ -166,6 +184,18 @@ async function sendSlotReminders(nowMs) {
       if (!studiedToday && (p?.streak || 0) > 0) streakRisk.push({ userId, streak: p.streak });
       else if (dueCount >= 5) cardsDue.push({ userId, count: dueCount });
       else if (!studiedToday) genericIds.push(userId);
+    }
+
+    // Leaderboard move — once per local day, separate tag from the reminder.
+    const cur = rankOf.get(userId);
+    if (cur) {
+      const prev = p?.lastBoardRank;
+      const prevTier = p?.lastBoardTier;
+      if (prev && prevTier === cur.tier && cur.rank !== prev && !sentKeys.has(`r:${userId}:${day}`)) {
+        sentKeys.add(`r:${userId}:${day}`);
+        rankMoves.push({ userId, from: prev, to: cur.rank, dir: cur.rank < prev ? "up" : "down" });
+      }
+      if (prev !== cur.rank || prevTier !== cur.tier) rankUpdates.push({ userId, rank: cur.rank, tier: cur.tier });
     }
   }
 
@@ -226,6 +256,40 @@ async function sendSlotReminders(nowMs) {
         ).catch(() => ({ sent: 0 }));
         sent += r.sent || 0;
       })
+    );
+  }
+
+  if (rankMoves.length) {
+    await Promise.all(
+      rankMoves.map(async (u) => {
+        const r = await sendPushToUser(
+          u.userId,
+          u.dir === "up"
+            ? {
+                title: `🏆 You climbed to #${u.to} on the leaderboard!`,
+                body: `Up from #${u.from} — keep the momentum going.`,
+                tag: "rank-move",
+                data: { tab: "leaderboard", kind: "rank_up" },
+              }
+            : {
+                title: `⚡ You slipped to #${u.to}`,
+                body: "Someone passed you on the leaderboard — one quick session reclaims your spot.",
+                tag: "rank-move",
+                data: { tab: "leaderboard", kind: "rank_down" },
+              },
+          { category: "studyReminders" }
+        ).catch(() => ({ sent: 0 }));
+        sent += r.sent || 0;
+      })
+    );
+    console.log(`[reminder] rank moves -> ${rankMoves.length} pushes`);
+  }
+
+  if (rankUpdates.length) {
+    await Promise.all(
+      rankUpdates.map((u) =>
+        prisma.userProgress.updateMany({ where: { userId: u.userId }, data: { lastBoardRank: u.rank, lastBoardTier: u.tier } }).catch(() => {})
+      )
     );
   }
 

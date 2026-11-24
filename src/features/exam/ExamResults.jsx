@@ -167,13 +167,17 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
           )}
 
           {missedDeckQuestions.length > 0 && (
-            <button className="exr-misses" onClick={practiceMisses} disabled={deckBusy}>
-              <span className="exr-misses-ic">🧠</span>
+            <button
+              className="exr-misses"
+              onClick={insightsOpen ? practiceMisses : () => openPremium("resultInsights")}
+              disabled={deckBusy}
+            >
+              <span className="exr-misses-ic">{insightsOpen ? "🧠" : "🔒"}</span>
               <span className="exr-misses-body">
                 <b>Practice your misses</b>
-                <span>Add {missedDeckQuestions.length} wrong question{missedDeckQuestions.length !== 1 ? "s" : ""} to your deck</span>
+                <span>{insightsOpen ? `Add ${missedDeckQuestions.length} wrong question${missedDeckQuestions.length !== 1 ? "s" : ""} to your deck` : "Premium — your misses become flashcards"}</span>
               </span>
-              <span className="exr-misses-go">{deckBusy ? "…" : "＋"}</span>
+              <span className="exr-misses-go">{deckBusy ? "…" : insightsOpen ? "＋" : "🔓"}</span>
             </button>
           )}
           {deckMsg && <div className={`exr-deckmsg ${deckMsg.type}`}>{deckMsg.text}</div>}
@@ -233,16 +237,16 @@ export default function ExamResults({ result, exam, sourceTitle, examResourceId,
         )}
 
         {/* Locked-insights banner */}
-        {!revealLocked && lockedInsightIds.size > 0 && (
+        {!revealLocked && !insightsOpen && (
           <div className="exr-insight-banner">
-            🔒 {lockedInsightIds.size} explanation{lockedInsightIds.size !== 1 ? "s" : ""} locked —
-            <button type="button" onClick={() => openPremium("resultInsights")}>unlock all with Premium</button>
+            🔒 Answer review is Premium — see every answer, mark &amp; explanation
+            <button type="button" onClick={() => openPremium("resultInsights")}>unlock with Premium</button>
           </div>
         )}
 
-        {/* Review list */}
+        {/* Review list — non-premium gets the score but every answer/grade blurs */}
         {!revealLocked && visible.map(({ q, i, obj, ai, answer }) => (
-          <ReviewRow key={q.id || i} q={q} n={i + 1} obj={obj} ai={ai} answer={answer} lockInsights={lockedInsightIds.has(i)} />
+          <ReviewRow key={q.id || i} q={q} n={i + 1} obj={obj} ai={ai} answer={answer} lockInsights={!insightsOpen || lockedInsightIds.has(i)} hardLock={!insightsOpen} />
         ))}
       </div>
     </div>
@@ -272,13 +276,15 @@ function ScoreRing({ pct, score, total, passed }) {
   );
 }
 
-function ReviewRow({ q, n, obj, ai, answer, lockInsights }) {
-  const status = obj ? (obj.correct ? "ok" : "bad") : ai ? (ai.marksAwarded >= ai.maxMarks * 0.5 ? "ok" : "bad") : "na";
-  const marksText = obj
-    ? `${obj.marksAwarded}/${obj.maxMarks}`
-    : ai
-      ? `${ai.marksAwarded}/${ai.maxMarks}`
-      : `–/${q.marks}`;
+function ReviewRow({ q, n, obj, ai, answer, lockInsights, hardLock }) {
+  const status = hardLock ? "na" : (obj ? (obj.correct ? "ok" : "bad") : ai ? (ai.marksAwarded >= ai.maxMarks * 0.5 ? "ok" : "bad") : "na");
+  const marksText = hardLock
+    ? `?/${q.marks}`
+    : obj
+      ? `${obj.marksAwarded}/${obj.maxMarks}`
+      : ai
+        ? `${ai.marksAwarded}/${ai.maxMarks}`
+        : `–/${q.marks}`;
 
   return (
     <div className={`exr-review ${status}`}>
@@ -294,7 +300,7 @@ function ReviewRow({ q, n, obj, ai, answer, lockInsights }) {
           {Object.entries(q.options).map(([k, v]) => (
             <div
               key={k}
-              className={`exr-opt ro${k === q.correct ? " ok" : ""}${answer === k && k !== q.correct ? " bad" : ""}`}
+              className={`exr-opt ro${!hardLock && k === q.correct ? " ok" : ""}${!hardLock && answer === k && k !== q.correct ? " bad" : ""}`}
             >
               <span className="exr-opt-key">{k}</span>
               <span className="exr-opt-val">{v}</span>
@@ -302,18 +308,22 @@ function ReviewRow({ q, n, obj, ai, answer, lockInsights }) {
           ))}
         </div>
       )}
-      {q.type === "truefalse" && (
+      {q.type === "truefalse" && (hardLock ? (
+        <LockedInsight><div className="exr-answers-line">Your answer + the correct one</div></LockedInsight>
+      ) : (
         <div className="exr-answers-line">
           You answered <b className={obj?.correct ? "ok" : "bad"}>{answer == null ? "—" : answer === true || answer === "true" ? "True" : "False"}</b>
           {" · "}Correct: <b className="ok">{q.correct ? "True" : "False"}</b>
         </div>
-      )}
-      {q.type === "fillblank" && (
+      ))}
+      {q.type === "fillblank" && (hardLock ? (
+        <LockedInsight><div className="exr-answers-line">Your answer + accepted answers</div></LockedInsight>
+      ) : (
         <div className="exr-answers-line">
           You answered <b className={obj?.correct ? "ok" : "bad"}>{answer || "—"}</b>
           {" · "}Accepted: <b className="ok">{(q.acceptableAnswers || []).join(", ")}</b>
         </div>
-      )}
+      ))}
 
       {/* Written answers */}
       {isWrittenType(q.type) && (

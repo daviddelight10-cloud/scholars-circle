@@ -97,7 +97,7 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
   const [reportSent, setReportSent] = useState(false);
   const [reportNote, setReportNote] = useState("");
 
-  const { status, error, lesson, audioSections, player, saving, savedCount, regenerating } = tutor;
+  const { status, error, lesson, audioSections, player, regenerating } = tutor;
   const list = playableSections(lesson?.lesson, audioSections, { speech: tutor.speechSupported ? "failed" : false });
   const playingItem = list[player.idx];
   const scrollRef = useRef(null);
@@ -225,21 +225,6 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
         )}
 
         <RecallStep T={T} recall={les.recall} onGraded={tutor.logRecall} />
-
-        {les.recall?.length > 0 && (
-          <button
-            onClick={tutor.makeFlashcards}
-            disabled={saving || savedCount !== null}
-            style={{
-              padding: "11px 14px", borderRadius: 10, border: `1px solid ${T.border}`,
-              background: savedCount !== null ? "rgba(61,214,140,0.1)" : T.inputBg,
-              color: savedCount !== null ? "#3DD68C" : T.text, fontSize: 13, fontWeight: 700,
-              cursor: savedCount !== null ? "default" : "pointer", fontFamily: "inherit",
-            }}
-          >
-            {savedCount !== null ? `✓ ${savedCount} flashcard${savedCount === 1 ? "" : "s"} in your deck` : saving ? "Saving…" : "Make flashcards from this page"}
-          </button>
-        )}
 
         <button
           onClick={onAskVoice}

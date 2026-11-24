@@ -2,7 +2,7 @@
 // single <audio> element that keeps playing across scrolls/page turns, and
 // the device-voice fallback engine for sections whose hosted audio failed.
 import { useRef, useState, useCallback, useEffect } from "react";
-import { explainPage, getAudio, getLessonPages, retryAudio, saveFlashcards, reportLesson, logEvent } from "./pageTutorApi.js";
+import { explainPage, getAudio, getLessonPages, retryAudio, reportLesson, logEvent } from "./pageTutorApi.js";
 import { playableSections, SPEEDS } from "./lessonUtils.js";
 import { SpeechEngine, chunkNarration, speechSupported } from "./speech.js";
 import { openPremium } from "../../../lib/premium.js";
@@ -22,8 +22,6 @@ export function usePageTutor({ resourceId } = {}) {
   const [error, setError] = useState("");
   const [audioSections, setAudioSections] = useState([]);
   const [player, setPlayer] = useState({ idx: -1, playing: false, time: 0, dur: 0, speed: 1, mode: null, chunk: 0, chunks: 0 });
-  const [saving, setSaving] = useState(false);
-  const [savedCount, setSavedCount] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
   const [lessonPages, setLessonPages] = useState(new Set()); // pages with a cached lesson — thumbnail dots
   const [reviewItems, setReviewItems] = useState([]);        // flattened recall Qs — chapter review
@@ -67,7 +65,6 @@ export function usePageTutor({ resourceId } = {}) {
     cacheRef.current.set(page, entry);
     setLesson(entry);
     setStatus("ready");
-    setSavedCount(null);
     setLessonPages((s) => (s.has(page) ? s : new Set([...s, page])));
     logEvent(data.lessonId, "open");
     if (data.audioStatus === "pending" || data.audioStatus === "partial") {
@@ -291,19 +288,6 @@ export function usePageTutor({ resourceId } = {}) {
     }
   }, [lesson, startPolling]);
 
-  const makeFlashcards = useCallback(async () => {
-    if (!lesson?.lessonId || saving) return;
-    setSaving(true);
-    try {
-      const r = await saveFlashcards(lesson.lessonId, resourceId);
-      setSavedCount(r.created ?? 0);
-    } catch (err) {
-      setError(err.message || "Could not save flashcards");
-    } finally {
-      setSaving(false);
-    }
-  }, [lesson, resourceId, saving]);
-
   const report = useCallback(async (reason, note) => {
     if (!lesson?.lessonId) return;
     try { await reportLesson(lesson.lessonId, reason, note); } catch {}
@@ -329,8 +313,8 @@ export function usePageTutor({ resourceId } = {}) {
 
   return {
     lesson, status, error, setError,
-    audioSections, player, saving, savedCount, regenerating, lessonPages, reviewItems,
+    audioSections, player, regenerating, lessonPages, reviewItems,
     explain, regenerate, onPageChanged, playSection, playAll, toggle, seekBy, seekTo, cycleSpeed,
-    retry, makeFlashcards, report, logRecall, speechSupported: SPEECH_FLAG === "failed",
+    retry, report, logRecall, speechSupported: SPEECH_FLAG === "failed",
   };
 }

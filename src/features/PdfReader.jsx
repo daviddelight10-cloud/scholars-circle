@@ -37,6 +37,8 @@ import PdfDeckTab, { usePdfDeck } from "./pdf-reader/PdfDeckTab.jsx";
 import { usePageTutor } from "./pdf-reader/page-tutor/usePageTutor.js";
 import LessonPanel from "./pdf-reader/page-tutor/LessonPanel.jsx";
 import ChapterReview from "./pdf-reader/page-tutor/ChapterReview.jsx";
+import Celebration from "./pdf-reader/page-tutor/Celebration.jsx";
+import { checkRankJump } from "../lib/rankWatch.js";
 import { buildLessonContext } from "./pdf-reader/page-tutor/lessonUtils.js";
 import { logEvent as tutorLogEvent } from "./pdf-reader/page-tutor/pageTutorApi.js";
 
@@ -265,6 +267,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     try { return localStorage.getItem("sc-voice-level") || "standard"; } catch { return "standard"; }
   });
   const [voiceMinimized, setVoiceMinimized] = useState(false);
+  const [rankCelebration, setRankCelebration] = useState(null); // {from,to,passed,tier}
+  const closeCelebration = useCallback(() => setRankCelebration(null), []);
+  const checkRankCelebration = useCallback(() => {
+    checkRankJump().then((j) => { if (j) setRankCelebration(j); }).catch(() => {});
+  }, []);
   const [voiceTextInput, setVoiceTextInput] = useState("");
   const voiceActive = voice.state !== VOICE_STATES.IDLE && voice.state !== VOICE_STATES.ENDED && voice.state !== VOICE_STATES.ERROR;
   const vtStateColor = {
@@ -3365,6 +3372,21 @@ Passage:
           background: linear-gradient(90deg, transparent, var(--app-tint-strong), transparent);
           background-size: 200% 100%; animation: sc-shimmer 2s infinite;
         }
+        /* Study-tools cards — lift + glow on hover (desktop) */
+        .sc-tool-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease; }
+        .sc-tool-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.18); border-color: rgba(245,166,35,0.4) !important; }
+        .sc-tool-card:active { transform: translateY(0); }
+        @keyframes sc-confetti-fall {
+          0% { transform: translate3d(0,-12vh,0) rotate(0deg); opacity: 1; }
+          85% { opacity: 1; }
+          100% { transform: translate3d(var(--cx,0),110vh,0) rotate(var(--cr,720deg)); opacity: 0; }
+        }
+        @keyframes sc-rank-pop {
+          0% { transform: scale(0.6) translateY(14px); opacity: 0; }
+          60% { transform: scale(1.05) translateY(-2px); opacity: 1; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes sc-rank-shine { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         .page-anim-exit-next { animation: slideExitLeft 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
         .page-anim-exit-prev { animation: slideExitRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
         .page-anim-enter-next { animation: slideEnterRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
@@ -5439,7 +5461,9 @@ Passage:
                   <ChapterReview
                     T={T}
                     items={pageTutor.reviewItems}
+                    resourceId={propResourceId}
                     onJumpPage={(p) => { goToPage(p); setStudyView("lesson"); }}
+                    onRankCheck={checkRankCelebration}
                   />
                 ) : studyView === "lesson" ? (
                   <LessonPanel
@@ -5510,8 +5534,14 @@ Passage:
                       return (
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 2px 6px", animation: "sc-fade-in-up .35s ease both" }}>
                           <svg width="32" height="32" viewBox="0 0 36 36">
+                            <defs>
+                              <linearGradient id="pt-ring-grad" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stopColor="#FFD166" />
+                                <stop offset="100%" stopColor="#F5A623" />
+                              </linearGradient>
+                            </defs>
                             <circle cx="18" cy="18" r="15" fill="none" stroke={T.border} strokeWidth="3" />
-                            <circle cx="18" cy="18" r="15" fill="none" stroke="#F5A623" strokeWidth="3" strokeLinecap="round"
+                            <circle cx="18" cy="18" r="15" fill="none" stroke="url(#pt-ring-grad)" strokeWidth="3" strokeLinecap="round"
                               strokeDasharray={C} strokeDashoffset={C * (1 - pct)} transform="rotate(-90 18 18)"
                               style={{ transition: "stroke-dashoffset .6s ease" }} />
                           </svg>
@@ -5534,8 +5564,11 @@ Passage:
                         style={{
                           position: "relative", overflow: "hidden",
                           display: "flex", alignItems: "center", gap: 10,
-                          width: "100%", padding: "13px 14px", borderRadius: 12,
-                          border: "none", background: "#F5A623", color: "#1B212D",
+                          width: "100%", padding: "13px 14px", borderRadius: 14,
+                          border: "none",
+                          background: "linear-gradient(135deg, #FFC24B 0%, #F5A623 55%, #E8940C 100%)",
+                          boxShadow: "0 4px 18px rgba(245,166,35,0.35)",
+                          color: "#1B212D",
                           cursor: "pointer", textAlign: "left", fontFamily: "inherit",
                           opacity: pageTutor.status === "loading" ? 0.7 : 1,
                           animation: "sc-fade-in-up .35s ease both", animationDelay: "50ms",
@@ -5557,6 +5590,7 @@ Passage:
                     {propResourceId && (pageTutor.reviewItems.length >= 3 ? (
                       <button
                         onClick={() => setStudyView("review")}
+                        className="sc-tool-card"
                         style={{
                           display: "flex", alignItems: "center", gap: 10, marginTop: 8,
                           width: "100%", padding: "12px 14px", borderRadius: 12,
@@ -5628,6 +5662,7 @@ Passage:
                     <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: T.muted, margin: "16px 2px 4px" }}>Ask</div>
                     <button
                       onClick={openChatDirect}
+                      className="sc-tool-card"
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
                         width: "100%", padding: "12px 14px", borderRadius: 12,
@@ -5658,6 +5693,7 @@ Passage:
                       <button
                         onClick={() => handleVoiceStart()}
                         disabled={voice.state === VOICE_STATES.CONNECTING}
+                        className="sc-tool-card"
                         style={{
                           display: "flex", alignItems: "center", gap: 10,
                           width: "100%", padding: "10px 14px", borderRadius: 12,
@@ -5696,6 +5732,16 @@ Passage:
           )}
 
 
+
+          {rankCelebration && (
+            <Celebration
+              from={rankCelebration.from}
+              to={rankCelebration.to}
+              passed={rankCelebration.passed}
+              tier={rankCelebration.tier}
+              onDone={closeCelebration}
+            />
+          )}
 
           {loading && (
             <div style={s.loadingOverlay}>

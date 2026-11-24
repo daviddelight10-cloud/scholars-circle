@@ -619,6 +619,10 @@ model UserProgress {
 
   xp           Int      @default(0)
 
+  lastBoardRank Int?
+
+  lastBoardTier String?
+
   sessions     Int      @default(0)
 
   streak       Int      @default(0)
