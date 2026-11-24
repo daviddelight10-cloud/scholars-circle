@@ -35,6 +35,10 @@ import { buildNotesMarkdown, downloadTextFile } from "./pdf-reader/notesExport.j
 import { NoteEditorModal, NotesPanel, ShortcutsModal, StatsModal } from "./pdf-reader/panels.jsx";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import PdfDeckTab, { usePdfDeck } from "./pdf-reader/PdfDeckTab.jsx";
+import { usePageTutor } from "./pdf-reader/page-tutor/usePageTutor.js";
+import LessonPanel from "./pdf-reader/page-tutor/LessonPanel.jsx";
+import { buildLessonContext } from "./pdf-reader/page-tutor/lessonUtils.js";
+import { logEvent as tutorLogEvent } from "./pdf-reader/page-tutor/pageTutorApi.js";
 
 
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
@@ -242,8 +246,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // ── AI Study Tools state (voice tutor + chat only) ─────────────────────────
   const [studyToolsOpen, setStudyToolsOpen] = useState(false);
   const [studyTab, setStudyTab] = useState("tools"); // "tools" | "deck"
+  const [studyView, setStudyView] = useState("tools"); // "tools" | "lesson" — lesson = Page Tutor
   const studyDeck = usePdfDeck(propResourceId, studyToolsOpen);
   const studyResourceId = propResourceId || docKey;
+  const pageTutor = usePageTutor({ resourceId: propResourceId });
 
   // Mastery — fed by recordPracticeResult from chat quiz answers and any
   // legacy local practice data for this document.
@@ -1569,7 +1575,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   };
 
   // ── Voice Tutor handlers ───────────────────────────────────────────────────
-  const handleVoiceStart = useCallback(async () => {
+  const handleVoiceStart = useCallback(async (lessonContext = "") => {
     if (!propResourceId) return;
     setVoiceMinimized(false);
     setStudyToolsOpen(false);
@@ -1577,8 +1583,40 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       const text = await getPageText(currentPage);
       pageTextRef.current = text;
     } catch {}
-    await voice.startSession(propResourceId, voiceName, currentPage, pageTextRef.current, { level: voiceLevel, allowPageNav: true });
+    await voice.startSession(propResourceId, voiceName, currentPage, pageTextRef.current, { level: voiceLevel, allowPageNav: true, lessonContext });
   }, [propResourceId, voiceName, voiceLevel, currentPage, voice, getPageText]);
+
+  // ── Page Tutor handlers ────────────────────────────────────────────────────
+  const handleExplain = useCallback(() => {
+    setStudyView("lesson");
+    pageTutor.explain(currentPage);
+  }, [currentPage, pageTutor]);
+
+  const handleTutorAsk = useCallback(() => {
+    if (pageTutor.lesson?.lessonId) tutorLogEvent(pageTutor.lesson.lessonId, "ask_voice");
+    const ctx = buildLessonContext(pageTutor.lesson?.lesson, currentPage, title);
+    handleVoiceStart(ctx);
+  }, [pageTutor.lesson, currentPage, title, handleVoiceStart]);
+
+  // "See on page" — reuse in-document search to highlight the section's anchor.
+  const pendingAnchorRef = useRef(false);
+  const handleSeeOnPage = useCallback((quote) => {
+    if (!quote) return;
+    pendingAnchorRef.current = true;
+    setSearchQuery(quote);
+    if (isMobile) closeStudyTools();
+    runSearch(quote);
+  }, [runSearch, isMobile]);
+
+  useEffect(() => {
+    if (!pendingAnchorRef.current || searching) return;
+    pendingAnchorRef.current = false;
+    if (searchResults.length) goToMatch(0);
+    else toastDeck("Couldn't locate that text on the page", "error");
+  }, [searchResults, searching, goToMatch]);
+
+  // Page turns: keep audio playing; adopt a cached lesson or reset the panel.
+  useEffect(() => { pageTutor.onPageChanged(currentPage); }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleVoiceEnd = useCallback(() => {
     voice.endSession();
@@ -5323,6 +5361,23 @@ Passage:
           )}
 
 
+          {/* Page Tutor mini player — audio keeps playing while the panel is closed */}
+          {!studyToolsOpen && pageTutor.lesson && pageTutor.player.idx >= 0 && (
+            <button
+              onClick={() => { setStudyView("lesson"); openStudyTools(); }}
+              style={{
+                position: "fixed", bottom: isMobile ? 76 : 88, left: "50%", transform: "translateX(-50%)",
+                zIndex: 95, display: "flex", alignItems: "center", gap: 8,
+                padding: "8px 16px", borderRadius: 999, border: `1px solid ${T.border}`,
+                background: `${T.toolbar}F0`, backdropFilter: "blur(12px)", boxShadow: `0 4px 18px ${T.shadow}`,
+                color: T.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              <span style={{ color: "#F5A623", fontSize: 13 }}>{pageTutor.player.playing ? "❚❚" : "▶"}</span>
+              Page Tutor · p.{pageTutor.lesson.page}
+            </button>
+          )}
+
           {/* AI Study Tools panel — mobile bottom sheet / desktop side panel */}
           {studyToolsOpen && (
             <>
@@ -5331,13 +5386,38 @@ Passage:
                 {isMobile && <div style={s.sheetHandle} />}
                 <div style={s.studyHead}>
                   <span style={s.studyTitle}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
-                    </svg>
-                    AI Study Tools
+                    {studyView === "lesson" ? (
+                      <>
+                        <button
+                          onClick={() => setStudyView("tools")}
+                          style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px 0 0", fontFamily: "inherit" }}
+                          title="Back to tools"
+                        >‹</button>
+                        Page Tutor · p.{currentPage}
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+                        </svg>
+                        AI Study Tools
+                      </>
+                    )}
                   </span>
                   <button style={s.studyClose} onClick={closeStudyTools}>✕</button>
                 </div>
+
+                {studyView === "lesson" ? (
+                  <LessonPanel
+                    T={T}
+                    page={currentPage}
+                    tutor={pageTutor}
+                    onAskVoice={handleTutorAsk}
+                    onSeeOnPage={handleSeeOnPage}
+                    onToast={(m) => toastDeck(m)}
+                  />
+                ) : (
+                <>
 
                 {aiUsage && !aiUsage.isActivated && (
                   <div style={{
@@ -5388,6 +5468,30 @@ Passage:
                   )}
 
                   <div style={{ ...s.studyBody, ...(propResourceId && studyTab === "deck" ? { display: "none" } : null) }}>
+
+                    {/* Page Tutor — the one gold primary action on this screen */}
+                    {propResourceId && (
+                      <button
+                        onClick={handleExplain}
+                        disabled={pageTutor.status === "loading"}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          width: "100%", padding: "13px 14px", borderRadius: 12,
+                          border: "none", background: "#F5A623", color: "#1B212D",
+                          cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                          opacity: pageTutor.status === "loading" ? 0.7 : 1,
+                        }}
+                      >
+                        <span style={{ fontSize: 18 }}>✨</span>
+                        <span style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 800 }}>Explain this page</div>
+                          <div style={{ fontSize: 11, opacity: 0.75, fontWeight: 600 }}>
+                            Simple walkthrough + audio · page {currentPage}
+                          </div>
+                        </span>
+                        <span style={{ fontSize: 15 }}>›</span>
+                      </button>
+                    )}
 
                     {/* Mastery progress bar */}
                     {mastery.totalQuestions > 0 && (
@@ -5581,13 +5685,15 @@ Passage:
                             opacity: !propResourceId || voice.state === VOICE_STATES.CONNECTING ? 0.5 : 1,
                           }}
                           disabled={!propResourceId || voice.state === VOICE_STATES.CONNECTING}
-                          onClick={handleVoiceStart}
+                          onClick={() => handleVoiceStart()}
                         >
                           {voice.state === VOICE_STATES.CONNECTING ? "Connecting…" : "🎙️ Start Voice Session"}
                         </button>
                       </div>
                     )}
                   </div>
+                </>
+                )}
 
               </div>
             </>

@@ -54,6 +54,8 @@ import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
 import { startExamChallengeJob } from "./lib/examChallengeJob.js";
+import { startPageTutorSweeper } from "./lib/pageTutor/audioJob.js";
+import pageTutorRoutes from "./routes/pageTutor.js";
 import { startClassTestJob } from "./lib/classTestJob.js";
 import { seedBadges } from "./lib/badges.js";
 import { startLeagueJob } from "./lib/leagueJob.js";
@@ -72,6 +74,8 @@ startLeagueJob();
 startBattleJobs();
 // Exam-challenge sweep: 24h deadline reminders + closed-winner notices.
 startExamChallengeJob();
+// Page Tutor: resume audio generation for lessons orphaned by a deploy.
+startPageTutorSweeper();
 // Class-test sweep: ~30min open reminders + ~15min closing nudges.
 startClassTestJob();
 
@@ -197,6 +201,7 @@ app.use("/api/osce-rooms", osceRoomRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/og", ogRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/page-tutor", pageTutorRoutes);
 app.use("/admin", adminRoutes);
 
 // Serve uploaded files statically

@@ -161,6 +161,8 @@ model User {
 
   announcementReads AnnouncementRead[]
 
+  pageLessonEvents PageLessonEvent[]
+
   documentDownloads DocumentDownload[]
 
   lecturerProfile  LecturerProfile?
@@ -1536,6 +1538,7 @@ model Resource {
   contentType String   // note, pdf, mcq, tutorial_question
   fileUrl     String?  // Supabase Storage public URL
   storagePath String?  // Supabase Storage object path (for deletion)
+  contentHash String?  // sha256 of file bytes — shared Page Tutor cache key
   fileName    String?  // original filename
   mimeType    String?  // e.g. application/pdf
   description String?
@@ -1588,6 +1591,75 @@ model Resource {
   @@index([folderId])
   @@index([universityId])
   @@index([sourceResourceId])
+  @@index([contentHash])
+  pageLessons   PageLesson[]
+}
+
+// ============ PAGE TUTOR ============
+// Cached "Explain This Page" lessons. Shared across users: the cache key is
+// (contentHash, page, level, promptVersion) so two students who upload the
+// same lecture file reuse one generation. Student answers, flashcards and
+// progress stay per user — only the lesson + its audio are shared.
+model PageLesson {
+  id            String   @id @default(cuid())
+  contentHash   String
+  resourceId    String?  // resource that triggered generation (audit/debug; cache is by hash)
+  resource      Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  page          Int
+  level         String   @default("simplify")
+  promptVersion Int      @default(1)
+  status        String   @default("ready")   // ready | text_only | hidden
+  hidden        Boolean  @default(false)     // auto-hidden after repeated error reports
+  reportCount   Int      @default(0)
+  regenerations Int      @default(0)
+  lesson        Json
+  audioStatus   String   @default("pending") // pending | partial | ready | failed | skipped
+  voice         String   @default("Sulafat") // Phase 1: fixed voice (per-user voice fragments the cache)
+  // Cost tracking — logged per fresh generation from day one
+  model         String?
+  tokensIn      Int      @default(0)
+  tokensOut     Int      @default(0)
+  ttsChars      Int      @default(0)
+  costUsd       Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  audio         PageLessonAudio[]
+  events        PageLessonEvent[]
+
+  @@unique([contentHash, page, level, promptVersion])
+  @@index([contentHash])
+  @@index([status])
+}
+
+model PageLessonAudio {
+  id         String   @id @default(cuid())
+  lessonId   String
+  lesson     PageLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  sectionId  String    // matches lesson.sections[].id — per-section retry, never redo the lesson
+  path       String    // object path inside the audio bucket
+  durationMs Int       @default(0)
+  bytes      Int       @default(0)
+  status     String    @default("pending") // pending | ready | failed
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([lessonId, sectionId])
+}
+
+// Day-one metrics events (plan's success metrics): opens, audio finishes,
+// recall answers, flashcard saves, reports.
+model PageLessonEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    PageLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  kind      String    // open | audio_finish | recall_answer | flashcards_saved | report
+  createdAt DateTime @default(now())
+
+  @@index([lessonId, kind])
+  @@index([userId])
 }
 
 model ResourceView {

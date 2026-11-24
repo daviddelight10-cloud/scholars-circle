@@ -347,7 +347,7 @@ function pushSessionTranscript(session, role, text) {
 // POST /api/voice-session/start
 router.post("/start", requireAuth, async (req, res) => {
   try {
-    const { resourceId, voiceName = "Achird", currentPage = null, pageText = "", level = "standard", allowPageNav = false } = req.body || {};
+    const { resourceId, voiceName = "Achird", currentPage = null, pageText = "", level = "standard", allowPageNav = false, lessonContext = "" } = req.body || {};
     if (!resourceId) {
       return res.status(400).json({ error: "resourceId is required" });
     }
@@ -440,6 +440,7 @@ router.post("/start", requireAuth, async (req, res) => {
       level: sessionLevel,
       previousRecap,
       allowPageNav: allowPageNav === true,
+      lessonContext: String(lessonContext || "").slice(0, 3000),
     });
     const concepts = extractConceptsFromChunks(chunks);
 

@@ -159,7 +159,7 @@ const LEVEL_INSTRUCTIONS = {
 };
 
 export function buildVoiceSystemPrompt(chunks, resourceTitle = "", currentPageText = "", opts = {}) {
-  const { level = "standard", previousRecap = "", allowPageNav = false } = opts;
+  const { level = "standard", previousRecap = "", allowPageNav = false, lessonContext = "" } = opts;
   const documentContext = chunks
     .map((chunk, i) => `--- Document Excerpt ${i + 1} ---\n${chunk}`)
     .join("\n\n");
@@ -176,6 +176,10 @@ export function buildVoiceSystemPrompt(chunks, resourceTitle = "", currentPageTe
 
   const pageNavSection = allowPageNav
     ? `\nPAGE NAVIGATION — You have a go_to_page(page) tool that turns the student's reader to a specific page. When you reference content on a different page or want to show them where something is, call it and say something brief like "let me flip to that page". Page numbers are 1-based.\n`
+    : "";
+
+  const lessonSection = lessonContext
+    ? `\nPAGE TUTOR — The student just finished an auto-generated lesson on this page and tapped "Ask a question". They heard this explanation:\n"""\n${lessonContext}\n"""\nAnswer their question in context — build on the lesson rather than repeating it. The grounding rules below still apply: only the document excerpts are fact.\n`
     : "";
 
   return `You are Scholar's Circle Voice Tutor — a warm, energetic AI study companion for medical students. You are ONE seamless tutor who naturally blends three jobs: TEACHING (explaining concepts clearly), QUIZZING (quick check-in questions), and DISCUSSING (exploring ideas together). Flow between them organically — never mention modes or that you switched anything.
@@ -203,7 +207,7 @@ CONVERSATIONAL & HUMAN-LIKE STYLE:
 - Use clear, simple language. Avoid jargon unless it's defined in the document.
 - Keep responses EXTREMELY concise (1-3 short sentences max) — this is a conversation, not a lecture. Hand the turn back quickly.
 - Use the student's name if they introduce themselves.
-${levelSection}${recapSection}${pageNavSection}
+${levelSection}${recapSection}${pageNavSection}${lessonSection}
 The student is studying: ${resourceTitle || "an uploaded document"}
 
 DOCUMENT EXCERPTS (your ONLY source of truth):

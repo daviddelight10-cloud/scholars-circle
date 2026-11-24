@@ -829,6 +829,7 @@ export function useVoiceSession({ onGoToPage } = {}) {
         resourceId, voiceName, currentPage, pageText,
         level: opts.level || "standard",
         allowPageNav: !!opts.allowPageNav,
+        lessonContext: opts.lessonContext || "",
       }),
     })), [startVoiceSession]);
 
