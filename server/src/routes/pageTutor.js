@@ -210,18 +210,32 @@ router.post("/lesson", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/page-tutor/lessons?resourceId= — pages with a shared-cached lesson.
-// Powers the thumbnail dots (students can see which pages are already free).
+// GET /api/page-tutor/lessons?resourceId= — pages with a shared-cached lesson
+// plus flattened recall items for the Chapter review quiz (interleaved across
+// explained pages — retrieval practice, zero extra model calls).
 router.get("/lessons", requireAuth, async (req, res) => {
   try {
     const resource = await prisma.resource.findUnique({ where: { id: String(req.query.resourceId || "") } });
     if (!resource || !canAccessResource(resource, req.user.sub)) return res.status(403).json({ error: "No access" });
-    if (!resource.contentHash) return res.json({ pages: [] });
+    if (!resource.contentHash) return res.json({ pages: [], items: [] });
     const rows = await prisma.pageLesson.findMany({
       where: { contentHash: resource.contentHash, level: LEVEL, promptVersion: PROMPT_VERSION, hidden: false },
-      select: { page: true },
+      select: { id: true, page: true, lesson: true },
     });
-    res.json({ pages: rows.map((r) => r.page) });
+    const items = [];
+    for (const r of rows) {
+      for (const q of r.lesson?.recall || []) {
+        if (!q?.question || !q?.answer) continue;
+        items.push({
+          lessonId: r.id, page: r.page,
+          question: q.question, answer: q.answer,
+          options: Array.isArray(q.options) ? q.options : null,
+          correct_index: Number.isInteger(q.correct_index) ? q.correct_index : -1,
+        });
+      }
+    }
+    items.sort((a, b) => (b.options ? 1 : 0) - (a.options ? 1 : 0)); // MCQs first
+    res.json({ pages: rows.map((r) => r.page), items: items.slice(0, 40) });
   } catch {
     res.status(500).json({ error: "Failed to load lessons" });
   }
@@ -322,7 +336,7 @@ router.post("/lesson/:id/report", requireAuth, async (req, res) => {
   }
 });
 
-const EVENT_KINDS = new Set(["open", "audio_finish", "recall_answer", "section_play", "ask_voice", "explain_page", "fallback_glm", "tts_speech", "regenerate"]);
+const EVENT_KINDS = new Set(["open", "audio_finish", "recall_answer", "section_play", "ask_voice", "explain_page", "fallback_glm", "tts_speech", "regenerate", "review_start", "review_answer", "review_finish"]);
 
 // POST /api/page-tutor/lesson/:id/event { kind } — day-one metrics.
 router.post("/lesson/:id/event", requireAuth, async (req, res) => {

@@ -34,11 +34,10 @@ export async function explainPage(resourceId, page, extras = {}) {
   return readJson(res);
 }
 
-// Pages with a shared-cached lesson — for the thumbnail dots.
+// { pages: [n], items: flattened recall entries } — dots + chapter review.
 export async function getLessonPages(resourceId) {
   const res = await fetch(`${API_BASE}/api/page-tutor/lessons?resourceId=${encodeURIComponent(resourceId)}`, { headers: getAuthHeaders() });
-  const data = await readJson(res);
-  return data.pages || [];
+  return readJson(res);
 }
 
 // { audioStatus, sections: [{sectionId, status, durationMs, url}] }

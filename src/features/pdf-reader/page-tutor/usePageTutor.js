@@ -26,11 +26,12 @@ export function usePageTutor({ resourceId } = {}) {
   const [savedCount, setSavedCount] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
   const [lessonPages, setLessonPages] = useState(new Set()); // pages with a cached lesson — thumbnail dots
+  const [reviewItems, setReviewItems] = useState([]);        // flattened recall Qs — chapter review
 
   useEffect(() => {
     let live = true;
-    const p = resourceId ? getLessonPages(resourceId).catch(() => []) : Promise.resolve([]);
-    p.then((pages) => { if (live) setLessonPages(new Set(pages)); });
+    const p = resourceId ? getLessonPages(resourceId).catch(() => ({ pages: [], items: [] })) : Promise.resolve({ pages: [], items: [] });
+    p.then((d) => { if (live) { setLessonPages(new Set(d.pages || [])); setReviewItems(d.items || []); } });
     return () => { live = false; };
   }, [resourceId]);
 
@@ -328,7 +329,7 @@ export function usePageTutor({ resourceId } = {}) {
 
   return {
     lesson, status, error, setError,
-    audioSections, player, saving, savedCount, regenerating, lessonPages,
+    audioSections, player, saving, savedCount, regenerating, lessonPages, reviewItems,
     explain, regenerate, onPageChanged, playSection, playAll, toggle, seekBy, seekTo, cycleSpeed,
     retry, makeFlashcards, report, logRecall, speechSupported: SPEECH_FLAG === "failed",
   };

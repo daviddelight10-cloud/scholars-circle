@@ -6,7 +6,7 @@ import { GRADES } from "./lessonUtils.js";
 
 const LETTERS = "ABCDEF";
 
-function McqCard({ T, r, picked, onPick }) {
+export function McqCard({ T, r, picked, onPick }) {
   const answered = picked !== undefined;
   const correct = answered && picked === r.correct_index;
   return (

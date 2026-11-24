@@ -8,8 +8,7 @@ import { parseMcqSegments } from "../lib/mcqBlocks.js";
 import { useVoiceSession } from "../features/voice-tutor/useVoiceSession.js";
 import VoiceOrb from "../features/voice-tutor/VoiceOrb.jsx";
 import TranscriptOverlay from "../features/voice-tutor/TranscriptOverlay.jsx";
-import { VOICE_STATES, VOICE_OPTIONS, VOICE_LEVELS, COLORS } from "../features/voice-tutor/voiceConfig.js";
-import { playVoicePreview } from "../features/voice-tutor/voicePreview.js";
+import { VOICE_STATES, COLORS } from "../features/voice-tutor/voiceConfig.js";
 import {
   recordPracticeResult, recordPracticeSession,
   getMastery, getMasteryColor, getMasteryEmoji,
@@ -37,6 +36,7 @@ import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import PdfDeckTab, { usePdfDeck } from "./pdf-reader/PdfDeckTab.jsx";
 import { usePageTutor } from "./pdf-reader/page-tutor/usePageTutor.js";
 import LessonPanel from "./pdf-reader/page-tutor/LessonPanel.jsx";
+import ChapterReview from "./pdf-reader/page-tutor/ChapterReview.jsx";
 import { buildLessonContext } from "./pdf-reader/page-tutor/lessonUtils.js";
 import { logEvent as tutorLogEvent } from "./pdf-reader/page-tutor/pageTutorApi.js";
 
@@ -260,11 +260,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pageEnterTimeRef = useRef(Date.now());
   // ── Voice Tutor state ──────────────────────────────────────────────────────
   const voice = useVoiceSession({ onGoToPage: (p) => goToPage(p) });
-  const [voiceName, setVoiceName] = useState("Achird");
-  const [voiceLevel, setVoiceLevel] = useState(() => {
+  const [voiceName] = useState("Achird");
+  const [voiceLevel] = useState(() => {
     try { return localStorage.getItem("sc-voice-level") || "standard"; } catch { return "standard"; }
   });
-  const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
   const [voiceMinimized, setVoiceMinimized] = useState(false);
   const [voiceTextInput, setVoiceTextInput] = useState("");
   const voiceActive = voice.state !== VOICE_STATES.IDLE && voice.state !== VOICE_STATES.ENDED && voice.state !== VOICE_STATES.ERROR;
@@ -5413,14 +5412,14 @@ Passage:
                 {isMobile && <div style={s.sheetHandle} />}
                 <div style={s.studyHead}>
                   <span style={s.studyTitle}>
-                    {studyView === "lesson" ? (
+                    {studyView !== "tools" ? (
                       <>
                         <button
                           onClick={() => setStudyView("tools")}
                           style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: "0 4px 0 0", fontFamily: "inherit" }}
                           title="Back to tools"
                         >‹</button>
-                        Page Tutor · p.{currentPage}
+                        {studyView === "review" ? "Chapter review" : `Page Tutor · p.${currentPage}`}
                       </>
                     ) : (
                       <>
@@ -5434,7 +5433,13 @@ Passage:
                   <button style={s.studyClose} onClick={closeStudyTools}>✕</button>
                 </div>
 
-                {studyView === "lesson" ? (
+                {studyView === "review" ? (
+                  <ChapterReview
+                    T={T}
+                    items={pageTutor.reviewItems}
+                    onJumpPage={(p) => { goToPage(p); setStudyView("lesson"); }}
+                  />
+                ) : studyView === "lesson" ? (
                   <LessonPanel
                     T={T}
                     page={currentPage}
@@ -5496,19 +5501,45 @@ Passage:
 
                   <div style={{ ...s.studyBody, ...(propResourceId && studyTab === "deck" ? { display: "none" } : null) }}>
 
-                    {/* Page Tutor — the one gold primary action on this screen */}
+                    {/* Progress ring — pages tutored so far */}
+                    {propResourceId && numPages > 0 && pageTutor.lessonPages.size > 0 && (() => {
+                      const C = 2 * Math.PI * 15;
+                      const pct = Math.min(1, pageTutor.lessonPages.size / numPages);
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 2px 6px", animation: "sc-fade-in-up .35s ease both" }}>
+                          <svg width="32" height="32" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="15" fill="none" stroke={T.border} strokeWidth="3" />
+                            <circle cx="18" cy="18" r="15" fill="none" stroke="#F5A623" strokeWidth="3" strokeLinecap="round"
+                              strokeDasharray={C} strokeDashoffset={C * (1 - pct)} transform="rotate(-90 18 18)"
+                              style={{ transition: "stroke-dashoffset .6s ease" }} />
+                          </svg>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{pageTutor.lessonPages.size}/{numPages} pages tutored</div>
+                            <div style={{ fontSize: 10.5, color: T.muted }}>Lessons are shared with everyone reading this doc</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── Learn ── */}
+                    {propResourceId && (
+                      <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: T.muted, margin: "12px 2px 4px" }}>Learn</div>
+                    )}
                     {propResourceId && (
                       <button
                         onClick={handleExplain}
                         disabled={pageTutor.status === "loading"}
                         style={{
+                          position: "relative", overflow: "hidden",
                           display: "flex", alignItems: "center", gap: 10,
                           width: "100%", padding: "13px 14px", borderRadius: 12,
                           border: "none", background: "#F5A623", color: "#1B212D",
                           cursor: "pointer", textAlign: "left", fontFamily: "inherit",
                           opacity: pageTutor.status === "loading" ? 0.7 : 1,
+                          animation: "sc-fade-in-up .35s ease both", animationDelay: "50ms",
                         }}
                       >
+                        <div className="sc-shimmer-bar" style={{ position: "absolute", inset: 0, opacity: 0.22, pointerEvents: "none" }} />
                         <span style={{ fontSize: 18 }}>✨</span>
                         <span style={{ flex: 1 }}>
                           <div style={{ fontSize: 14, fontWeight: 800 }}>Explain this page</div>
@@ -5520,8 +5551,47 @@ Passage:
                       </button>
                     )}
 
-                    {/* Mastery progress bar */}
+                    {/* Chapter review — mixed quiz across explained pages */}
+                    {propResourceId && (pageTutor.reviewItems.length >= 3 ? (
+                      <button
+                        onClick={() => setStudyView("review")}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10, marginTop: 8,
+                          width: "100%", padding: "12px 14px", borderRadius: 12,
+                          border: `1px solid ${T.border}`, background: T.hover,
+                          cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                          animation: "sc-fade-in-up .35s ease both", animationDelay: "100ms",
+                        }}
+                      >
+                        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: "rgba(245,166,35,0.14)", color: "#F5A623", fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" }}>🧠</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Chapter review</div>
+                          <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.4 }}>
+                            {pageTutor.reviewItems.length} questions across {pageTutor.lessonPages.size} page{pageTutor.lessonPages.size !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 15, color: T.muted }}>›</span>
+                      </button>
+                    ) : (
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 10, marginTop: 8,
+                        width: "100%", padding: "12px 14px", borderRadius: 12,
+                        border: `1px dashed ${T.border}`, background: "transparent", opacity: 0.7,
+                        animation: "sc-fade-in-up .35s ease both", animationDelay: "100ms",
+                      }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: T.hover, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" }}>🧠</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: T.muted }}>Chapter review</div>
+                          <div style={{ fontSize: 11, color: T.muted }}>Explain pages to unlock a mixed quiz</div>
+                        </div>
+                        <span style={{ fontSize: 12 }}>🔒</span>
+                      </div>
+                    ))}
+
+                    {/* ── Practice: document mastery ── */}
                     {mastery.totalQuestions > 0 && (
+                      <>
+                      <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: T.muted, margin: "16px 2px 4px" }}>Practice</div>
                       <div style={{
                         padding: "10px 14px",
                         background: T.hover,
@@ -5549,9 +5619,11 @@ Passage:
                           {mastery.mastered}/{mastery.totalQuestions} questions mastered · Practiced {mastery.practicedCount} time{mastery.practicedCount !== 1 ? "s" : ""}
                         </div>
                       </div>
+                      </>
                     )}
 
-                    {/* Chat entry — talk to the AI without circling first */}
+                    {/* ── Ask ── */}
+                    <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: T.muted, margin: "16px 2px 4px" }}>Ask</div>
                     <button
                       onClick={openChatDirect}
                       style={{
@@ -5559,7 +5631,8 @@ Passage:
                         width: "100%", padding: "12px 14px", borderRadius: 12,
                         border: `1px solid ${T.border}`, background: T.hover,
                         cursor: "pointer", textAlign: "left", fontFamily: "inherit",
-                        marginBottom: 14,
+                        marginBottom: 8,
+                        animation: "sc-fade-in-up .35s ease both", animationDelay: "130ms",
                       }}
                     >
                       <div style={{
@@ -5578,145 +5651,39 @@ Passage:
                       <span style={{ fontSize: 15, color: T.muted }}>›</span>
                     </button>
 
-                    {/* Voice mode — setup */}
-                    {(
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{
-                            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                            background: T.accent, color: "white", fontSize: 17,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>
-                            🎙️
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Voice Tutor</div>
-                            <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.4 }}>
-                              Chat hands-free — it knows the page you're reading.
-                            </div>
-                          </div>
+                    {/* Voice Tutor — one-tap, uses saved voice prefs */}
+                    {propResourceId && (
+                      <button
+                        onClick={() => handleVoiceStart()}
+                        disabled={voice.state === VOICE_STATES.CONNECTING}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          width: "100%", padding: "10px 14px", borderRadius: 12,
+                          border: `1px solid ${T.border}`, background: "transparent",
+                          cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                          marginBottom: 14,
+                          opacity: voice.state === VOICE_STATES.CONNECTING ? 0.6 : 1,
+                          animation: "sc-fade-in-up .35s ease both", animationDelay: "160ms",
+                        }}
+                      >
+                        <div style={{
+                          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                          background: T.accent, color: "white", fontSize: 14,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          🎙️
                         </div>
-
-                        {/* Voice dropdown */}
-                        <div style={{ position: "relative" }}>
-                          <button
-                            style={{
-                              width: "100%", padding: "10px 12px", borderRadius: 10,
-                              border: `1px solid ${T.border}`, background: T.inputBg,
-                              display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                            }}
-                            onClick={() => setVoiceMenuOpen((v) => !v)}
-                          >
-                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.accent }} />
-                            <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{voiceName}</span>
-                            <span style={{ fontSize: 11, color: T.muted }}>
-                              {VOICE_OPTIONS.find((v) => v.name === voiceName)?.desc}
-                            </span>
-                            <span style={{ marginLeft: "auto", fontSize: 10, color: T.muted }}>▾</span>
-                          </button>
-                          {voiceMenuOpen && (
-                            <div style={{
-                              position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
-                              background: T.toolbar, border: `1px solid ${T.border}`, borderRadius: 10,
-                              boxShadow: `0 8px 24px ${T.shadow}`, zIndex: 50, overflow: "hidden",
-                            }}>
-                              {VOICE_OPTIONS.map((v) => (
-                                <button
-                                  key={v.name}
-                                  style={{
-                                    width: "100%", padding: "9px 12px", border: "none",
-                                    background: v.name === voiceName ? T.hover : "transparent",
-                                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                                    fontSize: 12.5, fontWeight: 600, color: T.text, cursor: "pointer",
-                                  }}
-                                  onClick={() => { setVoiceName(v.name); setVoiceMenuOpen(false); }}
-                                >
-                                  {v.name}
-                                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>{v.desc}</span>
-                                    <span
-                                      role="button"
-                                      tabIndex={0}
-                                      title={`Preview ${v.name}`}
-                                      onClick={(e) => { e.stopPropagation(); playVoicePreview(v.name); }}
-                                      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); playVoicePreview(v.name); } }}
-                                      style={{ color: T.muted, display: "flex", cursor: "pointer" }}
-                                    >
-                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/>
-                                        <path d="M15.5 8.5a5 5 0 010 7"/>
-                                      </svg>
-                                    </span>
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text }}>
+                            {voice.state === VOICE_STATES.CONNECTING ? "Connecting…" : "Voice Tutor"}
+                          </div>
+                          <div style={{ fontSize: 10.5, color: T.muted }}>Hands-free · {voiceName}</div>
                         </div>
-
-                        {/* Difficulty */}
-                        <div>
-                          <div style={{ ...s.studyLabel, marginBottom: 4 }}>Level</div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            {VOICE_LEVELS.map((l) => (
-                              <button
-                                key={l.id}
-                                title={l.desc}
-                                style={{
-                                  flex: 1,
-                                  padding: "7px 10px",
-                                  borderRadius: 8,
-                                  border: `1px solid ${voiceLevel === l.id ? T.accent : T.border}`,
-                                  background: voiceLevel === l.id ? T.accent : "none",
-                                  color: voiceLevel === l.id ? "white" : T.muted,
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
-                                onClick={() => {
-                                  setVoiceLevel(l.id);
-                                  try { localStorage.setItem("sc-voice-level", l.id); } catch {}
-                                }}
-                              >
-                                {l.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Resource warning */}
-                        {!propResourceId && (
-                          <div style={{
-                            padding: "10px 14px",
-                            background: "rgba(250,204,21,0.1)",
-                            border: "1px solid rgba(250,204,21,0.3)",
-                            borderRadius: 10,
-                            fontSize: 12,
-                            color: "#facc15",
-                          }}>
-                            ⚠️ Save this document to your library first to use the Voice Tutor.
-                          </div>
-                        )}
-
-                        {/* Voice error */}
-                        {voice.error && (
-                          <div style={s.studyErrorBox}>
-                            {voice.error}
-                          </div>
-                        )}
-
-                        {/* Start button */}
-                        <button
-                          style={{
-                            ...s.studyGenerateBtn,
-                            opacity: !propResourceId || voice.state === VOICE_STATES.CONNECTING ? 0.5 : 1,
-                          }}
-                          disabled={!propResourceId || voice.state === VOICE_STATES.CONNECTING}
-                          onClick={() => handleVoiceStart()}
-                        >
-                          {voice.state === VOICE_STATES.CONNECTING ? "Connecting…" : "🎙️ Start Voice Session"}
-                        </button>
-                      </div>
+                        <span style={{ fontSize: 14, color: T.muted }}>›</span>
+                      </button>
+                    )}
+                    {voice.error && (
+                      <div style={{ ...s.studyErrorBox, marginBottom: 12 }}>{voice.error}</div>
                     )}
                   </div>
                 </>
