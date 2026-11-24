@@ -2950,12 +2950,14 @@ Passage:
       const t = v.scrollTop;
       const dy = t - last;
       last = t;
-      if (dy > 6 && t > 80) { setChromeHidden(true); closeAllMobileOverlays(); }
+      // On desktop the study panel is a docked side panel, not an overlay —
+      // chrome may hide while scrolling but the panel must stay put.
+      if (dy > 6 && t > 80) { setChromeHidden(true); if (isMobile) closeAllMobileOverlays(); }
       else if (dy < -6) setChromeHidden(false);
     };
     v.addEventListener("scroll", onScroll, { passive: true });
     return () => v.removeEventListener("scroll", onScroll);
-  }, [loading]);
+  }, [loading, isMobile]);
 
   // ---- Close all mobile overlays (mutual exclusion) ----
   const closeAllMobileOverlays = () => {
