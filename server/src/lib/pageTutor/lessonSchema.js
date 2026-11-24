@@ -33,7 +33,7 @@ export const LESSON_SCHEMA = {
       },
     },
     key_points: { type: "array", maxItems: 6, items: { type: "string" } },
-    clinical_note: { type: ["string", "null"] },
+    clinical_note: { type: "string", nullable: true },
     recall: {
       type: "array",
       minItems: 1,
