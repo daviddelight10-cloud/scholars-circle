@@ -44,6 +44,20 @@ import { buildLessonContext } from "./pdf-reader/page-tutor/lessonUtils.js";
 import { logEvent as tutorLogEvent } from "./pdf-reader/page-tutor/pageTutorApi.js";
 
 
+const RING_C = 2 * Math.PI * 6.4;
+const ProgressRing = ({ pct }) => (
+  <svg width="13" height="13" viewBox="0 0 16 16" style={{ flexShrink: 0 }}>
+    <defs>
+      <linearGradient id="scPdfRingG" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#F5A623" /><stop offset="1" stopColor="#E8963C" />
+      </linearGradient>
+    </defs>
+    <circle cx="8" cy="8" r="6.4" fill="none" stroke="rgba(128,128,140,0.3)" strokeWidth="2" />
+    <circle cx="8" cy="8" r="6.4" fill="none" stroke="url(#scPdfRingG)" strokeWidth="2" strokeLinecap="round"
+      strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - pct / 100)} transform="rotate(-90 8 8)" />
+  </svg>
+);
+
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
 
@@ -58,6 +72,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [loadError, setLoadError] = useState("");
   const [showThumbs, setShowThumbs] = useState(false);
   const [chromeHidden, setChromeHidden] = useState(false);
+  const [focusPinned, setFocusPinned] = useState(false);
+  const focusPinRef = useRef(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -1017,9 +1033,12 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     for (const span of container.children) {
       const ti = Number(span.dataset.ti);
       const hit = m && m.page === pageNum && ti >= m.i0 && ti <= m.i1;
-      span.style.background = hit ? "rgba(255,171,64,0.55)" : "";
-      span.style.borderRadius = hit ? "2px" : "";
-      span.style.boxShadow = hit ? "0 0 0 1px rgba(255,171,64,0.8)" : "";
+      // Tutor-driven jumps (karaoke / See on page) glow gold; user searches amber.
+      span.style.background = hit ? (m.karaoke ? "rgba(245,166,35,0.32)" : "rgba(255,171,64,0.55)") : "";
+      span.style.borderRadius = hit ? "3px" : "";
+      span.style.boxShadow = hit
+        ? (m.karaoke ? "0 0 0 1.5px rgba(245,166,35,0.95), 0 0 10px rgba(245,166,35,0.45)" : "0 0 0 1px rgba(255,171,64,0.8)")
+        : "";
     }
     // Center the first marked span within the page area for scroll modes
     if (m && m.page === pageNum) {
@@ -1032,7 +1051,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const r = searchResults[i];
     if (!r) return;
     setSearchIdx(i);
-    activeMatchRef.current = { page: r.page, i0: r.i0, i1: r.i1 };
+    const karaoke = karaokeMarkRef.current;
+    karaokeMarkRef.current = false;
+    activeMatchRef.current = { page: r.page, i0: r.i0, i1: r.i1, karaoke };
     await goToPage(r.page);
     // Text layer mounts async — poll briefly, then paint (also re-painted
     // from renderTextLayer when a virtualized page mounts).
@@ -1728,6 +1749,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [followAlong, setFollowAlong] = useState(true);
   const karaokeAnchorRef = useRef(false);
   const karaokeQuoteRef = useRef("");
+  const karaokeMarkRef = useRef(false); // next goToMatch paints gold, not amber
 
   // Section changed → search for its anchor (quietly; the sheet stays open).
   useEffect(() => {
@@ -1745,8 +1767,43 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   useEffect(() => {
     if (!karaokeAnchorRef.current || searching) return;
     karaokeAnchorRef.current = false;
-    if (searchResults.length) goToMatch(0);
+    if (searchResults.length) { karaokeMarkRef.current = true; goToMatch(0); }
   }, [searchResults, searching, goToMatch]);
+
+  // ── Lesson resume — persist playing position; offer to continue on reopen ──
+  const RESUME_KEY = `sc_pt_resume_${docKey}`;
+  const [resumeLesson, setResumeLesson] = useState(() => loadStored(RESUME_KEY, null));
+  const resumePlayRef = useRef(null); // section idx to start once the lesson lands
+
+  useEffect(() => {
+    if (pageTutor.player.playing && pageTutor.player.idx >= 0)
+      saveStored(RESUME_KEY, { page: currentPage, idx: pageTutor.player.idx });
+  }, [pageTutor.player.idx, pageTutor.player.playing, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!resumeLesson) return;
+    const t = setTimeout(() => setResumeLesson(null), 9000);
+    return () => clearTimeout(t);
+  }, [resumeLesson]);
+
+  // The resume target's lesson arrives via adopt() → start its section.
+  useEffect(() => {
+    const target = resumePlayRef.current;
+    if (!target || target.page !== currentPage) return;
+    const secs = pageTutor.lesson?.lesson?.sections;
+    if (!secs?.length) return;
+    resumePlayRef.current = null;
+    pageTutor.playSection(Math.min(target.idx, secs.length - 1));
+  }, [pageTutor.lesson, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleResumeLesson = () => {
+    const r = resumeLesson;
+    setResumeLesson(null);
+    if (!r) return;
+    const secs = pageTutor.lesson?.lesson?.sections;
+    if (r.page === currentPage && secs?.length) pageTutor.playSection(Math.min(r.idx, secs.length - 1));
+    else { resumePlayRef.current = { page: r.page, idx: r.idx }; goToPage(r.page); }
+  };
 
   const handleTutorAsk = useCallback(() => {
     if (pageTutor.lesson?.lessonId) tutorLogEvent(pageTutor.lesson.lessonId, "ask_voice");
@@ -1767,9 +1824,19 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   useEffect(() => {
     if (!pendingAnchorRef.current || searching) return;
     pendingAnchorRef.current = false;
-    if (searchResults.length) goToMatch(0);
+    if (searchResults.length) { karaokeMarkRef.current = true; goToMatch(0); }
     else toastDeck("Couldn't locate that text on the page", "error");
   }, [searchResults, searching, goToMatch]);
+
+  // Landing on a tutored page → one gold pulse on its thumbnail.
+  useEffect(() => {
+    if (!pageTutor.lessonPages?.has(currentPage)) return;
+    const el = thumbItemRefs.current[currentPage - 1];
+    if (!el) return;
+    el.classList.add("sc-pulse-once");
+    const t = setTimeout(() => el.classList.remove("sc-pulse-once"), 900);
+    return () => clearTimeout(t);
+  }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Page turns: keep audio playing; adopt a cached lesson or reset the panel.
   useEffect(() => { pageTutor.onPageChanged(currentPage); }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3089,7 +3156,7 @@ Passage:
       // On desktop the study panel is a docked side panel, not an overlay —
       // chrome may hide while scrolling but the panel must stay put.
       if (dy > 6 && t > 80) { setChromeHidden(true); if (isMobile) closeAllMobileOverlays(); }
-      else if (dy < -6) setChromeHidden(false);
+      else if (dy < -6 && !focusPinRef.current) setChromeHidden(false);
     };
     v.addEventListener("scroll", onScroll, { passive: true });
     return () => v.removeEventListener("scroll", onScroll);
@@ -3494,6 +3561,11 @@ Passage:
         @keyframes sc-card-enter { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
         @keyframes sc-ring-fill { from { stroke-dashoffset: var(--ring-circ, 283); } to { stroke-dashoffset: var(--ring-offset, 0); } }
         .sc-fade-in-up { animation: sc-fade-in-up 0.35s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .sc-toolbar-btns button { transition: transform .12s ease, filter .15s ease; }
+        .sc-toolbar-btns button:hover { filter: brightness(1.3); }
+        .sc-toolbar-btns button:active { transform: scale(.9); }
+        @keyframes sc-landing-pulse { 0% { box-shadow: 0 0 0 0 rgba(245,166,35,.65); } 100% { box-shadow: 0 0 0 14px rgba(245,166,35,0); } }
+        .sc-pulse-once { animation: sc-landing-pulse .85s ease-out; }
         .sc-card-enter { animation: sc-card-enter 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
         .sc-chips-row::-webkit-scrollbar { display: none; }
         .sc-shimmer-bar::after {
@@ -3540,13 +3612,13 @@ Passage:
         {/* Slim reading progress — pinned to the toolbar's bottom edge */}
         {numPages > 0 && (
           <div style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 2, pointerEvents: "none", zIndex: 1 }}>
-            <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, (currentPage / numPages) * 100))}%`, background: T.accent, borderRadius: 1, transition: "width 0.2s ease" }} />
+            <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, (currentPage / numPages) * 100))}%`, background: "linear-gradient(90deg, #F5A623, #E8963C)", borderRadius: 1, transition: "width 0.2s ease" }} />
           </div>
         )}
         {isMobile ? (
           <>
             {/* Mobile single-row toolbar */}
-            <div style={s.toolbarRow}>
+            <div style={s.toolbarRow} className="sc-toolbar-btns">
               {onBack && (
                 <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0, marginRight: 2 }} onClick={onBack} title="Back" aria-label="Back">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -3554,7 +3626,14 @@ Passage:
               )}
               <div style={s.docTitleBlock}>
                 <span style={s.docTitle}>{title || "PDF"}</span>
-                <span style={s.docSubtitle}>{progressLine}</span>
+                <button
+                  style={{ ...s.docSubtitle, display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${T.border}`, borderRadius: 9, padding: "2px 7px", cursor: "pointer", alignSelf: "flex-start" }}
+                  onClick={() => setPageJumpOpen(true)}
+                  title="Jump to page"
+                >
+                  <ProgressRing pct={progressPct} />
+                  {progressLine}
+                </button>
               </div>
               {/* Annotate button */}
               <button
@@ -3588,7 +3667,7 @@ Passage:
           </>
         ) : (
           /* Desktop: single row */
-          <div style={s.toolbarRow}>
+          <div style={s.toolbarRow} className="sc-toolbar-btns">
             {onBack && (
               <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0 }} onClick={onBack} title="Back" aria-label="Back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -3596,15 +3675,19 @@ Passage:
             )}
         <div style={s.docTitleBlock}>
           <span style={s.docTitle}>{title || "PDF"}</span>
-          <span style={s.docSubtitle}>{progressLine}</span>
+          <span style={{ ...s.docSubtitle, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <ProgressRing pct={progressPct} />
+            {progressLine}
+          </span>
         </div>
 
         {/* Annotate — same popover as mobile: pen / marker / erase */}
         <button
           style={{
             ...s.iconBtn,
-            color: (tool === "highlight" || tool === "pen" || tool === "erase") ? T.accent : T.muted,
-            background: (tool === "highlight" || tool === "pen" || tool === "erase") ? T.hover : "none",
+            color: (tool === "highlight" || tool === "pen" || tool === "erase") ? CHROME.blue : T.muted,
+            background: (tool === "highlight" || tool === "pen" || tool === "erase") ? "rgba(79,142,247,0.16)" : "none",
+            border: (tool === "highlight" || tool === "pen" || tool === "erase") ? "1px solid rgba(79,142,247,0.4)" : "1px solid transparent",
           }}
           onClick={() => { setAnnotatePopOpen((v) => !v); setShowOverflow(false); }}
           title="Annotate"
@@ -3702,6 +3785,25 @@ Passage:
 
             {/* ⋮ More + bookmark/TOC panels — order:1 keeps the button right of Search */}
             <div style={{ position: "relative", order: 1, display: "flex", alignItems: "center" }}>
+              {/* Focus — pin the chrome hidden until toggled off */}
+              <button
+                style={{
+                  ...s.iconBtn,
+                  color: focusPinned ? "#F5A623" : T.muted,
+                  background: focusPinned ? "rgba(245,166,35,0.14)" : "none",
+                  border: focusPinned ? "1px solid rgba(245,166,35,0.45)" : "1px solid transparent",
+                }}
+                onClick={() => {
+                  const next = !focusPinned;
+                  setFocusPinned(next);
+                  focusPinRef.current = next;
+                  setChromeHidden(next);
+                }}
+                title={focusPinned ? "Exit focus — show toolbar" : "Focus — hide toolbar until toggled"}
+                aria-label="Focus mode"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
               <button
                 style={{
                   ...s.iconBtn,
@@ -3779,7 +3881,7 @@ Passage:
             {/* Search */}
             <div style={s.searchWrap}>
               <button
-                style={{ ...s.iconBtn, color: showSearch ? T.accent : T.muted, background: showSearch ? T.hover : "none" }}
+                style={{ ...s.iconBtn, color: showSearch ? CHROME.blue : T.muted, background: showSearch ? "rgba(79,142,247,0.16)" : "none", border: showSearch ? "1px solid rgba(79,142,247,0.4)" : "1px solid transparent" }}
                 onClick={() => setShowSearch((v) => !v)}
                 title="Search in document"
               >
@@ -4094,6 +4196,19 @@ Passage:
                 <button style={s.overflowItem} onClick={() => { setShowThumbs((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
                   Pages
+                </button>
+                <button
+                  style={{ ...s.overflowItem, color: focusPinned ? "#F5A623" : undefined }}
+                  onClick={() => {
+                    const next = !focusPinned;
+                    setFocusPinned(next);
+                    focusPinRef.current = next;
+                    setChromeHidden(next);
+                    setShowOverflow(false); setOverflowBackdropOpen(false);
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  {focusPinned ? "Exit focus mode" : "Focus mode"}
                 </button>
                 <button style={s.overflowItem} onClick={() => { setFullscreen((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
@@ -4622,10 +4737,19 @@ Passage:
         />
       )}
 
+      {/* Resume-lesson toast — top center, auto-dismisses */}
+      {resumeLesson && !loading && !loadError && (
+        <div style={s.resumeToast}>
+          <span>Resume lesson · p.{resumeLesson.page}{resumeLesson.idx >= 0 ? ` §${resumeLesson.idx + 1}` : ""}</span>
+          <button style={{ ...s.resumeBtn, background: "linear-gradient(145deg, #F5A623, #d98a12)", color: "#1a1200" }} onClick={handleResumeLesson}>▶ Resume</button>
+          <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }} onClick={() => setResumeLesson(null)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
+
       {/* Floating show-header hint when chrome hidden */}
       {chromeHidden && (
         <div
-          onClick={() => { setChromeHidden(false); closeAllMobileOverlays(); }}
+          onClick={() => { focusPinRef.current = false; setFocusPinned(false); setChromeHidden(false); closeAllMobileOverlays(); }}
           style={{
             position: "absolute", top: 0, left: 0, right: 0, height: 40,
             zIndex: 60, cursor: "pointer",
@@ -4679,7 +4803,7 @@ Passage:
                   ref={(el) => { thumbItemRefs.current[t.page - 1] = el; }}
                   style={{
                     ...s.thumb,
-                    borderColor: t.page === currentPage ? T.accent : "transparent",
+                    borderColor: t.page === currentPage ? T.accent : pageTutor.lessonPages?.has(t.page) ? "rgba(245,166,35,0.45)" : "transparent",
                     background: t.page === currentPage ? T.hover : "none",
                   }}
                   onClick={() => goToPage(t.page)}
@@ -4743,7 +4867,7 @@ Passage:
                   ref={(el) => { thumbItemRefs.current[t.page - 1] = el; }}
                   style={{
                     ...s.thumb,
-                    borderColor: t.page === currentPage ? T.accent : "transparent",
+                    borderColor: t.page === currentPage ? T.accent : pageTutor.lessonPages?.has(t.page) ? "rgba(245,166,35,0.45)" : "transparent",
                     background: t.page === currentPage ? T.hover : "none",
                   }}
                   onClick={() => { goToPage(t.page); setShowThumbs(false); }}
