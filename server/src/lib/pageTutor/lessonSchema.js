@@ -54,6 +54,16 @@ export const LESSON_SCHEMA = {
   required: ["page_title", "sections", "key_points", "recall"],
 };
 
+// Strip leaked delivery notes / stage directions the model prepends to
+// narration ("Read this lesson aloud at a steady pace.", "Speak clearly:").
+// Requires a delivery verb AND a delivery cue — real content is untouched.
+const META_LEAD = /^\s*[(\[]?\s*(?:please\s+)?(?:note[:,]?\s+)?(?:read|speak|say|narrate|voice|deliver)\b[^.!?]{0,90}?(?:aloud|out loud|pace|clearly|slowly|steadily|read-aloud|to the student|for text-to-speech|listening)[^.!?]{0,90}?[.!?:;)\]]+\s*/i;
+export function stripStageDirections(text) {
+  let t = String(text || "").trimStart();
+  for (let n = 0; n < 3 && META_LEAD.test(t); n++) t = t.replace(META_LEAD, "").trimStart();
+  return t;
+}
+
 // Validate + normalize a parsed lesson. Returns { ok, lesson, problems }.
 export function validateLesson(raw) {
   const problems = [];
@@ -67,8 +77,8 @@ export function validateLesson(raw) {
   lesson.sections = lesson.sections.slice(0, 6).map((s, i) => ({
     id: typeof s?.id === "string" && s.id ? s.id : `s${i + 1}`,
     heading: String(s?.heading || `Section ${i + 1}`).slice(0, 120),
-    explanation: String(s?.explanation || "").slice(0, 4000),
-    narration: String(s?.narration || s?.explanation || "").slice(0, 2000),
+    explanation: stripStageDirections(s?.explanation || "").slice(0, 4000),
+    narration: stripStageDirections(s?.narration || s?.explanation || "").slice(0, 2000),
     terms: Array.isArray(s?.terms) ? s.terms.slice(0, 8).map((t) => ({
       term: String(t?.term || "").slice(0, 80),
       meaning: String(t?.meaning || "").slice(0, 200),

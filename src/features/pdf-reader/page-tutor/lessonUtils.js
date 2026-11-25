@@ -8,6 +8,16 @@ export const fmtTime = (ms) => {
 
 export const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
+// Strip leaked delivery notes the generator prepends to narration
+// ("Read this lesson aloud at a steady pace."). Cached lessons predate the
+// server sanitizer, so the spoken text is cleaned client-side too.
+const META_LEAD = /^\s*[([]?\s*(?:please\s+)?(?:note[:,]?\s+)?(?:read|speak|say|narrate|voice|deliver)\b[^.!?]{0,90}?(?:aloud|out loud|pace|clearly|slowly|steadily|read-aloud|to the student|for text-to-speech|listening)[^.!?]{0,90}?[.!?:;)\]]+\s*/i;
+export function stripStageDirections(text) {
+  let t = String(text || "").trimStart();
+  for (let n = 0; n < 3 && META_LEAD.test(t); n++) t = t.replace(META_LEAD, "").trimStart();
+  return t;
+}
+
 // Ordered, playable audio sections. speech: false | "failed" | "always" —
 // "failed" lets sections whose hosted audio failed play via device voice;
 // "always" prefers files but marks everything speakable (future data-saver).

@@ -3,7 +3,7 @@
 // the device-voice fallback engine for sections whose hosted audio failed.
 import { useRef, useState, useCallback, useEffect } from "react";
 import { explainPage, getAudio, getLessonPages, retryAudio, reportLesson, logEvent } from "./pageTutorApi.js";
-import { playableSections, SPEEDS } from "./lessonUtils.js";
+import { playableSections, SPEEDS, stripStageDirections } from "./lessonUtils.js";
 import { SpeechEngine, chunkNarration, speechSupported } from "./speech.js";
 import { openPremium } from "../../../lib/premium.js";
 
@@ -168,7 +168,9 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
 
   const playSpeech = useCallback((idx, item, section) => {
     elRef.current?.pause();
-    const text = String(section?.narration || "").trim() || String(section?.explanation || "").trim();
+    const text = stripStageDirections(
+      String(section?.narration || "").trim() || String(section?.explanation || "").trim()
+    );
     const chunks = chunkNarration(text);
     if (!chunks.length) return;
     const engine = ensureSpeech();

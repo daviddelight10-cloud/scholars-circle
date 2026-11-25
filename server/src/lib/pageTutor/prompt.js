@@ -16,6 +16,7 @@ SECTION RULES:
 - 1-6 sections, each covering one idea on the page, in teaching order.
 - "explanation": plain-language teaching text (2-6 sentences). Correct but simple.
 - "narration": the SPOKEN script for this section, max ~80 words, written for text-to-speech: expand all units, abbreviations and symbols ("mmol/L" -> "millimoles per litre", "IV" -> "intravenous", "->" -> "leads to"), write doses in words, no markdown, no bullet markers, no emojis.
+- Never include stage directions or delivery notes anywhere (e.g. "read this aloud", "speak slowly", "narrate at a steady pace") — narration contains ONLY the words the student should hear.
 - "anchor_quote": a short verbatim snippet (8-25 words) copied exactly from the page that this section explains. Used to highlight the source text. Leave empty for added_context sections.
 - "terms": hard terms on the page with one-line meanings.
 

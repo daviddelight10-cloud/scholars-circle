@@ -3,6 +3,7 @@
 // In-process queue — same pattern as the reminder/exam-challenge jobs.
 import { prisma } from "../../db.js";
 import { synthesizeSection } from "./tts.js";
+import { stripStageDirections } from "./lessonSchema.js";
 import { saveBuffer, removePrefix, AUDIO_BUCKET } from "../storage.js";
 
 const running = new Set();
@@ -23,7 +24,7 @@ async function updateLessonAudioStatus(lessonId) {
 async function processSection(lessonId, row) {
   const lesson = await prisma.pageLesson.findUnique({ where: { id: lessonId }, select: { lesson: true, voice: true, ttsChars: true } });
   const section = (lesson?.lesson?.sections || []).find((s) => s.id === row.sectionId);
-  const narration = section?.narration;
+  const narration = stripStageDirections(section?.narration);
   if (!narration) {
     await prisma.pageLessonAudio.update({ where: { id: row.id }, data: { status: "failed" } }).catch(() => {});
     return;

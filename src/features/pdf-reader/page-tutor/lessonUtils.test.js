@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtTime, playableSections, buildLessonContext } from "./lessonUtils.js";
+import { fmtTime, playableSections, buildLessonContext, stripStageDirections } from "./lessonUtils.js";
 
 describe("fmtTime", () => {
   it("formats mm:ss", () => {
@@ -64,5 +64,28 @@ describe("buildLessonContext", () => {
     expect(buildLessonContext(null, 1)).toBe("");
     const big = { page_title: "t", key_points: Array(50).fill("k".repeat(200)), sections: [] };
     expect(buildLessonContext(big, 1).length).toBeLessThanOrEqual(2800);
+  });
+});
+
+describe("stripStageDirections", () => {
+  it("removes leaked delivery notes", () => {
+    expect(stripStageDirections(
+      "Read this lesson aloud at a steady, ready pace. Acetylcholine is made in the cytoplasm."
+    )).toBe("Acetylcholine is made in the cytoplasm.");
+    expect(stripStageDirections(
+      "(Speak clearly and slowly.) Acetylcholine is made in the cytoplasm."
+    )).toBe("Acetylcholine is made in the cytoplasm.");
+    expect(stripStageDirections(
+      "Narrate to the student: the enzyme ChAT catalyses the reaction."
+    )).toBe("the enzyme ChAT catalyses the reaction.");
+  });
+  it("strips stacked notes but preserves real content", () => {
+    expect(stripStageDirections(
+      "Read this aloud at a steady pace. Speak clearly to the student. ChAT catalyses the reaction."
+    )).toBe("ChAT catalyses the reaction.");
+    // "Read the diagram" has no delivery cue — must NOT be stripped
+    expect(stripStageDirections("Read the diagram: the arrow shows release.")
+      ).toBe("Read the diagram: the arrow shows release.");
+    expect(stripStageDirections("")).toBe("");
   });
 });
