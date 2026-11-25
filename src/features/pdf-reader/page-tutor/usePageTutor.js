@@ -241,7 +241,9 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
   const playAll = useCallback(() => {
     const list = playableSections(lesson?.lesson, audioSections, { speech: SPEECH_FLAG });
     const first = list.findIndex((s) => s.playable);
-    if (first >= 0) playIdx(first);
+    if (first < 0) return false;
+    playIdx(first);
+    return true;
   }, [lesson, audioSections, playIdx]);
 
   const toggle = useCallback(() => {

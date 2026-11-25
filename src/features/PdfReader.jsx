@@ -1641,6 +1641,13 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setLectureBlocked(false);
   }, []);
 
+  // Attempt playback — anything that can't start (pending audio, rejected
+  // autoplay) surfaces the "Continue" button instead of stalling silently.
+  const tryLecturePlay = useCallback(() => {
+    if (!lectureRef.current) return;
+    if (!pageTutor.playAll()) setLectureBlocked(true);
+  }, [pageTutor]);
+
   const lecturePlay = useCallback((L, pos) => {
     if (!L || pos >= L.queue.length) {
       stopLecture();
@@ -1655,14 +1662,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (pageTutor.lessonPages.has(p)) {
       lectureNavRef.current = true;
       goToPage(p);
-      setTimeout(() => { if (lectureRef.current) pageTutor.playAll(); }, 400);
+      setTimeout(tryLecturePlay, 400);
     } else if (!L.cachedOnly && aiUsage?.isActivated !== false) {
       setLecturePrep(p);
       pageTutor.explain(p, { snapshot: buildPageSnapshot(p) });
     } else {
       lecturePlayRef.current?.(next, pos + 1); // skip pages we can't play
     }
-  }, [pageTutor, goToPage, buildPageSnapshot, aiUsage, stopLecture]);
+  }, [pageTutor, goToPage, buildPageSnapshot, aiUsage, stopLecture, tryLecturePlay]);
   useEffect(() => { lecturePlayRef.current = lecturePlay; }, [lecturePlay]);
 
   const startLecture = useCallback((from, to, cachedOnly) => {
@@ -1676,7 +1683,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     lecturePlay({ queue, pos: -1, cachedOnly }, 0);
   }, [numPages, pageTutor, lecturePlay]);
 
-  const resumeLecture = useCallback(() => { setLectureBlocked(false); pageTutor.playAll(); }, [pageTutor]);
+  const resumeLecture = useCallback(() => {
+    setLectureBlocked(false);
+    if (!pageTutor.playAll()) setLectureBlocked(true);
+  }, [pageTutor]);
 
   // Mid-lecture generation: play when the page lands, stop if it fails.
   useEffect(() => {
@@ -1685,12 +1695,18 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       setLecturePrep(0);
       lectureNavRef.current = true;
       goToPage(lecturePrep);
-      setTimeout(() => { if (lectureRef.current) pageTutor.playAll(); }, 500);
+      setTimeout(tryLecturePlay, 500);
     } else if (pageTutor.status === "error" || pageTutor.status === "premium") {
       setLecturePrep(0);
       stopLecture();
     }
-  }, [pageTutor.status, pageTutor.lesson, lecturePrep, goToPage, pageTutor, stopLecture]);
+  }, [pageTutor.status, pageTutor.lesson, lecturePrep, goToPage, pageTutor, stopLecture, tryLecturePlay]);
+
+  // While a lecture is stalled on pending audio, retry when the poll lands it.
+  useEffect(() => {
+    if (!lecture || !lectureBlocked || lecturePrep || pageTutor.player.playing) return;
+    if (pageTutor.playAll()) setLectureBlocked(false);
+  }, [pageTutor.audioSections]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A manual page turn cancels the lecture; programmatic turns carry the flag.
   useEffect(() => {
