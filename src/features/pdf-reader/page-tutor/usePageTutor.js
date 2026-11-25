@@ -10,7 +10,7 @@ import { openPremium } from "../../../lib/premium.js";
 const POLL_MS = 3000;
 const SPEECH_FLAG = speechSupported() ? "failed" : false;
 
-export function usePageTutor({ resourceId } = {}) {
+export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
   const cacheRef = useRef(new Map()); // page -> { lessonId, lesson, audioStatus, generationSource }
   const pollRef = useRef(null);
   const elRef = useRef(null); // the one <audio> element
@@ -25,6 +25,8 @@ export function usePageTutor({ resourceId } = {}) {
   const [regenerating, setRegenerating] = useState(false);
   const [lessonPages, setLessonPages] = useState(new Set()); // pages with a cached lesson — thumbnail dots
   const [reviewItems, setReviewItems] = useState([]);        // flattened recall Qs — chapter review
+  const cbRef = useRef({});                                  // lecture-mode callbacks (latest props)
+  useEffect(() => { cbRef.current = { onLessonDone, onPlayFailed }; }, [onLessonDone, onPlayFailed]);
 
   useEffect(() => {
     let live = true;
@@ -154,6 +156,9 @@ export function usePageTutor({ resourceId } = {}) {
       if (lessonRef.current?.lessonId) logEvent(lessonRef.current.lessonId, "audio_finish");
       return { ...p, playing: false };
     });
+    // Lesson finished — notify outside the updater (updaters must stay pure and
+    // may run twice under StrictMode).
+    if (next < 0) setTimeout(() => cbRef.current.onLessonDone?.(), 0);
   }, []);
 
   const playSpeech = useCallback((idx, item, section) => {
@@ -206,7 +211,7 @@ export function usePageTutor({ resourceId } = {}) {
     const el = ensureEl();
     el.src = item.audio.url;
     el.playbackRate = player.speed;
-    el.play().catch(() => {});
+    el.play().catch(() => { cbRef.current.onPlayFailed?.(); });
     if (lessonRef.current?.lessonId && !playedRef.current.has(`${lessonRef.current.lessonId}:${item.sectionId}`)) {
       playedRef.current.add(`${lessonRef.current.lessonId}:${item.sectionId}`);
       logEvent(lessonRef.current.lessonId, "section_play");

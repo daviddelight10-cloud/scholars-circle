@@ -36,6 +36,7 @@ import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import PdfDeckTab, { usePdfDeck } from "./pdf-reader/PdfDeckTab.jsx";
 import { usePageTutor } from "./pdf-reader/page-tutor/usePageTutor.js";
 import LessonPanel from "./pdf-reader/page-tutor/LessonPanel.jsx";
+import LectureBar from "./pdf-reader/page-tutor/LectureBar.jsx";
 import ChapterReview from "./pdf-reader/page-tutor/ChapterReview.jsx";
 import Celebration from "./pdf-reader/page-tutor/Celebration.jsx";
 import { checkRankJump } from "../lib/rankWatch.js";
@@ -251,7 +252,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [studyView, setStudyView] = useState("tools"); // "tools" | "lesson" — lesson = Page Tutor
   const studyDeck = usePdfDeck(propResourceId, studyToolsOpen);
   const studyResourceId = propResourceId || docKey;
-  const pageTutor = usePageTutor({ resourceId: propResourceId });
+  const pageTutor = usePageTutor({
+    resourceId: propResourceId,
+    onLessonDone: () => { const L = lectureRef.current; if (L) lecturePlayRef.current?.(L, L.pos + 1); },
+    onPlayFailed: () => { if (lectureRef.current) setLectureBlocked(true); },
+  });
 
   // Mastery — fed by recordPracticeResult from chat quiz answers and any
   // legacy local practice data for this document.
@@ -1619,6 +1624,81 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setStudyView("lesson");
     pageTutor.explain(currentPage, { snapshot: buildPageSnapshot(currentPage) });
   }, [currentPage, pageTutor, buildPageSnapshot]);
+
+  // ── Lecture mode — continuous playback across a page range ──────────────────
+  const [lecture, setLecture] = useState(null);          // { queue:[pages], pos, cachedOnly }
+  const [lecturePrep, setLecturePrep] = useState(0);     // page generating mid-lecture
+  const [lectureBlocked, setLectureBlocked] = useState(false); // autoplay rejected — needs a tap
+  const lectureRef = useRef(null);
+  const lectureNavRef = useRef(false);                   // programmatic page turn — don't cancel
+  const lecturePlayRef = useRef(null);
+  useEffect(() => { lectureRef.current = lecture; }, [lecture]);
+
+  const stopLecture = useCallback(() => {
+    lectureRef.current = null;
+    setLecture(null);
+    setLecturePrep(0);
+    setLectureBlocked(false);
+  }, []);
+
+  const lecturePlay = useCallback((L, pos) => {
+    if (!L || pos >= L.queue.length) {
+      stopLecture();
+      toastDeck("🎧 Lecture finished — nice session");
+      return;
+    }
+    const p = L.queue[pos];
+    const next = { ...L, pos };
+    lectureRef.current = next;
+    setLecture(next);
+    setLectureBlocked(false);
+    if (pageTutor.lessonPages.has(p)) {
+      lectureNavRef.current = true;
+      goToPage(p);
+      setTimeout(() => { if (lectureRef.current) pageTutor.playAll(); }, 400);
+    } else if (!L.cachedOnly && aiUsage?.isActivated !== false) {
+      setLecturePrep(p);
+      pageTutor.explain(p, { snapshot: buildPageSnapshot(p) });
+    } else {
+      lecturePlayRef.current?.(next, pos + 1); // skip pages we can't play
+    }
+  }, [pageTutor, goToPage, buildPageSnapshot, aiUsage, stopLecture]);
+  useEffect(() => { lecturePlayRef.current = lecturePlay; }, [lecturePlay]);
+
+  const startLecture = useCallback((from, to, cachedOnly) => {
+    const lo = Math.max(1, Math.min(from, to));
+    const hi = Math.min(numPages, Math.max(from, to));
+    let queue = [];
+    for (let p = lo; p <= hi; p++) queue.push(p);
+    if (cachedOnly) queue = queue.filter((p) => pageTutor.lessonPages.has(p));
+    if (!queue.length) { toastDeck("No explained pages in that range yet"); return; }
+    setStudyView("lesson");
+    lecturePlay({ queue, pos: -1, cachedOnly }, 0);
+  }, [numPages, pageTutor, lecturePlay]);
+
+  const resumeLecture = useCallback(() => { setLectureBlocked(false); pageTutor.playAll(); }, [pageTutor]);
+
+  // Mid-lecture generation: play when the page lands, stop if it fails.
+  useEffect(() => {
+    if (!lecturePrep) return;
+    if (pageTutor.status === "ready" && pageTutor.lesson?.page === lecturePrep) {
+      setLecturePrep(0);
+      lectureNavRef.current = true;
+      goToPage(lecturePrep);
+      setTimeout(() => { if (lectureRef.current) pageTutor.playAll(); }, 500);
+    } else if (pageTutor.status === "error" || pageTutor.status === "premium") {
+      setLecturePrep(0);
+      stopLecture();
+    }
+  }, [pageTutor.status, pageTutor.lesson, lecturePrep, goToPage, pageTutor, stopLecture]);
+
+  // A manual page turn cancels the lecture; programmatic turns carry the flag.
+  useEffect(() => {
+    const L = lectureRef.current;
+    if (!L || L.pos < 0) return;
+    if (lectureNavRef.current) { lectureNavRef.current = false; return; }
+    if (currentPage !== L.queue[L.pos]) stopLecture();
+  }, [currentPage, stopLecture]);
 
   const handleTutorAsk = useCallback(() => {
     if (pageTutor.lesson?.lessonId) tutorLogEvent(pageTutor.lesson.lessonId, "ask_voice");
@@ -5467,6 +5547,14 @@ Passage:
                     onRankCheck={checkRankCelebration}
                   />
                 ) : studyView === "lesson" ? (
+                  <>
+                  <LectureBar
+                    T={T}
+                    page={currentPage}
+                    numPages={numPages}
+                    tutor={pageTutor}
+                    ctl={{ lecture, blocked: lectureBlocked, prep: lecturePrep, premium: aiUsage?.isActivated, start: startLecture, stop: stopLecture, resume: resumeLecture }}
+                  />
                   <LessonPanel
                     T={T}
                     page={currentPage}
@@ -5475,6 +5563,7 @@ Passage:
                     onSeeOnPage={handleSeeOnPage}
                     onToast={(m) => toastDeck(m)}
                   />
+                  </>
                 ) : (
                 <>
 
