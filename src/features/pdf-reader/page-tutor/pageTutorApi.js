@@ -78,9 +78,9 @@ export async function reportLesson(lessonId, reason, note) {
 }
 
 export function logEvent(lessonId, kind) {
-  fetch(`${API_BASE}/api/page-tutor/lesson/${lessonId}/event`, {
+  return fetch(`${API_BASE}/api/page-tutor/lesson/${lessonId}/event`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ kind }),
-  }).catch(() => {});
+  }).then(readJson).catch(() => null);
 }

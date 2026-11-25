@@ -153,12 +153,17 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
         playIdxRef.current?.(next);
         return { ...p, idx: next, playing: true };
       }
-      if (lessonRef.current?.lessonId) logEvent(lessonRef.current.lessonId, "audio_finish");
       return { ...p, playing: false };
     });
     // Lesson finished — notify outside the updater (updaters must stay pure and
-    // may run twice under StrictMode).
-    if (next < 0) setTimeout(() => cbRef.current.onLessonDone?.(), 0);
+    // may run twice under StrictMode). The finish event may carry server XP.
+    if (next < 0) {
+      const finishP = lessonRef.current?.lessonId ? logEvent(lessonRef.current.lessonId, "audio_finish") : null;
+      setTimeout(async () => {
+        const d = await finishP;
+        cbRef.current.onLessonDone?.(d?.xpAwarded || 0);
+      }, 0);
+    }
   }, []);
 
   const playSpeech = useCallback((idx, item, section) => {

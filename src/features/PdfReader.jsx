@@ -254,7 +254,15 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const studyResourceId = propResourceId || docKey;
   const pageTutor = usePageTutor({
     resourceId: propResourceId,
-    onLessonDone: () => { const L = lectureRef.current; if (L) lecturePlayRef.current?.(L, L.pos + 1); },
+    onLessonDone: (xpAwarded) => {
+      const L = lectureRef.current;
+      if (L) lecturePlayRef.current?.(L, L.pos + 1);
+      if (xpAwarded > 0) {
+        window.dispatchEvent(new CustomEvent("sc-xp-gained", { detail: { xp: xpAwarded } }));
+        questEvent?.("xpToday", xpAwarded);
+      }
+      checkRankCelebration();
+    },
     onPlayFailed: () => { if (lectureRef.current) setLectureBlocked(true); },
   });
 
@@ -1715,6 +1723,30 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (lectureNavRef.current) { lectureNavRef.current = false; return; }
     if (currentPage !== L.queue[L.pos]) stopLecture();
   }, [currentPage, stopLecture]);
+
+  // ── Karaoke follow-along — scroll the page to the playing section's anchor ──
+  const [followAlong, setFollowAlong] = useState(true);
+  const karaokeAnchorRef = useRef(false);
+  const karaokeQuoteRef = useRef("");
+
+  // Section changed → search for its anchor (quietly; the sheet stays open).
+  useEffect(() => {
+    if (!followAlong || !pageTutor.player.playing || pageTutor.player.idx < 0) return;
+    const sec = pageTutor.lesson?.lesson?.sections?.[pageTutor.player.idx];
+    const quote = sec?.anchor_quote;
+    if (!quote || quote === karaokeQuoteRef.current) return;
+    karaokeQuoteRef.current = quote;
+    karaokeAnchorRef.current = true;
+    setSearchQuery(quote);
+    runSearch(quote);
+  }, [pageTutor.player.idx, followAlong]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Results landed → jump to the match. Misses are silent (scanned pages).
+  useEffect(() => {
+    if (!karaokeAnchorRef.current || searching) return;
+    karaokeAnchorRef.current = false;
+    if (searchResults.length) goToMatch(0);
+  }, [searchResults, searching, goToMatch]);
 
   const handleTutorAsk = useCallback(() => {
     if (pageTutor.lesson?.lessonId) tutorLogEvent(pageTutor.lesson.lessonId, "ask_voice");
@@ -5578,6 +5610,8 @@ Passage:
                     onAskVoice={handleTutorAsk}
                     onSeeOnPage={handleSeeOnPage}
                     onToast={(m) => toastDeck(m)}
+                    follow={followAlong}
+                    onToggleFollow={() => setFollowAlong((f) => !f)}
                   />
                   </>
                 ) : (

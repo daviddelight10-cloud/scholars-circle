@@ -9,6 +9,8 @@ import { fetchPdfBytes, pageTexts, singlePagePdfBase64, sha256, MAX_PAGE_TEXT } 
 import { generateLesson, PROMPT_VERSION } from "../lib/pageTutor/gemini.js";
 import { seedAudioRows, enqueueAudio, resetAudio } from "../lib/pageTutor/audioJob.js";
 import { signedUrl, AUDIO_BUCKET } from "../lib/storage.js";
+import { updateUniversalStreak } from "../lib/streak.js";
+import { addLeagueXP } from "../lib/badges.js";
 
 const router = Router();
 const LEVEL = "simplify"; // Phase 1 single mode
@@ -343,8 +345,27 @@ router.post("/lesson/:id/event", requireAuth, async (req, res) => {
   const kind = String(req.body?.kind || "");
   if (!EVENT_KINDS.has(kind)) return res.status(400).json({ error: "bad kind" });
   try {
+    let xpAwarded = 0;
+    // Lesson-finish reward: +10 XP, once per user per lesson.
+    if (kind === "audio_finish") {
+      const already = await prisma.pageLessonEvent.findFirst({
+        where: { userId: req.user.sub, lessonId: String(req.params.id), kind: "audio_finish" },
+        select: { id: true },
+      });
+      if (!already) {
+        xpAwarded = 10;
+        await prisma.user.update({ where: { id: req.user.sub }, data: { totalXp: { increment: xpAwarded } } }).catch(() => {});
+        await prisma.userProgress.upsert({
+          where: { userId: req.user.sub },
+          create: { userId: req.user.sub, xp: xpAwarded },
+          update: { xp: { increment: xpAwarded } },
+        }).catch(() => {});
+        addLeagueXP(req.user.sub, xpAwarded, { source: "pageLesson", dedupeKey: `pt_finish:${req.params.id}` }).catch(() => {});
+      }
+      updateUniversalStreak(req.user.sub, prisma).catch(() => {});
+    }
     await prisma.pageLessonEvent.create({ data: { userId: req.user.sub, lessonId: String(req.params.id), kind } });
-    res.json({ ok: true });
+    res.json({ ok: true, xpAwarded });
   } catch {
     res.status(500).json({ error: "failed" });
   }

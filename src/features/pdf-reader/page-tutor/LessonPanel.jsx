@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import AudioPlayer from "./AudioPlayer.jsx";
 import RecallStep from "./RecallStep.jsx";
 import GeneratingState from "./GeneratingState.jsx";
+import MindMap from "./MindMap.jsx";
 import { playableSections } from "./lessonUtils.js";
 
 const chip = (T, active) => ({
@@ -91,8 +92,9 @@ function TermChip({ T, term }) {
   );
 }
 
-export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, onToast }) {
+export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, onToast, follow, onToggleFollow }) {
   const [openSections, setOpenSections] = useState({ 0: true });
+  const [view, setView] = useState("list"); // list | map
   const [reportOpen, setReportOpen] = useState(false);
   const [reportSent, setReportSent] = useState(false);
   const [reportNote, setReportNote] = useState("");
@@ -148,8 +150,26 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
     onToast?.("Report sent — thanks");
   };
 
+  const jumpToSection = (i) => {
+    setView("list");
+    setOpenSections((m) => ({ ...m, [i]: true }));
+    setTimeout(() => {
+      scrollRef.current?.querySelector(`[data-ptsec="${i}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      {view === "map" ? (
+        <MindMap
+          T={T}
+          lesson={lesson}
+          playingIdx={player.idx}
+          onJumpSection={jumpToSection}
+          onSeeOnPage={onSeeOnPage}
+        />
+      ) : (
       <div ref={scrollRef} style={{ overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 14px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, color: T.text, lineHeight: 1.35, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -167,6 +187,11 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
           <div style={{ fontSize: 11, color: T.muted, marginTop: 3 }}>
             Page {page} · {lesson.cached ? "from the shared cache" : "generated for you"}
             {lesson.audioStatus === "pending" || lesson.audioStatus === "partial" ? " · audio loading…" : ""}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 7 }}>
+            {[["list", "📋 List"], ["map", "🧠 Mind map"]].map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)} style={chip(T, view === v)}>{label}</button>
+            ))}
           </div>
           {lesson.generationSource && lesson.generationSource !== "gemini" && (
             <div style={{ fontSize: 11, color: T.muted, marginTop: 5, display: "flex", alignItems: "center", gap: 8 }}>
@@ -257,6 +282,7 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
           )}
         </div>
       </div>
+      )}
 
       {(list.some((i) => i.playable) || player.idx >= 0) && (
         <AudioPlayer
@@ -267,6 +293,8 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
           onSeekBy={tutor.seekBy}
           onCycleSpeed={tutor.cycleSpeed}
           onSeekTo={tutor.seekTo}
+          follow={follow}
+          onToggleFollow={onToggleFollow}
         />
       )}
     </div>

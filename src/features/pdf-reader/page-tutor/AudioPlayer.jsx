@@ -5,7 +5,7 @@
 // the ±10s buttons hop a few chunks — SpeechSynthesis can't seek in seconds.
 import { fmtTime } from "./lessonUtils.js";
 
-export default function AudioPlayer({ T, player, sectionHeading, onToggle, onSeekBy, onCycleSpeed, onSeekTo }) {
+export default function AudioPlayer({ T, player, sectionHeading, onToggle, onSeekBy, onCycleSpeed, onSeekTo, follow, onToggleFollow }) {
   const speech = player.mode === "speech";
   const pct = player.dur > 0 ? Math.min(100, (player.time / player.dur) * 100) : 0;
   const btn = {
@@ -63,6 +63,15 @@ export default function AudioPlayer({ T, player, sectionHeading, onToggle, onSee
             )}
           </div>
         </div>
+        {onToggleFollow && (
+          <button
+            style={{ ...btn, width: "auto", borderRadius: 8, padding: "0 8px", fontSize: 10.5, fontWeight: 800, color: follow ? "#4F8EF7" : T.muted, borderColor: follow ? "rgba(79,142,247,0.5)" : T.border, background: follow ? "rgba(79,142,247,0.10)" : "transparent" }}
+            onClick={onToggleFollow}
+            title="Follow along — scroll the page to the playing section"
+          >
+            📍
+          </button>
+        )}
         <button
           style={{ ...btn, width: "auto", borderRadius: 8, padding: "0 8px", fontSize: 11, fontWeight: 700 }}
           onClick={onCycleSpeed}
