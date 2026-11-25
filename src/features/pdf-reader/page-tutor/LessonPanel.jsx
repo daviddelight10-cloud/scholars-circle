@@ -98,7 +98,7 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
   const [reportNote, setReportNote] = useState("");
 
   const { status, error, lesson, audioSections, player, regenerating } = tutor;
-  const list = playableSections(lesson?.lesson, audioSections, { speech: tutor.speechSupported ? "failed" : false });
+  const list = playableSections(lesson?.lesson, audioSections, { speech: tutor.speechSupported ? "always" : false });
   const playingItem = list[player.idx];
   const scrollRef = useRef(null);
 

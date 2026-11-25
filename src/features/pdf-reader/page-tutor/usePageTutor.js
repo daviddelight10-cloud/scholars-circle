@@ -8,7 +8,7 @@ import { SpeechEngine, chunkNarration, speechSupported } from "./speech.js";
 import { openPremium } from "../../../lib/premium.js";
 
 const POLL_MS = 3000;
-const SPEECH_FLAG = speechSupported() ? "failed" : false;
+const SPEECH_FLAG = speechSupported() ? "always" : false;
 
 export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
   const cacheRef = useRef(new Map()); // page -> { lessonId, lesson, audioStatus, generationSource }
@@ -322,6 +322,6 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
     lesson, status, error, setError,
     audioSections, player, regenerating, lessonPages, reviewItems,
     explain, regenerate, onPageChanged, playSection, playAll, toggle, seekBy, seekTo, cycleSpeed,
-    retry, report, logRecall, speechSupported: SPEECH_FLAG === "failed",
+    retry, report, logRecall, speechSupported: SPEECH_FLAG !== false,
   };
 }
