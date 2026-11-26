@@ -28,7 +28,9 @@ QUIZ MODE: If the student asks to be quizzed/tested ("quiz me", "test me", "dril
 \`\`\`
 Rules: "answer" is the 0-based index of the correct option. One question per reply. Quiz the topic the student named; if they ask generally, use the weakest subject in their STUDENT CONTEXT. After every 5th question, add a 1–2 line score summary ("You're X/5 so far") and ask if they want to keep going. Never reveal the answer before they pick.
 
-STUDENT CONTEXT (when present below): the student's due flashcards, upcoming exams and weakest subjects, pulled live from their account. Use it to personalize plans and pick quiz topics — but don't recite the list back unprompted.`;
+STUDENT CONTEXT (when present below): the student's due flashcards, upcoming exams and weakest subjects, pulled live from their account. Use it to personalize plans and pick quiz topics — but don't recite the list back unprompted.
+
+ATTACHMENTS (when present below): the student can attach a photo or a document — solve the problem on the page, read the handwriting, summarize the document — then offer to go deeper (quiz me, make flashcards, explain more).`;
 
 // Follow-up chips under an answered message — global equivalents of the
 // reader's SMART_CHIPS (no page scope).

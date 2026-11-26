@@ -5,6 +5,9 @@ import MarkdownText from "../../components/MarkdownText.jsx";
 import McqCard from "../../components/McqCard.jsx";
 import { parseMcqSegments } from "../../lib/mcqBlocks.js";
 import { callAIMultimodalStream } from "../../lib/aiClient.js";
+import { extractFileText } from "../../lib/extractFileText.js";
+import { downscaleImage, readFileAsDataUrl } from "../../lib/imageUtils.js";
+import { haptics } from "../../lib/haptics.js";
 import { API_BASE } from "../../lib/constants.js";
 import { QUIZ_NEXT_CHIPS } from "../pdf-reader/chatPrompts.js";
 import { SCHOLAR_SYSTEM, SCHOLAR_CHIPS } from "./scholarPrompt.js";
@@ -106,12 +109,23 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       return typeof v === "number" && v > 0 ? v : null;
     } catch { return null; }
   });
+  // Pending attachment — { type:"img", name, dataUrl } or
+  // { type:"doc", name, text, images }. Consumed by the next send.
+  const [attach, setAttach] = useState(null);
+  const [attachBusy, setAttachBusy] = useState(false);
+  const [attachMenu, setAttachMenu] = useState(false);
+  // One-shot mascot reaction shown on the live orbs (celebrate/oops).
+  const [orbMood, setOrbMood] = useState(null);
 
   const sessionRef = useRef(0);
   const abortRef = useRef(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const dragRef = useRef({ down: false, moved: false, startY: 0, startTop: 0 });
+  const camRef = useRef(null);
+  const imgRef = useRef(null);
+  const docRef = useRef(null);
+  const moodRef = useRef(0);
 
   const { folders, prefs } = useReviewPlan();
   const isMobile = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
@@ -157,8 +171,9 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   }, []);
 
   // Typewriter reveal identical to the reader's streamChatAnswer — tokens land
-  // instantly but the bubble reveals gradually.
-  const streamAnswer = useCallback(async (prompt, history) => {
+  // instantly but the bubble reveals gradually. `images` are base64 data URLs
+  // for the vision call (photo attachments / scanned-doc pages).
+  const streamAnswer = useCallback(async (prompt, history, images) => {
     const session = sessionRef.current;
     const ctl = new AbortController();
     abortRef.current = ctl;
@@ -184,7 +199,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       return content ? [...prev, { role: "assistant", content }] : prev;
     });
     try {
-      const text = await callAIMultimodalStream(prompt, null, history, { provider: "openrouter" }, {
+      const text = await callAIMultimodalStream(prompt, images?.length ? images : null, history, { provider: "openrouter" }, {
         signal: ctl.signal,
         onToken: (raw) => { if (session === sessionRef.current) target = raw; },
       });
@@ -198,30 +213,46 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   }, [scrollBottom]);
 
   const send = useCallback(async (text) => {
+    const att = attach;
     const trimmed = (text || "").trim();
-    if (!trimmed || loading) return;
-    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    if ((!trimmed && !att) || loading) return;
+    const images = att?.type === "img" ? [att.dataUrl] : (att?.images || []).slice(0, 3);
+    const docCtx = att?.type === "doc" && att.text
+      ? `\n\nATTACHED DOCUMENT "${att.name}":\n${att.text.slice(0, 8000)}`
+      : "";
+    const imgHint = images.length
+      ? "\n\n[The student attached image(s) — read them carefully and ground your answer in what they show.]"
+      : "";
+    const content = trimmed || (att.type === "img" ? "What's in this photo?" : `Here's my document: ${att.name}`);
+    setMessages((prev) => [...prev, {
+      role: "user", content,
+      images: images.length ? images : undefined,
+      docName: att?.type === "doc" ? att.name : undefined,
+    }]);
+    setAttach(null);
+    setAttachMenu(false);
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setLoading(true);
     setError(null);
+    haptics.light();
     const history = messages.slice(-MAX_HISTORY).map((m) => ({ role: m.role, content: m.content }));
-    const prompt = `${SCHOLAR_SYSTEM}${studyCtx}\n\n---\n\n${trimmed}`;
+    const prompt = `${SCHOLAR_SYSTEM}${studyCtx}${docCtx}${imgHint}\n\n---\n\n${content}`;
     try {
-      await streamAnswer(prompt, history);
+      await streamAnswer(prompt, history, images);
     } catch (err) {
       if (!err.stoppedByUser) setError(err.message || "Something went wrong. Try sending that again.");
     } finally {
       setLoading(false);
     }
-  }, [loading, messages, studyCtx, streamAnswer]);
+  }, [loading, messages, studyCtx, attach, streamAnswer]);
 
   // Typed input only — a "teach me X" question wants the full AI Tutor with
   // the topic prefilled, not a chat bubble. Card/chip prompts skip this.
   const handleSubmit = useCallback((text) => {
     const trimmed = (text || "").trim();
-    if (!trimmed || loading) return;
-    if (onOpenAITutor && TUTOR_INTENT.test(trimmed)) {
+    if ((!trimmed && !attach) || loading) return;
+    if (onOpenAITutor && trimmed && TUTOR_INTENT.test(trimmed)) {
       const topic = extractTopic(trimmed) || trimmed;
       setMessages((prev) => [
         ...prev,
@@ -233,9 +264,47 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       return;
     }
     send(trimmed);
-  }, [loading, onOpenAITutor, send]);
+  }, [loading, attach, onOpenAITutor, send]);
 
   const stopStream = () => abortRef.current?.abort();
+
+  // File pickers — camera/gallery photos go straight to vision; documents get
+  // client-side text extraction (scanned PDFs fall back to page images).
+  const pickFile = async (file, kind) => {
+    if (!file) return;
+    setAttachMenu(false);
+    setAttachBusy(true);
+    setError(null);
+    try {
+      if (kind === "img") {
+        const dataUrl = await downscaleImage(file).catch(() => readFileAsDataUrl(file));
+        setAttach({ type: "img", name: file.name, dataUrl });
+      } else {
+        const out = await extractFileText(file, 3);
+        // Picked an image through the doc input — treat it as a photo.
+        if (!out.text && out.images?.length) {
+          setAttach({ type: "img", name: file.name, dataUrl: out.images[0] });
+        } else {
+          setAttach({ type: "doc", name: file.name, text: out.text || "", images: out.images || [] });
+        }
+      }
+      haptics.success();
+      inputRef.current?.focus();
+    } catch (err) {
+      setError(err.message || "Couldn't read that file.");
+      haptics.error();
+    } finally {
+      setAttachBusy(false);
+    }
+  };
+
+  // One-shot mascot reaction on the live orbs — auto-clears so one-shot
+  // keyframes can replay on the next trigger.
+  const setMood = (m) => {
+    const id = ++moodRef.current;
+    setOrbMood(m);
+    if (m) setTimeout(() => { if (moodRef.current === id) setOrbMood(null); }, m === "celebrate" ? 1000 : 650);
+  };
 
   const retryLast = () => {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -308,7 +377,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     if (!d.down) return;
     dragRef.current.down = false;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
-    if (!d.moved) { openSheet(); return; }
+    if (!d.moved) { haptics.selection(); openSheet(); return; }
     setFabTop((top) => {
       try { localStorage.setItem(FAB_KEY, JSON.stringify(top)); } catch {}
       return top;
@@ -332,6 +401,9 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     const correct = orig === mcq.answer;
     setQuizResults((prev) => ({ ...prev, [key]: { picked: orig, correct } }));
     setQuizStats((st) => ({ answered: st.answered + 1, correct: st.correct + (correct ? 1 : 0) }));
+    // The mascot reacts — celebration on a win, sympathetic wobble on a miss.
+    if (correct) { haptics.success(); setMood("celebrate"); }
+    else { haptics.error(); setMood("oops"); }
   };
 
   const copyMessage = (i, msg) => {
@@ -446,6 +518,42 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       boxShadow: "0 4px 14px rgba(245,166,35,0.4)",
       transition: "transform 0.12s ease",
     },
+    attachBtn: {
+      width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+      border: "1.5px solid var(--app-line-strong)", background: "var(--app-surface)",
+      color: "var(--app-dim)", fontSize: 15, cursor: "pointer", fontFamily: "inherit",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      transition: "transform 0.12s ease, border-color 0.15s ease, color 0.15s ease",
+    },
+    attachMenu: {
+      position: "absolute", left: 12, bottom: 66, zIndex: 6, width: 242,
+      borderRadius: 16, background: "var(--app-card2)", border: "1px solid var(--app-line-strong)",
+      boxShadow: "0 14px 40px rgba(0,0,0,0.5)", padding: 6,
+      animation: "gs-fade-in-up 0.18s ease both",
+    },
+    attachOpt: {
+      display: "flex", alignItems: "center", gap: 10, width: "100%",
+      padding: "10px 10px", border: "none", background: "none", borderRadius: 10,
+      color: "var(--app-text)", fontSize: 13, fontWeight: 600,
+      cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+    },
+    attachOptIcon: {
+      width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
+      background: "linear-gradient(145deg, rgba(245,166,35,0.22), rgba(245,166,35,0.08))",
+      border: "1px solid rgba(245,166,35,0.25)",
+    },
+    attachRow: {
+      display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+      padding: "9px 14px 0", flexShrink: 0,
+    },
+    attachChip: {
+      display: "inline-flex", alignItems: "center", gap: 7, maxWidth: "100%",
+      padding: "5px 8px 5px 6px", borderRadius: 999,
+      border: "1px solid rgba(245,166,35,0.35)", background: "rgba(245,166,35,0.08)",
+      fontSize: 12, fontWeight: 600, color: "var(--app-text)",
+      animation: "gs-fade-in-up 0.2s ease both",
+    },
     card: {
       display: "flex", alignItems: "center", gap: 12, width: "100%",
       padding: "12px 13px", borderRadius: 14, textAlign: "left",
@@ -489,6 +597,9 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
         .gs-input:focus { border-color: rgba(245,166,35,0.65) !important; box-shadow: 0 0 0 3.5px rgba(245,166,35,0.16); }
         .gs-fab:active { transform: scale(0.9); }
         .gs-send:active { transform: scale(0.9); }
+        .gs-attach:active { transform: scale(0.9); }
+        .gs-attachmenu-open { border-color: rgba(245,166,35,0.65) !important; color: var(--app-accent) !important; }
+        .gs-attachopt:hover { background: var(--app-tint-med); }
         .gs-chips::-webkit-scrollbar { display: none; }
         .gs-icobtn:hover { color: var(--app-accent); }
       `}</style>
@@ -506,7 +617,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
         >
           <span className="gs-shine" />
           <span className="gs-orb-idle" style={{ display: "flex" }}>
-            <AiOrb size={30} pulsing={loading || !seen} />
+            <AiOrb size={30} state={orbMood || (loading ? "thinking" : !seen ? "excited" : undefined)} />
           </span>
           {dueCount > 0 && <span style={s.fabBadge}>{dueCount > 99 ? "99" : dueCount}</span>}
         </button>
@@ -518,7 +629,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
           <div style={s.panel} role="dialog" aria-label="Scholar chat">
             <div style={s.head}>
               <div style={s.headGoldLine} />
-              <AiOrb size={26} pulsing={loading} style={{ marginLeft: 4 }} />
+              <AiOrb size={26} state={orbMood || (loading ? "thinking" : undefined)} style={{ marginLeft: 4 }} />
               <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 800, color: "var(--app-text)", letterSpacing: "-0.01em" }}>Scholar</span>
                 <span style={{ fontSize: 10.5, color: loading ? "var(--app-accent)" : "var(--app-dim)", fontWeight: 600 }}>
@@ -592,7 +703,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
               {messages.length === 0 && !loading && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "26px 10px 10px" }}>
                   <div className="gs-orb-idle" style={{ marginBottom: 12 }}>
-                    <AiOrb size={54} pulsing />
+                    <AiOrb size={54} state="greeting" />
                   </div>
                   <div style={{ fontSize: 17, fontWeight: 800, color: "var(--app-text)", letterSpacing: "-0.01em", marginBottom: 5 }}>Hey, I'm Scholar</div>
                   <div style={{ fontSize: 12.5, color: "var(--app-dim)", lineHeight: 1.55, maxWidth: 300, marginBottom: 18 }}>
@@ -623,9 +734,23 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
 
               {messages.map((msg, i) => (
                 <div key={i} style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
-                  {msg.role === "assistant" && <AiOrb size={19} pulsing={!!msg.streaming} style={{ marginTop: 3 }} />}
+                  {msg.role === "assistant" && <AiOrb size={19} state={msg.streaming ? "thinking" : undefined} style={{ marginTop: 3 }} />}
                   {msg.role === "user" ? (
-                    msg.content
+                    <>
+                      {msg.images?.[0] && (
+                        <img
+                          src={msg.images[0]}
+                          alt={msg.docName || "attachment"}
+                          style={{ display: "block", maxWidth: "100%", maxHeight: 150, borderRadius: 10, marginBottom: 6 }}
+                        />
+                      )}
+                      {msg.docName && (
+                        <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75, marginBottom: 4 }}>
+                          📄 {msg.docName}
+                        </div>
+                      )}
+                      {msg.content}
+                    </>
                   ) : (
                     <div style={s.msgCard}>
                       {(segs[i] || []).map((seg, j) => {
@@ -705,13 +830,61 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
               </div>
             )}
 
+            {(attach || attachBusy) && (
+              <div style={s.attachRow}>
+                <span style={s.attachChip}>
+                  {attachBusy ? (
+                    <>
+                      <span className="gs-typing" style={{ color: "var(--app-dim)" }}><i /><i /><i /></span>
+                      Reading your file…
+                    </>
+                  ) : attach.type === "img" ? (
+                    <>
+                      <img src={attach.dataUrl} alt="" style={{ width: 24, height: 24, borderRadius: 7, objectFit: "cover" }} />
+                      <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attach.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 15 }}>📄</span>
+                      <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attach.name}</span>
+                    </>
+                  )}
+                  {!attachBusy && (
+                    <button
+                      onClick={() => setAttach(null)}
+                      aria-label="Remove attachment"
+                      style={{ background: "none", border: "none", color: "var(--app-dim)", fontSize: 12, cursor: "pointer", padding: "2px 3px", fontFamily: "inherit" }}
+                    >✕</button>
+                  )}
+                </span>
+                {!attachBusy && attach?.type === "doc" && (attach.text || attach.images?.length > 0) && (
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {[
+                      { l: "Summarize", p: "Summarize my attached document — key points, keep it short." },
+                      { l: "Explain", p: "Explain my attached document simply, like I'm new to the topic." },
+                      { l: "Quiz me", p: "Quiz me on my attached document — one mcq question at a time." },
+                    ].map((a) => (
+                      <button key={a.l} className="gs-chip" style={s.chip} onClick={() => send(a.p)}>{a.l}</button>
+                    ))}
+                  </span>
+                )}
+              </div>
+            )}
+
             <div style={s.inputRow}>
+              <button
+                className={`gs-attach${attachMenu ? " gs-attachmenu-open" : ""}`}
+                style={s.attachBtn}
+                onClick={() => { haptics.selection(); setAttachMenu((v) => !v); }}
+                aria-label="Attach a photo or document"
+                title="Attach a photo or document"
+              >📎</button>
               <textarea
                 ref={inputRef}
                 style={s.textarea}
                 className="gs-input"
                 rows={1}
-                placeholder={messages.length === 0 ? "Ask Scholar anything — or “teach me …”" : "Ask a follow-up…"}
+                placeholder={attach ? `Ask about ${attach.type === "img" ? "this photo" : attach.name}…` : messages.length === 0 ? "Ask Scholar anything — or “teach me …”" : "Ask a follow-up…"}
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
@@ -728,14 +901,50 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
               />
               <button
                 className="gs-send"
-                style={{ ...s.sendBtn, opacity: loading || input.trim() ? 1 : 0.4 }}
+                style={{ ...s.sendBtn, opacity: loading || input.trim() || attach ? 1 : 0.4 }}
                 onClick={() => (loading ? stopStream() : handleSubmit(input))}
-                disabled={!loading && !input.trim()}
+                disabled={!loading && !input.trim() && !attach}
                 aria-label={loading ? "Stop generating" : "Send message"}
               >
                 {loading ? "■" : "↑"}
               </button>
             </div>
+
+            {attachMenu && (
+              <>
+                <div
+                  style={{ position: "absolute", inset: 0, zIndex: 5 }}
+                  onClick={() => setAttachMenu(false)}
+                  aria-hidden="true"
+                />
+                <div style={s.attachMenu} role="menu" aria-label="Attach to chat">
+                  {[
+                    { icon: "📷", label: "Take a photo", sub: "Notes, textbook, problem", ref: camRef },
+                    { icon: "🖼️", label: "Photo library", sub: "Pick from your gallery", ref: imgRef },
+                    { icon: "📄", label: "Document", sub: "PDF, Word, slides, notes", ref: docRef },
+                  ].map((o) => (
+                    <button key={o.label} className="gs-attachopt" style={s.attachOpt} onClick={() => o.ref.current?.click()}>
+                      <span style={s.attachOptIcon}>{o.icon}</span>
+                      <span style={{ flex: 1 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 700 }}>{o.label}</span>
+                        <span style={{ display: "block", fontSize: 10.5, color: "var(--app-dim)" }}>{o.sub}</span>
+                      </span>
+                      <span style={{ color: "var(--app-faint)", fontSize: 14 }}>›</span>
+                    </button>
+                  ))}
+                  <div style={{ fontSize: 10, color: "var(--app-faint)", padding: "4px 12px 8px", lineHeight: 1.4 }}>
+                    Snap your notes or a past question — Scholar reads it with you.
+                  </div>
+                </div>
+              </>
+            )}
+
+            <input ref={camRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+              onChange={(e) => { pickFile(e.target.files?.[0], "img"); e.target.value = ""; }} />
+            <input ref={imgRef} type="file" accept="image/*" style={{ display: "none" }}
+              onChange={(e) => { pickFile(e.target.files?.[0], "img"); e.target.value = ""; }} />
+            <input ref={docRef} type="file" accept=".pdf,.docx,.txt,.md,.pptx,image/*" style={{ display: "none" }}
+              onChange={(e) => { pickFile(e.target.files?.[0], "doc"); e.target.value = ""; }} />
           </div>
         </>
       )}
