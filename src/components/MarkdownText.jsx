@@ -274,6 +274,12 @@ function IdeaCard({ body, palette: P, recall }) {
 }
 
 export default function MarkdownText({ children, style, theme = "dark", recallMode = false, onGotoPage }) {
+  // "gold" is a dark-scheme palette (bright #FFD700 text) — on the light theme
+  // it renders unreadably faint, so resolve to the light palette, which keeps
+  // readable gold accents (#B8770E).
+  if (theme === "gold" && typeof document !== "undefined" && document.documentElement?.dataset?.theme === "light") {
+    theme = "light";
+  }
   const P = PALETTES[theme] || PALETTES.dark;
   if (!children || typeof children !== "string") {
     return <div style={style}>{children}</div>;

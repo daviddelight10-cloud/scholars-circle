@@ -12,6 +12,7 @@ import { useReviewPlan, examKeyOf, daysUntil, readiness } from "../../hooks/useR
 
 const MAX_HISTORY = 10;
 const SEEN_KEY = "sc_scholar_seen";
+const FAB_KEY = "sc_scholar_fab_top";
 
 // App-var-backed theme for McqCard (it only reads these fields).
 const T = {
@@ -24,6 +25,20 @@ const T = {
 };
 
 const THINK_VERBS = ["Thinking", "Connecting ideas", "Drafting answer", "Checking details"];
+
+// Questions phrased as "teach/study/learn me X" want the full AI Tutor, not a
+// chat bubble — routed there with the topic prefilled. Conservative on
+// purpose: plain "explain X" stays in chat.
+const TUTOR_INTENT = /\b(teach me|tutor me|full lesson|lesson on|study\b|learn\b|roadmap|walk me through|i want to (learn|study)|help me (learn|study)|course on|tutorial on)\b/i;
+
+const extractTopic = (q) =>
+  q
+    .replace(/^(please\s+)?(can you\s+|could you\s+|hey\s+)?/i, "")
+    .replace(/^(teach me|tutor me|help me (to )?(learn|study|understand)|i want to (learn|study|understand)|study|learn( about)?|walk me through|give me a (full )?(lesson|tutorial|roadmap|course)( on)?|lesson on|roadmap for|course on|tutorial on)\s*/i, "")
+    .replace(/[?.!\s]+$/g, "")
+    .replace(/\b(in detail|in depth|deeply|step by step|from scratch|for beginners?|please)\b/gi, "")
+    .trim()
+    .slice(0, 120);
 
 const ThinkingBubble = () => {
   const [vi, setVi] = useState(0);
@@ -63,13 +78,14 @@ function weakestFolder(folders) {
 }
 
 /**
- * The app's global Scholar — a floating orb that opens the same chat the PDF
- * reader uses, minus the document context. Proactive welcome cards are built
- * from the student's live FSRS folders + exam dates.
+ * The app's global Scholar — a floating orb on the Home screen that opens a
+ * chat sheet. Proactive welcome cards come from live FSRS folders + exam
+ * dates; "teach/study/learn me X" questions route to the full AI Tutor with
+ * the topic prefilled.
  *
  * Other surfaces can open it via `window.dispatchEvent(new CustomEvent("sc-open-scholar"))`.
  */
-export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoice, theme = "dark" }) {
+export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "dark" }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -83,11 +99,19 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
   const [seen, setSeen] = useState(() => {
     try { return !!localStorage.getItem(SEEN_KEY); } catch { return true; }
   });
+  // Dragged FAB position (px from viewport top); null = default bottom slot.
+  const [fabTop, setFabTop] = useState(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(FAB_KEY) || "null");
+      return typeof v === "number" && v > 0 ? v : null;
+    } catch { return null; }
+  });
 
   const sessionRef = useRef(0);
   const abortRef = useRef(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const dragRef = useRef({ down: false, moved: false, startY: 0, startTop: 0 });
 
   const { folders, prefs } = useReviewPlan();
   const isMobile = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
@@ -112,7 +136,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
       prompt: `${weak.name} is my weakest subject right now. Quiz me on its fundamentals — one mcq question at a time, starting with the basics.`,
     });
     list.push({
-      icon: "😅", title: "I'm stuck on a topic", sub: "Tell me what's hard",
+      icon: "💬", title: "I'm stuck on a topic", sub: "Tell me what's hard",
       prompt: "I'm struggling with a topic but not sure where to start. Ask me what the topic is, then explain it simply and give me a mini study plan.",
     });
     return list.slice(0, 4);
@@ -192,6 +216,25 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
     }
   }, [loading, messages, studyCtx, streamAnswer]);
 
+  // Typed input only — a "teach me X" question wants the full AI Tutor with
+  // the topic prefilled, not a chat bubble. Card/chip prompts skip this.
+  const handleSubmit = useCallback((text) => {
+    const trimmed = (text || "").trim();
+    if (!trimmed || loading) return;
+    if (onOpenAITutor && TUTOR_INTENT.test(trimmed)) {
+      const topic = extractTopic(trimmed) || trimmed;
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: trimmed },
+        { role: "assistant", content: `That's worth a proper lesson — opening the **AI Tutor** for *${topic}*…` },
+      ]);
+      setInput("");
+      setTimeout(() => { setOpen(false); onOpenAITutor(topic); }, 650);
+      return;
+    }
+    send(trimmed);
+  }, [loading, onOpenAITutor, send]);
+
   const stopStream = () => abortRef.current?.abort();
 
   const retryLast = () => {
@@ -243,6 +286,35 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
   }, [open]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // FAB drag — chat-head style vertical repositioning along the screen edge.
+  const onFabPointerDown = (e) => {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    dragRef.current = { down: true, moved: false, startY: e.clientY, startTop: rect.top };
+    el.setPointerCapture?.(e.pointerId);
+  };
+  const onFabPointerMove = (e) => {
+    const d = dragRef.current;
+    if (!d.down) return;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.abs(dy) > 8) d.moved = true;
+    if (d.moved) {
+      const top = Math.min(Math.max(d.startTop + dy, 12), window.innerHeight - 68);
+      setFabTop(top);
+    }
+  };
+  const onFabPointerUp = (e) => {
+    const d = dragRef.current;
+    if (!d.down) return;
+    dragRef.current.down = false;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    if (!d.moved) { openSheet(); return; }
+    setFabTop((top) => {
+      try { localStorage.setItem(FAB_KEY, JSON.stringify(top)); } catch {}
+      return top;
+    });
+  };
+
   const segs = useMemo(() => messages.map((m) => (m.role === "assistant" ? parseMcqSegments(m.content || "") : [])), [messages]);
   const mcqPrefix = useMemo(() => {
     const out = [];
@@ -272,97 +344,123 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
   const s = useMemo(() => ({
     fab: {
       position: "fixed",
-      right: isMobile ? 16 : 24,
-      bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 24,
-      width: 56, height: 56, borderRadius: "50%",
-      background: "linear-gradient(145deg, #FFD166, #F5A623 55%, #B06F0A)",
-      border: "1px solid rgba(255,255,255,0.25)",
+      right: isMobile ? 14 : 22,
+      ...(fabTop != null ? { top: fabTop } : { bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 24 }),
+      width: 58, height: 58, borderRadius: "50%",
+      background: "linear-gradient(145deg, #FFD98A 0%, #F5A623 45%, #9A6108 100%)",
+      border: "1.5px solid rgba(255,224,160,0.5)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: "0 8px 24px rgba(245,166,35,0.45), 0 2px 6px rgba(0,0,0,0.35)",
-      cursor: "pointer", zIndex: 9989,
-      transition: "transform 0.15s ease",
+      boxShadow: "0 8px 26px rgba(245,166,35,0.5), 0 0 0 0 rgba(245,166,35,0.35)",
+      cursor: "grab", zIndex: 9989, padding: 0,
+      touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
+      animation: "gs-breathe 3.6s ease-in-out infinite",
+      transition: "box-shadow 0.2s ease",
     },
     fabBadge: {
-      position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 5px",
-      borderRadius: 999, background: "linear-gradient(145deg, #FFC24B, #F5A623)",
-      color: "#1a1200", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center",
-      justifyContent: "center", boxShadow: "0 2px 8px rgba(245,166,35,0.5)",
+      position: "absolute", top: -3, right: -3, minWidth: 19, height: 19, padding: "0 5px",
+      borderRadius: 999, background: "linear-gradient(145deg, #FF5470, #d62b4b)",
+      color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center",
+      justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+      border: "1.5px solid var(--app-bg)",
     },
     backdrop: {
-      position: "fixed", inset: 0, background: "var(--app-overlay, rgba(0,0,0,0.55))",
-      zIndex: 9990, animation: "gs-fade 0.18s ease",
+      position: "fixed", inset: 0, background: "rgba(8,6,2,0.55)",
+      backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+      zIndex: 9990, animation: "gs-fade 0.2s ease",
     },
     panel: isMobile ? {
       position: "fixed", left: 0, right: 0, bottom: 0,
-      height: "min(82dvh, 680px)", borderRadius: "18px 18px 0 0",
+      height: "min(86dvh, 720px)", borderRadius: "22px 22px 0 0",
       background: "var(--app-card)", border: "1px solid var(--app-line)", borderBottom: "none",
       display: "flex", flexDirection: "column", overflow: "hidden",
-      zIndex: 9991, animation: "gs-sheet-up 0.24s cubic-bezier(0.4,0,0.2,1)",
+      zIndex: 9991, animation: "gs-sheet-up 0.28s cubic-bezier(0.32,0.72,0.24,1)",
       paddingBottom: "env(safe-area-inset-bottom)",
+      boxShadow: "0 -18px 60px rgba(0,0,0,0.45)",
     } : {
       position: "fixed", right: 24, bottom: 24,
-      width: 400, height: "min(72vh, 700px)", borderRadius: 18,
+      width: 412, height: "min(76vh, 720px)", borderRadius: 22,
       background: "var(--app-card)", border: "1px solid var(--app-line)",
       display: "flex", flexDirection: "column", overflow: "hidden",
-      zIndex: 9991, animation: "gs-sheet-up 0.24s cubic-bezier(0.4,0,0.2,1)",
-      boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
+      zIndex: 9991, animation: "gs-panel-in 0.28s cubic-bezier(0.32,0.72,0.24,1)",
+      boxShadow: "0 28px 70px rgba(0,0,0,0.55)",
     },
     head: {
-      display: "flex", alignItems: "center", gap: 8, padding: "12px 14px",
-      borderBottom: "1px solid var(--app-line)", flexShrink: 0,
+      position: "relative", flexShrink: 0,
+      display: "flex", alignItems: "center", gap: 10, padding: "14px 16px",
+      borderBottom: "1px solid var(--app-line)",
+      background: "linear-gradient(135deg, rgba(245,166,35,0.14), rgba(245,166,35,0.03) 55%, transparent)",
+      overflow: "hidden",
     },
-    thread: { flex: 1, overflowY: "auto", padding: "14px 14px 8px", overscrollBehavior: "contain" },
+    headGoldLine: {
+      position: "absolute", left: 0, top: 0, bottom: 0, width: 3,
+      background: "linear-gradient(180deg, #FFD98A, #F5A623, #B06F0A)",
+    },
+    thread: { flex: 1, overflowY: "auto", padding: "16px 16px 10px", overscrollBehavior: "contain" },
     msgUser: {
-      maxWidth: "82%", marginLeft: "auto", marginBottom: 10,
-      background: "var(--app-accent-soft)", border: "1px solid var(--app-accent-line)",
-      color: "var(--app-text)", borderRadius: "14px 14px 4px 14px",
-      padding: "9px 12px", fontSize: 13.5, lineHeight: 1.45,
+      maxWidth: "82%", marginLeft: "auto", marginBottom: 12,
+      background: "linear-gradient(135deg, rgba(245,166,35,0.16), rgba(245,166,35,0.08))",
+      border: "1px solid rgba(245,166,35,0.35)",
+      color: "var(--app-text)", borderRadius: "16px 16px 5px 16px",
+      padding: "10px 14px", fontSize: 13.5, lineHeight: 1.5,
       whiteSpace: "pre-wrap", wordBreak: "break-word",
-      animation: "gs-msg-in 0.2s ease",
+      animation: "gs-msg-in 0.22s ease",
     },
-    msgAssistant: { display: "flex", gap: 8, marginBottom: 10, animation: "gs-msg-in 0.2s ease" },
+    msgAssistant: { display: "flex", gap: 9, marginBottom: 12, animation: "gs-msg-in 0.22s ease" },
     msgCard: {
-      flex: 1, minWidth: 0, background: "var(--app-tint-soft)", border: "1px solid var(--app-line)",
-      borderRadius: "4px 14px 14px 14px", padding: "10px 12px",
-      fontSize: 13.5, lineHeight: 1.5, color: "var(--app-text)", overflowWrap: "break-word",
+      flex: 1, minWidth: 0,
+      borderRadius: "5px 16px 16px 16px", padding: "4px 10px",
+      fontSize: 13.5, lineHeight: 1.55, color: "var(--app-text)", overflowWrap: "break-word",
     },
     streamCursor: {
       display: "inline-block", width: 7, height: 15, marginLeft: 2, verticalAlign: "-2px",
       background: "#F5A623", borderRadius: 1, animation: "gs-cursor-blink 0.8s step-end infinite",
     },
-    msgActions: { display: "flex", gap: 6, marginTop: 8 },
+    msgActions: { display: "flex", gap: 6, marginTop: 6 },
     msgActionBtn: {
       background: "none", border: "1px solid var(--app-line-strong)", borderRadius: 8,
-      color: "var(--app-dim)", fontSize: 11, padding: "3px 8px", cursor: "pointer", fontFamily: "inherit",
+      color: "var(--app-dim)", fontSize: 11, padding: "3px 9px", cursor: "pointer", fontFamily: "inherit",
     },
-    chipsRow: { display: "flex", gap: 6, padding: "4px 14px 8px", overflowX: "auto", flexShrink: 0 },
+    chipsRow: { display: "flex", gap: 7, padding: "6px 16px 10px", overflowX: "auto", flexShrink: 0 },
     chip: {
-      flexShrink: 0, border: "1px solid var(--app-line-strong)", borderRadius: 999,
-      background: "transparent", color: "var(--app-dim)", fontSize: 12, fontWeight: 600,
-      padding: "6px 12px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+      flexShrink: 0, border: "1px solid rgba(245,166,35,0.3)", borderRadius: 999,
+      background: "rgba(245,166,35,0.06)", color: "var(--app-dim)", fontSize: 12, fontWeight: 600,
+      padding: "7px 13px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+      transition: "all 0.15s ease",
     },
     inputRow: {
-      display: "flex", alignItems: "flex-end", gap: 8, padding: "10px 12px",
+      display: "flex", alignItems: "flex-end", gap: 9, padding: "11px 14px",
       borderTop: "1px solid var(--app-line)", flexShrink: 0,
+      background: "var(--app-card)",
     },
     textarea: {
-      flex: 1, resize: "none", border: "1px solid var(--app-line-strong)", borderRadius: 12,
+      flex: 1, resize: "none", border: "1.5px solid var(--app-line-strong)", borderRadius: 999,
       background: "var(--app-surface)", color: "var(--app-text)", fontSize: 13.5,
-      padding: "9px 12px", fontFamily: "inherit", lineHeight: 1.4, maxHeight: 120, outline: "none",
+      padding: "10px 16px", fontFamily: "inherit", lineHeight: 1.4, maxHeight: 120, outline: "none",
+      transition: "border-color 0.15s ease, box-shadow 0.15s ease",
     },
     sendBtn: {
-      width: 38, height: 38, borderRadius: "50%", border: "none", flexShrink: 0,
-      background: "linear-gradient(145deg, #F5A623, #d98a12)", color: "#1a1200",
-      fontSize: 16, fontWeight: 800, cursor: "pointer",
+      width: 40, height: 40, borderRadius: "50%", border: "none", flexShrink: 0,
+      background: "linear-gradient(145deg, #FFD166, #F5A623 55%, #B06F0A)",
+      color: "#1a1200", fontSize: 16, fontWeight: 800, cursor: "pointer",
       display: "flex", alignItems: "center", justifyContent: "center",
+      boxShadow: "0 4px 14px rgba(245,166,35,0.4)",
+      transition: "transform 0.12s ease",
     },
     card: {
-      display: "flex", alignItems: "center", gap: 10, width: "100%",
-      padding: "11px 12px", borderRadius: 12, textAlign: "left",
+      display: "flex", alignItems: "center", gap: 12, width: "100%",
+      padding: "12px 13px", borderRadius: 14, textAlign: "left",
       border: "1px solid var(--app-line)", background: "var(--app-tint-soft)",
-      cursor: "pointer", fontFamily: "inherit", animation: "gs-fade-in-up 0.3s ease both",
+      cursor: "pointer", fontFamily: "inherit",
+      animation: "gs-fade-in-up 0.35s cubic-bezier(0.4,0,0.2,1) both",
+      transition: "border-color 0.15s ease, transform 0.15s ease",
     },
-  }), [isMobile]);
+    cardIcon: {
+      width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+      background: "linear-gradient(145deg, rgba(245,166,35,0.22), rgba(245,166,35,0.08))",
+      border: "1px solid rgba(245,166,35,0.25)",
+    },
+  }), [isMobile, fabTop]);
 
   if (hidden) return null;
 
@@ -370,33 +468,46 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
     <>
       <style>{`
         @keyframes gs-fade { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes gs-sheet-up { from { transform: translateY(24px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes gs-msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes gs-fade-in-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes gs-sheet-up { from { transform: translateY(30px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes gs-panel-in { from { transform: translateY(18px) scale(0.97); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+        @keyframes gs-msg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes gs-fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes gs-cursor-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
         @keyframes gs-dot-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.35; } 30% { transform: translateY(-4px); opacity: 1; } }
+        @keyframes gs-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3.5px); } }
+        @keyframes gs-breathe { 0%, 100% { box-shadow: 0 8px 26px rgba(245,166,35,0.5), 0 0 0 0 rgba(245,166,35,0.35); } 50% { box-shadow: 0 10px 30px rgba(245,166,35,0.62), 0 0 0 7px rgba(245,166,35,0.10); } }
+        @keyframes gs-shine { 0%, 72% { transform: translateX(-130%) rotate(18deg); } 100% { transform: translateX(230%) rotate(18deg); } }
         @keyframes sc-orb-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.12); filter: brightness(1.15); } }
+        .gs-orb-idle { animation: gs-float 3.2s ease-in-out infinite; }
+        .gs-shine { position: absolute; top: -20%; bottom: -20%; width: 34%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); animation: gs-shine 5.2s ease-in-out infinite; }
         .gs-typing i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: gs-dot-bounce 1.1s ease-in-out infinite; }
         .gs-typing i:nth-child(2) { animation-delay: 0.15s; }
         .gs-typing i:nth-child(3) { animation-delay: 0.3s; }
-        .gs-card:hover { border-color: rgba(245,166,35,0.55); }
+        .gs-card:hover { border-color: rgba(245,166,35,0.55); transform: translateY(-1px); }
         .gs-card:active { transform: scale(0.98); }
-        .gs-chip:hover { border-color: rgba(245,166,35,0.5); color: #F5A623; }
-        .gs-input:focus { border-color: rgba(245,166,35,0.6) !important; box-shadow: 0 0 0 3px rgba(245,166,35,0.15); }
-        .gs-fab:hover { transform: scale(1.06); }
-        .gs-fab:active { transform: scale(0.94); }
+        .gs-chip:hover { border-color: rgba(245,166,35,0.6); color: var(--app-accent); background: rgba(245,166,35,0.12); }
+        .gs-input:focus { border-color: rgba(245,166,35,0.65) !important; box-shadow: 0 0 0 3.5px rgba(245,166,35,0.16); }
+        .gs-fab:active { transform: scale(0.9); }
+        .gs-send:active { transform: scale(0.9); }
         .gs-chips::-webkit-scrollbar { display: none; }
+        .gs-icobtn:hover { color: var(--app-accent); }
       `}</style>
 
       {!open && (
         <button
           className="gs-fab"
           style={s.fab}
-          onClick={openSheet}
+          onPointerDown={onFabPointerDown}
+          onPointerMove={onFabPointerMove}
+          onPointerUp={onFabPointerUp}
+          onPointerCancel={() => { dragRef.current.down = false; }}
           aria-label="Ask Scholar"
-          title="Scholar — your AI study assistant"
+          title="Scholar — drag to move, tap to chat"
         >
-          <AiOrb size={30} pulsing={!seen || loading} />
+          <span className="gs-shine" />
+          <span className="gs-orb-idle" style={{ display: "flex" }}>
+            <AiOrb size={30} pulsing={loading || !seen} />
+          </span>
           {dueCount > 0 && <span style={s.fabBadge}>{dueCount > 99 ? "99" : dueCount}</span>}
         </button>
       )}
@@ -406,20 +517,21 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
           <div style={s.backdrop} onClick={() => setOpen(false)} />
           <div style={s.panel} role="dialog" aria-label="Scholar chat">
             <div style={s.head}>
-              <AiOrb size={22} pulsing={loading} />
+              <div style={s.headGoldLine} />
+              <AiOrb size={26} pulsing={loading} style={{ marginLeft: 4 }} />
               <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: "var(--app-text)" }}>Scholar</span>
-                <span style={{ fontSize: 10.5, color: loading ? "#b07a10" : "var(--app-dim)" }}>
-                  {loading ? (messages[messages.length - 1]?.streaming ? "Writing…" : "Thinking…") : "Your study companion"}
+                <span style={{ fontSize: 15, fontWeight: 800, color: "var(--app-text)", letterSpacing: "-0.01em" }}>Scholar</span>
+                <span style={{ fontSize: 10.5, color: loading ? "var(--app-accent)" : "var(--app-dim)", fontWeight: 600 }}>
+                  {loading ? (messages[messages.length - 1]?.streaming ? "Writing…" : "Thinking…") : "Ask me anything — I'll route you right"}
                 </span>
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
                 {aiUsage && !aiUsage.isActivated && (
                   <button
                     style={{
-                      fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
+                      fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
                       border: "1px solid rgba(245,166,35,0.4)", background: "rgba(245,166,35,0.1)",
-                      color: "#F5A623", cursor: "pointer", fontFamily: "inherit",
+                      color: "var(--app-accent)", cursor: "pointer", fontFamily: "inherit", marginRight: 2,
                     }}
                     onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}
                     aria-label={`${Math.max(0, aiUsage.limit - aiUsage.used)} AI requests left today — upgrade for unlimited`}
@@ -430,17 +542,31 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
                 )}
                 {quizStats.answered > 0 && (
                   <span style={{
-                    fontSize: 11, fontWeight: 700, padding: "3px 10px",
-                    borderRadius: 999, background: "var(--app-tint-med)",
-                    color: "var(--app-dim)",
+                    fontSize: 11, fontWeight: 700, padding: "4px 10px", marginRight: 2,
+                    borderRadius: 999, background: "var(--app-tint-med)", color: "var(--app-dim)",
                   }}>
                     🧠 {quizStats.correct}/{quizStats.answered}
                   </span>
                 )}
+                {onOpenAITutor && (
+                  <button
+                    className="gs-icobtn"
+                    style={{
+                      background: "none", border: "none", color: "var(--app-dim)",
+                      fontSize: 15, cursor: "pointer", padding: "4px 7px", fontFamily: "inherit",
+                    }}
+                    onClick={() => { setOpen(false); onOpenAITutor(""); }}
+                    aria-label="Open full AI Tutor"
+                    title="Open full AI Tutor"
+                  >
+                    ⤢
+                  </button>
+                )}
                 <button
+                  className="gs-icobtn"
                   style={{
                     background: "none", border: "none", color: "var(--app-dim)",
-                    fontSize: 14, cursor: "pointer", padding: 4, fontFamily: "inherit",
+                    fontSize: 14, cursor: "pointer", padding: "4px 7px", fontFamily: "inherit",
                   }}
                   onClick={clearChat}
                   aria-label="New chat"
@@ -449,9 +575,10 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
                   {confirmClear ? "Clear?" : "＋"}
                 </button>
                 <button
+                  className="gs-icobtn"
                   style={{
                     background: "none", border: "none", color: "var(--app-dim)",
-                    fontSize: 15, cursor: "pointer", padding: 4, fontFamily: "inherit",
+                    fontSize: 15, cursor: "pointer", padding: "4px 7px", fontFamily: "inherit",
                   }}
                   onClick={() => setOpen(false)}
                   aria-label="Close chat"
@@ -463,21 +590,23 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
 
             <div ref={scrollRef} style={s.thread}>
               {messages.length === 0 && !loading && (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "18px 8px 8px" }}>
-                  <AiOrb size={44} pulsing style={{ marginBottom: 8 }} />
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "var(--app-text)", marginBottom: 4 }}>Scholar</div>
-                  <div style={{ fontSize: 12.5, color: "var(--app-dim)", lineHeight: 1.5, maxWidth: 300, marginBottom: 14 }}>
-                    Hey — what topic is giving you trouble today? Explain it, drill it, or plan around it — I've got you.
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "26px 10px 10px" }}>
+                  <div className="gs-orb-idle" style={{ marginBottom: 12 }}>
+                    <AiOrb size={54} pulsing />
+                  </div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "var(--app-text)", letterSpacing: "-0.01em", marginBottom: 5 }}>Hey, I'm Scholar</div>
+                  <div style={{ fontSize: 12.5, color: "var(--app-dim)", lineHeight: 1.55, maxWidth: 300, marginBottom: 18 }}>
+                    What's giving you trouble today? I explain, quiz, and plan — or say "teach me…" and I'll take you straight into a full lesson.
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 320 }}>
                     {cards.map((c, i) => (
                       <button
                         key={c.title}
                         className="gs-card"
-                        style={{ ...s.card, animationDelay: `${i * 60}ms` }}
+                        style={{ ...s.card, animationDelay: `${0.08 + i * 0.07}s` }}
                         onClick={() => send(c.prompt)}
                       >
-                        <span style={{ fontSize: 17 }}>{c.icon}</span>
+                        <span style={s.cardIcon}>{c.icon}</span>
                         <span style={{ flex: 1, textAlign: "left" }}>
                           <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--app-text)" }}>{c.title}</span>
                           <span style={{ display: "block", fontSize: 11, color: "var(--app-dim)" }}>{c.sub}</span>
@@ -486,26 +615,15 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
                       </button>
                     ))}
                   </div>
-                  {(onOpenAITutor || onOpenVoice) && (
-                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                      {onOpenAITutor && (
-                        <button style={s.chip} className="gs-chip" onClick={() => { setOpen(false); onOpenAITutor(); }}>
-                          🤖 Full AI Tutor
-                        </button>
-                      )}
-                      {onOpenVoice && (
-                        <button style={s.chip} className="gs-chip" onClick={() => { setOpen(false); onOpenVoice(); }}>
-                          🎙 Talk by voice
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div style={{ fontSize: 10, color: "var(--app-faint)", marginTop: 14, letterSpacing: "0.02em" }}>
+                    Powered by your live study data
+                  </div>
                 </div>
               )}
 
               {messages.map((msg, i) => (
                 <div key={i} style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
-                  {msg.role === "assistant" && <AiOrb size={18} pulsing={!!msg.streaming} style={{ marginTop: 2 }} />}
+                  {msg.role === "assistant" && <AiOrb size={19} pulsing={!!msg.streaming} style={{ marginTop: 3 }} />}
                   {msg.role === "user" ? (
                     msg.content
                   ) : (
@@ -561,12 +679,12 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
               {loading && !messages[messages.length - 1]?.streaming && <ThinkingBubble />}
               {error && (
                 <div style={{
-                  margin: "4px 0 8px", padding: "10px 12px", borderRadius: 12,
+                  margin: "4px 0 8px", padding: "11px 13px", borderRadius: 13,
                   border: "1px solid rgba(255,93,108,0.4)", background: "rgba(255,93,108,0.08)",
                   fontSize: 12.5, color: "var(--app-text)",
                 }}>
                   <div style={{ fontWeight: 700 }}>⚠️ Scholar hit a snag</div>
-                  <div style={{ fontSize: 11.5, opacity: 0.85, margin: "2px 0 6px" }}>{error}</div>
+                  <div style={{ fontSize: 11.5, opacity: 0.85, margin: "2px 0 7px" }}>{error}</div>
                   <button
                     style={{ ...s.msgActionBtn, color: "var(--app-accent)" }}
                     onClick={retryLast}
@@ -593,7 +711,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
                 style={s.textarea}
                 className="gs-input"
                 rows={1}
-                placeholder={messages.length === 0 ? "Ask Scholar anything…" : "Ask a follow-up…"}
+                placeholder={messages.length === 0 ? "Ask Scholar anything — or “teach me …”" : "Ask a follow-up…"}
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
@@ -603,14 +721,15 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, onOpenVoi
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    send(input);
+                    handleSubmit(input);
                   }
                 }}
                 aria-label="Chat message"
               />
               <button
-                style={{ ...s.sendBtn, opacity: loading || input.trim() ? 1 : 0.35 }}
-                onClick={() => (loading ? stopStream() : send(input))}
+                className="gs-send"
+                style={{ ...s.sendBtn, opacity: loading || input.trim() ? 1 : 0.4 }}
+                onClick={() => (loading ? stopStream() : handleSubmit(input))}
                 disabled={!loading && !input.trim()}
                 aria-label={loading ? "Stop generating" : "Send message"}
               >

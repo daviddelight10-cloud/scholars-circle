@@ -21,18 +21,18 @@ const D = {
   card:    "var(--app-card)",
   bar:     "var(--app-surface)",
   accent:  "var(--app-card2)",
-  border:  "#FFD700",
+  border:  "var(--app-accent)",
   line:    "var(--app-tint-med)",
   line2:   "var(--app-tint-soft)",
   text:    "var(--app-text)",
   muted:   "var(--app-dim)",
-  hint:    "#646E84",
-  faint:   "#3A4356",
+  hint:    "var(--app-dim)",
+  faint:   "var(--app-faint)",
   userBg:  "rgba(255,215,0,0.08)",
   userBdr: "rgba(255,215,0,0.3)",
-  userTxt: "#E8D9A0",
+  userTxt: "var(--app-accent)",
   aiBdr:   "var(--app-tint-med)",
-  accent2: "#FFD700",
+  accent2: "var(--app-accent)",
 };
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&display=swap');`;
@@ -2365,14 +2365,14 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         .sc-ol .sc-fu-chip:active{transform:scale(.96)}
         .sc-ol .sc-src-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:12px;background:var(--app-card);border:0.5px solid var(--app-tint-med);font-size:11px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;max-width:240px;transition:all .15s}
         .sc-ol .sc-src-chip:disabled{cursor:default}
-        .sc-ol .sc-src-chip:not(:disabled):hover{border-color:rgba(255,215,0,.45);color:#FFD700}
+        .sc-ol .sc-src-chip:not(:disabled):hover{border-color:rgba(255,215,0,.45);color:var(--app-accent)}
         .sc-ol .sc-src-chip:not(:disabled):active{transform:scale(.97)}
         .sc-ol .sc-src-chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .sc-ol .sc-sug{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:16px;background:transparent;border:0.5px dashed rgba(255,215,0,.55);color:#FFD700;font-size:11px;font-weight:600;cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
+        .sc-ol .sc-sug{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:16px;background:transparent;border:0.5px dashed rgba(255,215,0,.55);color:var(--app-accent);font-size:11px;font-weight:600;cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
         .sc-ol .sc-sug:hover{background:var(--app-card2)}
         .sc-ol .sc-sug:active{transform:scale(.97)}
         .sc-ol .sc-chip{padding:7px 13px;border-radius:20px;background:var(--app-card2);border:0.5px solid var(--app-tint-med);font-size:11px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
-        .sc-ol .sc-chip:hover{border-color:#FFD700;color:#FFD700}
+        .sc-ol .sc-chip:hover{border-color:var(--app-accent);color:var(--app-accent)}
         .sc-ol .sc-chip:active{transform:scale(.96)}
         .sc-ol .sc-menu{position:absolute;bottom:calc(100% + 5px);left:0;background:var(--app-card);border:0.5px solid var(--app-tint-med);border-radius:10px;padding:4px;z-index:20;min-width:180px;box-shadow:0 10px 30px rgba(0,0,0,.55);animation:scFadeUp .18s ease both}
         .sc-ol .sc-menu-item{display:block;width:100%;padding:8px 11px;border-radius:7px;background:transparent;border:none;font-size:11.5px;color:var(--app-dim);cursor:pointer;font-family:Manrope,sans-serif;text-align:left;font-weight:600;transition:all .12s}
@@ -2380,7 +2380,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         .sc-ol .sc-menu-item:disabled{opacity:.6;cursor:default}
         .sc-ol .sc-skel{height:10px;border-radius:5px;background:linear-gradient(90deg,var(--c-17171b) 25%,var(--c-232329) 50%,var(--c-17171b) 75%);background-size:200% 100%;animation:scShimmer 1.3s linear infinite}
         @keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
-        .sc-ol .sc-newpill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:6px 15px;border-radius:16px;background:var(--app-card2);border:0.5px solid rgba(255,215,0,.45);color:#FFD700;font-size:11px;font-weight:700;cursor:pointer;font-family:Manrope,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:5;animation:scFadeUp .2s ease both}
+        .sc-ol .sc-newpill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:6px 15px;border-radius:16px;background:var(--app-card2);border:0.5px solid rgba(255,215,0,.45);color:var(--app-accent);font-size:11px;font-weight:700;cursor:pointer;font-family:Manrope,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:5;animation:scFadeUp .2s ease both}
         @media (prefers-reduced-motion:reduce){.sc-ol .sc-extras,.sc-ol .sc-newpill,.sc-ol .sc-menu{animation:none}.sc-ol .sc-skel{animation:none;opacity:.6}}
       `}</style>
 

@@ -9701,15 +9701,18 @@ function App() {
 
       <InstallPrompt />
 
-      {/* Global Scholar — floating AI orb on every tab; hidden (not unmounted,
-          so chats survive) where a full-screen AI surface or the doc-scoped
-          reader already owns it. */}
+      {/* Global Scholar — floating AI orb on the Home screen only; hidden (not
+          unmounted, so chats survive) under full-screen surfaces. "Teach me X"
+          questions route into the AI Tutor with the topic prefilled. */}
       {auth.user && (
         <Suspense fallback={null}>
           <GlobalScholar
-            hidden={homeViewerToken != null || ctxUI.hideMobileNav || tab === "aitutor" || tab === "voice-tutor"}
-            onOpenAITutor={() => setTab("aitutor")}
-            onOpenVoice={() => setTab("voice-tutor")}
+            hidden={
+              !(tab === "today" || tab === "dashboard" || (isLecturerRole && tab === "research-hub"))
+              || homeViewerToken != null
+              || ctxUI.hideMobileNav
+            }
+            onOpenAITutor={(topic) => { setAiDefaultView("chat"); setAiStudyTopic(topic || ""); setAiStudyMode("input"); setAiStudyAttachment(null); setAiStudyContext(null); setAiKey(k => k + 1); setTab("aitutor"); }}
             theme={darkMode ? "dark" : "light"}
           />
         </Suspense>
