@@ -475,11 +475,10 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       position: "fixed",
       right: isMobile ? 14 : 22,
       ...(fabTop != null ? { top: fabTop } : { bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 24 }),
-      width: 58, height: 58, borderRadius: "50%",
-      background: "linear-gradient(145deg, #FFD98A 0%, #F5A623 45%, #9A6108 100%)",
-      border: "1.5px solid rgba(255,224,160,0.5)",
+      width: 62, height: 62, borderRadius: "50%",
+      background: "transparent",
+      border: "none",
       display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: "0 8px 26px rgba(245,166,35,0.5), 0 0 0 0 rgba(245,166,35,0.35)",
       cursor: "grab", zIndex: 9989, padding: 0,
       touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
       animation: "gs-breathe 3.6s ease-in-out infinite",
@@ -701,10 +700,9 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
           aria-label="Ask Scholar"
           title="Scholar — drag to move, tap to chat"
         >
-          <span className="gs-shine" />
           <span className="gs-orb-hop">
             <span className="gs-orb-idle" style={{ display: "flex" }}>
-              <AiOrb size={30} state={orbMood || (loading ? "thinking" : !seen ? "excited" : undefined)} />
+              <AiOrb size={52} state={orbMood || (loading ? "thinking" : !seen ? "excited" : undefined)} />
             </span>
           </span>
           {dueCount > 0 && <span style={s.fabBadge}>{dueCount > 99 ? "99" : dueCount}</span>}
