@@ -2153,7 +2153,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (!lectureStep) return;
     const t = setTimeout(
       () => setLectureStep((s) => (s >= 3 ? 0 : s + 1)),
-      lectureStep === 3 ? 420 : 1900
+      lectureStep === 3 ? 420 : 2600
     );
     return () => clearTimeout(t);
   }, [lectureStep]);
