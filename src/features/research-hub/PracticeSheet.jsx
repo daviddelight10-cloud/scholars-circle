@@ -7,7 +7,8 @@ import { loadHistory } from "../../lib/studyHistory.js";
 import { mcqRingPct } from "../../lib/researchUtils";
 import { getExamAttempts } from "../exam/examApi";
 import AvatarMark from "../../components/AvatarMark.jsx";
-import { SpeechEngine, chunkNarration, mdToSpeechText, speechSupported } from "../pdf-reader/page-tutor/speech";
+import { SpeechEngine, chunkNarration, mdToSpeechText, pickVoice, speechSupported, unlockSpeech } from "../pdf-reader/page-tutor/speech";
+import { isPremium, openPremium } from "../../lib/premium";
 
 // Answer-style options — same ids as StreakSurvival's Session setup
 const STYLE_OPTIONS = [
@@ -122,7 +123,7 @@ const IcoGradCap = (p) => (
 );
 
 
-function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000, side }) {
+function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000, side, bar }) {
   return (
     <button
       className={`pm-tile${tint ? ` ${tint}` : ""}`}
@@ -135,6 +136,7 @@ function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wd
       <span className="pm-tile-name">{name}</span>
       <span className="pm-tile-sub">{sub}</span>
       {side || <span className="pm-tile-arrow"><IcoChevron size={14} /></span>}
+      {bar}
     </button>
   );
 }
@@ -214,6 +216,7 @@ export default function PracticeSheet({
 
   const toggleSumAudio = () => {
     if (!speechSupported()) return;
+    unlockSpeech(); // gesture-chain TTS unlock — see speech.js
     if (!sumAudio || sumAudio.done) return startSumAudio();
     const eng = getEngine();
     if (sumAudio.playing) { eng.pause(); setSumAudio({ ...sumAudio, playing: false }); }
@@ -222,7 +225,37 @@ export default function PracticeSheet({
 
   const stopSumAudio = () => { getEngine().cancel(); setSumAudio(null); };
 
+  // Same premium scrub gate as the summary page's mini-player: drag the
+  // tile's bottom bar to replay a section; free taps route to upgrade.
+  const premium = isPremium();
+  const [sumScrub, setSumScrub] = useState(null); // 0..1 while dragging
+  const barFrac = (e, bar) => {
+    const r = bar.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  };
+  const onSumBarDown = (e) => {
+    e.stopPropagation();
+    if (!premium) { openPremium("summary_seek"); return; }
+    const bar = e.currentTarget;
+    bar.setPointerCapture?.(e.pointerId);
+    setSumScrub(barFrac(e, bar));
+    const move = (ev) => setSumScrub(barFrac(ev, bar));
+    const up = (ev) => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+      setSumScrub(null);
+      getEngine().seekTo(barFrac(ev, bar));
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
+  };
+
   useEffect(() => () => speechRef.current?.cancel(), []);
+  // Pre-resolve the voice list while the sheet is open — engine.start()
+  // then speaks synchronously inside the tap (mobile gesture chain).
+  useEffect(() => { if (file && speechSupported()) pickVoice(); }, [file]);
   // Eased 0→N count-up for the hero's question count (prototype)
   const mcqCountForAnim = getVariantCount(file?.variants?.mcq);
   const qNum = useCountUp(file ? mcqCountForAnim : 0);
@@ -670,6 +703,27 @@ export default function PracticeSheet({
                     onClick={(e) => { e.stopPropagation(); toggleSumAudio(); }}
                     title={sumAudio?.playing ? "Pause" : "Listen to the summary"}
                   >{sumAudio?.playing ? "❚❚" : "▶"}</span>
+                </span>
+              ) : undefined}
+              bar={sumAudio ? (
+                <span
+                  className="pm-tile-bar"
+                  aria-hidden="true"
+                  title={premium ? "Drag to scrub" : "Premium — drag to scrub"}
+                  onPointerDown={onSumBarDown}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="pm-tile-bar-track">
+                    <span
+                      className="pm-tile-bar-fill"
+                      style={{ width: `${(sumScrub ?? (sumAudio.idx / (sumAudio.count || 1))) * 100}%`, transition: sumScrub != null ? "none" : "width 0.3s linear" }}
+                    />
+                    <span
+                      className="pm-tile-bar-knob"
+                      style={{ left: `${(sumScrub ?? (sumAudio.idx / (sumAudio.count || 1))) * 100}%`, opacity: premium ? 1 : 0.5 }}
+                    />
+                  </span>
+                  {!premium && <span className="pm-tile-bar-lock">🔒</span>}
                 </span>
               ) : undefined}
             />

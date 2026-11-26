@@ -2194,16 +2194,15 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Smart Lecture coachmark step driver: slides 1-3 → collapse → off.
-  // The Ask AI nudge fires exactly when the Circle-to-Ask slide appears so
-  // the button pulses while the card is describing it — and stays after.
+  // Smart Lecture coachmark — tap-driven: slides 1-3 wait for the reader
+  // (the card is its own Next button), only the collapse auto-times.
+  // The Ask AI nudge fires when the Circle-to-Ask slide appears so the
+  // button pulses while the card describes it — and stays after.
   useEffect(() => {
     if (!lectureStep) return;
     if (lectureStep === 3) setAskNudge(true);
-    const t = setTimeout(
-      () => setLectureStep((s) => (s >= 4 ? 0 : s + 1)),
-      lectureStep === 4 ? 420 : 2600
-    );
+    if (lectureStep !== 4) return;
+    const t = setTimeout(() => setLectureStep(0), 420);
     return () => clearTimeout(t);
   }, [lectureStep]);
 
@@ -6230,13 +6229,13 @@ Passage:
             </div>
           )}
 
-          {/* Smart Lecture coachmark — talks up Page Tutor + Ask AI in two
-              slides, then collapses into the study FAB so the student learns
-              where the tools live. Tap anywhere on it to skip to the collapse. */}
+          {/* Smart Lecture coachmark — three slides the reader advances by
+              tapping (everyone reads at their own pace), then collapses into
+              the study FAB so the student learns where the tools live. */}
           {lectureStep > 0 && !studyToolsOpen && !chromeHidden && !loadError && (
             <button
-              onClick={() => setLectureStep(4)}
-              aria-label="Study tools intro — tap to dismiss"
+              onClick={() => setLectureStep((s) => (s >= 3 ? 4 : s + 1))}
+              aria-label={lectureStep >= 3 ? "Finish study tools intro" : "Next intro slide"}
               style={{
                 position: "absolute",
                 right: isMobile ? 14 : 18,
@@ -6255,6 +6254,10 @@ Passage:
                   : "sc-fade-in-up .3s ease both",
               }}
             >
+              <span
+                onClick={(e) => { e.stopPropagation(); setLectureStep(4); setAskNudge(true); }}
+                style={{ position: "absolute", top: 7, right: 10, fontSize: 10, fontWeight: 700, color: T.muted, cursor: "pointer", padding: "2px 4px" }}
+              >Skip</span>
               <div key={Math.min(lectureStep, 3)} style={{ animation: "sc-fade-in-up .25s ease both" }}>
                 {lectureStep === 1 ? (
                   <>
@@ -6278,6 +6281,20 @@ Passage:
                     </div>
                   </>
                 )}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 9 }}>
+                <span style={{ display: "flex", gap: 4 }} aria-hidden="true">
+                  {[1, 2, 3].map((i) => (
+                    <span key={i} style={{
+                      width: 5, height: 5, borderRadius: "50%",
+                      background: lectureStep === i ? T.gold : T.border,
+                      transition: "background 0.2s ease",
+                    }} />
+                  ))}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: T.gold }}>
+                  {lectureStep >= 3 ? "Done ›" : "Next ›"}
+                </span>
               </div>
               <span style={{
                 position: "absolute", bottom: -6, right: 24, width: 12, height: 12,

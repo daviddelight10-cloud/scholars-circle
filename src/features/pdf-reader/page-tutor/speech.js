@@ -59,6 +59,19 @@ export function mdToSpeechText(md) {
     .trim();
 }
 
+// iOS/Safari + mobile Chrome drop utterances that aren't chained to a user
+// gesture — and start()'s async voice lookup breaks that chain on a cold
+// session. Speak a silent blank inside the tap to unlock the TTS session;
+// the engine's own cancel() clears it right after.
+export function unlockSpeech() {
+  if (!speechSupported()) return;
+  try {
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+  } catch {}
+}
+
 let voicesPromise = null;
 
 // Voice pick: an English voice, preferring on-device (localService) ones which

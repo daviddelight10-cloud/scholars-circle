@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "../lib/constants";
 import { callAIMultimodal } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText";
-import { SpeechEngine, chunkNarration, mdToSpeechText, speechSupported } from "./pdf-reader/page-tutor/speech";
+import { SpeechEngine, chunkNarration, mdToSpeechText, pickVoice, speechSupported, unlockSpeech } from "./pdf-reader/page-tutor/speech";
 import { isPremium, openPremium } from "../lib/premium";
 
 const D = {
@@ -104,6 +104,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
 
   const toggleAudio = () => {
     if (!speechSupported()) return;
+    unlockSpeech(); // gesture-chain TTS unlock — see speech.js
     if (!audio || audio.done) return startAudio();
     const eng = getEngine();
     if (audio.playing) { eng.pause(); setAudio({ ...audio, playing: false }); }
@@ -149,6 +150,9 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
   };
 
   useEffect(() => () => speechRef.current?.cancel(), []);
+  // Pre-resolve the voice list — engine.start() then speaks synchronously
+  // inside the tap (mobile browsers drop non-gesture-chained utterances).
+  useEffect(() => { if (speechSupported()) pickVoice(); }, []);
 
   // ── Ask AI chat ──
   const [chatOpen, setChatOpen] = useState(false);
