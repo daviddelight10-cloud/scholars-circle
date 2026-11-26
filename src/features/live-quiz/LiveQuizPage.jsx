@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getLiveRoom, joinLiveRoom } from "./liveQuizApi.js";
 import { ensureAppSession } from "../../lib/authToken.js";
 import LiveQuizRoom from "./LiveQuizRoom.jsx";
+import PaymentModal from "../../components/PaymentModal.jsx";
+import { toast } from "../../components/Toast";
 import { IconSpinner, IconUsers, IconZap } from "./icons.jsx";
 import "./live-quiz.css";
 
@@ -84,10 +86,39 @@ export default function LiveQuizPage() {
   // never the bare /resources route that strands users outside the app shell.
   const exit = () => navigate(location.state?.returnTo || "/app", { replace: true });
 
+  // This page is a standalone route — App.jsx's sc-open-premium listener isn't
+  // mounted here, so premium gates inside the room fire this page's own modal.
+  const [paywallFeature, setPaywallFeature] = useState(null);
+  useEffect(() => {
+    const onOpen = (e) => setPaywallFeature(e?.detail?.feature || "premium");
+    window.addEventListener("sc-open-premium", onOpen);
+    return () => window.removeEventListener("sc-open-premium", onOpen);
+  }, []);
+
+  const refreshLocalAuth = async () => {
+    const u = await ensureAppSession({ revalidate: true });
+    if (u) {
+      setAuth(getAuth());
+      toast.success("✅ Your account has been activated! Welcome aboard!");
+    }
+  };
+
+  const payModal = (
+    <PaymentModal
+      open={paywallFeature !== null}
+      feature={paywallFeature}
+      onClose={() => setPaywallFeature(null)}
+      user={auth.authUser}
+      token={auth.authToken}
+      onActivated={refreshLocalAuth}
+    />
+  );
+
   if (joined) {
     return (
       <div style={{ height: "100dvh", background: "var(--c-0a0c10)" }}>
         <LiveQuizRoom roomId={joined.roomId} ticket={joined.ticket} myId={myId} onExit={exit} />
+        {payModal}
       </div>
     );
   }
@@ -170,6 +201,7 @@ export default function LiveQuizPage() {
           </div>
         )}
       </div>
+      {payModal}
     </div>
   );
 }

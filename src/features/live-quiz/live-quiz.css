@@ -62,7 +62,8 @@
 /* Body — the only scroll area; no magic offsets, it simply fills the stage */
 .lq-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 16px; }
 .lq-view { display: flex; flex-direction: column; min-height: 100%; animation: lq-slide-up 0.4s ease-out; }
-.lq-action-group { margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+.lq-action-group { margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 16px; background: rgba(245,197,66,0.05); border: 1px solid rgba(245,197,66,0.16); }
+html[data-theme="light"] .lq-action-group { background: rgba(245,166,35,0.12); border-color: rgba(160,125,0,0.28); }
 
 /* Setup / lobby */
 .lq-label { font-size: 11px; color: var(--app-dim); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 8px; }
@@ -642,7 +643,13 @@ html[data-theme="light"] .lq-host-offline,
 html[data-theme="light"] .lq-pcell-pts.me { color: #8A5A00; }
 html[data-theme="light"] .lq-spec-join,
 html[data-theme="light"] .lq-pres-pause { color: #8A5A00; }
-html[data-theme="light"] .lq-app { box-shadow: 0 0 40px rgba(0,0,0,0.08); }
+/* Page sits deeper than chrome/cards in light mode — without this every
+   surface collapses to the same #fdfbf3 cream and the room reads as one
+   flat white sheet. */
+html[data-theme="light"] .lq-app { box-shadow: 0 0 40px rgba(0,0,0,0.08); background: linear-gradient(180deg, #f4efe1, #ece7d8); }
+/* Ghost buttons vanish on cream — give them a solid chip surface. */
+html[data-theme="light"] .lq-btn-secondary { background: var(--app-card); border-color: var(--app-border); color: var(--app-text); }
+html[data-theme="light"] .lq-btn-secondary:hover { background: var(--app-card2); border-color: var(--app-tint-strong); }
 
 /* ── Voting: lock strip + power-ups ──────────────────────── */
 .lq-lockstrip { margin: 0 0 14px; }
