@@ -6,6 +6,51 @@ export const SMART_CHIPS = [
   { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
 ];
 
+// Intent-aware follow-ups — chosen by what the user last asked, so
+// "Explain simpler" only exists after an explanation, never out of context.
+export const INTENT_CHIPS = {
+  explain: [
+    { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
+    { label: "An example", prompt: "Give me one concrete real-world example of this." },
+    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
+  ],
+  define: [
+    { label: "An example", prompt: "Give me one concrete real-world example of this." },
+    { label: "Go deeper", prompt: "Go deeper on this — the mechanism and why it matters." },
+    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
+  ],
+  summary: [
+    { label: "Explain the page", prompt: "Explain the key points on this page — keep it clear and simple." },
+    { label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points in this." },
+    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
+  ],
+  mnemonic: [
+    { label: "Explain it again", prompt: "Explain the key points on this page — keep it clear and simple." },
+    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
+    { label: "Key points", prompt: "Summarize the key points on this page in a few bullet points." },
+  ],
+  quiz: [
+    { label: "▶ Next question", prompt: "Next question — same mcq format." },
+    { label: "📊 Score so far", prompt: "How am I doing in this quiz so far? One-line score summary." },
+    { label: "Stop quiz", prompt: "Stop the quiz — explain the key points on this page simply instead." },
+  ],
+  default: SMART_CHIPS,
+};
+
+// The model optionally appends a "CHIPS: a | b | c" line — the follow-ups
+// THIS answer invites. parseSuggestedChips reads it for the chip row;
+// stripChipsLine removes it so it never renders as body text.
+const CHIPS_LINE = /\n?\s*CHIPS\s*:\s*([^\n]+)\s*$/i;
+export function parseSuggestedChips(content) {
+  const m = String(content || "").match(CHIPS_LINE);
+  if (!m) return null;
+  const chips = m[1].split("|").map((c) => c.trim()).filter((c) => c.length > 1 && c.length <= 44).slice(0, 4);
+  return chips.length ? chips.map((label) => ({ label, prompt: label })) : null;
+}
+export function stripChipsLine(content) {
+  return String(content || "").replace(CHIPS_LINE, "");
+}
+
 // Shown on an empty chat thread — page-scoped by definition.
 export const STARTER_CHIPS = [
   { label: "Explain the page simply", prompt: "Explain the key points on this page — keep it clear and simple." },
@@ -51,6 +96,8 @@ LAYOUT BLOCKS (sparingly — at most one of each per reply, never inside the mcq
 • The single most important takeaway → end with \`\`\`idea holding one sentence
 
 PAGE CITATIONS: when a claim comes from a specific page of the document, append 〔p.N〕 immediately after the claim. Cite only pages you were actually given context from — never guess a page number.
+
+SUGGESTIONS: end every reply that does NOT contain an mcq block with one final line exactly formatted "CHIPS: label | label | label" — 2 to 3 short follow-ups (2-5 words each, phrased as a student's next question, e.g. "give an example", "why does this happen") specific to THIS answer's content. Replies containing an mcq block must NOT emit the CHIPS line.
 
 ${CHEMISTRY_RULES}
 

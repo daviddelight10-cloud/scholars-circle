@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
 import { callAIMultimodalStream } from "../lib/aiClient.js";
@@ -23,7 +23,7 @@ import pdfjsLib, { loadPdfJs } from "../lib/pdfjs.js";
 
 // ── Split modules (styles, palettes, prompts, persistence) ──────────────────
 import { THEMES, CHROME, INK_COLORS, HIGHLIGHT_COLORS, PEN_WIDTHS, HIGHLIGHT_WIDTHS } from "./pdf-reader/constants.js";
-import { SMART_CHIPS, STARTER_CHIPS, QUIZ_NEXT_CHIPS, GROUNDING_STOPWORDS, TUTOR_SYSTEM } from "./pdf-reader/chatPrompts.js";
+import { INTENT_CHIPS, STARTER_CHIPS, QUIZ_NEXT_CHIPS, GROUNDING_STOPWORDS, TUTOR_SYSTEM, parseSuggestedChips, stripChipsLine } from "./pdf-reader/chatPrompts.js";
 import {
   loadStored, saveStored, mergePageArrays, mergeBookmarkList, mergeReaderStats,
   getProxiedUrl, fetchProxiedPdf, idbGetFile, idbPutFile, idbDelFile,
@@ -2077,7 +2077,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Strip quiz blocks before copying/saving — nobody wants raw ```mcq JSON.
   const plainTextOf = (msg) =>
-    parseMcqSegments(msg.content).filter((s) => s.type === "text").map((s) => s.text).join("\n").trim();
+    parseMcqSegments(stripChipsLine(msg.content)).filter((s) => s.type === "text").map((s) => s.text).join("\n").trim();
 
   const copyMessage = async (i, msg) => {
     try {
@@ -3386,17 +3386,23 @@ Passage:
     const v = viewerRef.current;
     if (!v) return;
     let last = v.scrollTop;
+    let idleT = null;
     const onScroll = () => {
       const t = v.scrollTop;
       const dy = t - last;
       last = t;
-      // On desktop the study panel is a docked side panel, not an overlay —
-      // chrome may hide while scrolling but the panel must stay put.
-      if (dy > 6 && t > 80) { setChromeHidden(true); if (isMobile) closeAllMobileOverlays(); }
+      // Scroll hides chrome but never closes overlays — the study panel/chat
+      // keep their own close affordances. On desktop the study panel is a
+      // docked side panel, not an overlay, so it stays put either way.
+      if (dy > 6 && t > 80) setChromeHidden(true);
       else if (dy < -6 && !focusPinRef.current) setChromeHidden(false);
+      // Idle re-show — pause to read for a moment and chrome drifts back.
+      // (Focus mode pins chrome hidden and is exempt.)
+      clearTimeout(idleT);
+      idleT = setTimeout(() => { if (!focusPinRef.current) setChromeHidden(false); }, 3000);
     };
     v.addEventListener("scroll", onScroll, { passive: true });
-    return () => v.removeEventListener("scroll", onScroll);
+    return () => { v.removeEventListener("scroll", onScroll); clearTimeout(idleT); };
   }, [loading, isMobile]);
 
   // ---- Close all mobile overlays (mutual exclusion) ----
@@ -3727,7 +3733,7 @@ Passage:
   // Parsed assistant segments (text + mcq + mcq_error), question numbering,
   // and running quiz score — shared by the thread renderer.
   const chatSegs = useMemo(
-    () => chatMessages.map((m) => (m.role === "assistant" ? parseMcqSegments(m.content) : null)),
+    () => chatMessages.map((m) => (m.role === "assistant" ? parseMcqSegments(stripChipsLine(m.content)) : null)),
     [chatMessages]
   );
   const mcqPrefix = useMemo(() => {
@@ -3752,10 +3758,36 @@ Passage:
     if (!mcqSegIdxs.length) return "none";
     return mcqSegIdxs.every((j) => quizResults[`${lastAssistantIdx}:${j}`]) ? "answered" : "open";
   })();
-  const chipsToShow = chatMessages.length === 0 ? STARTER_CHIPS
-    : lastMcqState === "answered" ? QUIZ_NEXT_CHIPS
-    : lastMcqState === "open" ? []
-    : SMART_CHIPS;
+  // Smart chips — three sources in order: the model's own CHIPS suggestions
+  // (written for this specific answer), then intent-aware fallbacks chosen by
+  // what the user last asked, and a page-drift chip leading whenever the
+  // student has scrolled away from the thread's context page.
+  const lastUserPrompt = [...chatMessages].reverse().find((m) => m.role === "user")?.content || "";
+  const suggestedChips = useMemo(() => {
+    if (lastAssistantIdx < 0 || lastAssistantIdx !== chatMessages.length - 1) return null;
+    const m = chatMessages[lastAssistantIdx];
+    return m?.streaming ? null : parseSuggestedChips(m.content);
+  }, [chatMessages, lastAssistantIdx]);
+  const intentChips = useMemo(() => {
+    const t = lastUserPrompt.toLowerCase();
+    if (/\bsimpler|easier|simple\b/.test(t)) return INTENT_CHIPS.explain;
+    if (/\bquiz|test|question|mcq\b/.test(t)) return INTENT_CHIPS.quiz;
+    if (/mnemonic/.test(t)) return INTENT_CHIPS.mnemonic;
+    if (/key points|summar|recap/.test(t)) return INTENT_CHIPS.summary;
+    if (/\bdefin|what is|what are|meaning of|meaning\b/.test(t)) return INTENT_CHIPS.define;
+    if (/explain|walk me|break down|why does|why is|how does|how is/.test(t)) return INTENT_CHIPS.explain;
+    return INTENT_CHIPS.default;
+  }, [lastUserPrompt]);
+  const chipsToShow = useMemo(() => {
+    if (chatMessages.length === 0) return STARTER_CHIPS;
+    if (lastMcqState === "answered") return QUIZ_NEXT_CHIPS;
+    if (lastMcqState === "open") return [];
+    const base = suggestedChips || intentChips;
+    if (currentPage !== chatCtxPage) {
+      return [{ label: `📄 Explain p.${currentPage}`, prompt: `Explain the key points on page ${currentPage} — keep it clear and simple.` }, ...base].slice(0, 4);
+    }
+    return base;
+  }, [chatMessages.length, lastMcqState, suggestedChips, intentChips, currentPage, chatCtxPage]);
   const showChips = chatMessages.length > 0 && chipsToShow.length > 0 &&
     chatMessages[chatMessages.length - 1]?.role === "assistant" && !chatLoading;
 
@@ -5148,21 +5180,51 @@ Passage:
         </div>
       )}
 
-      {/* Floating show-header hint when chrome hidden */}
+      {/* Mini-toolbar — hidden chrome condenses to a floating position pill:
+          page nav stays reachable and ⌄ restores the full toolbar. */}
       {chromeHidden && (
         <div
-          onClick={() => { focusPinRef.current = false; setFocusPinned(false); setChromeHidden(false); closeAllMobileOverlays(); }}
           style={{
-            position: "absolute", top: 0, left: 0, right: 0, height: 40,
-            zIndex: 60, cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.15), transparent)",
-            pointerEvents: "auto",
+            position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)",
+            zIndex: 60, display: "flex", alignItems: "center", gap: 2,
+            padding: "4px 7px", borderRadius: 999,
+            background: T.toolbar, border: `1px solid ${T.border}`,
+            backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+            boxShadow: "0 4px 18px rgba(0,0,0,0.3)",
+            animation: "sc-fade-in-up .25s ease both",
           }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" style={{ opacity: 0.6 }}>
-            <path d="M6 15l6-6 6 6" />
-          </svg>
+          {[
+            { icon: "‹", dis: currentPage <= 1, go: () => goToPage(currentPage - 1), t: "Previous page" },
+            { icon: "›", dis: currentPage >= numPages, go: () => goToPage(currentPage + 1), t: "Next page" },
+          ].map((b) => (
+            <button
+              key={b.t}
+              onClick={b.go}
+              disabled={b.dis}
+              title={b.t}
+              style={{
+                padding: "4px 10px", border: "none", background: "none",
+                color: b.dis ? T.muted : T.text, fontSize: 15, fontWeight: 800,
+                cursor: b.dis ? "default" : "pointer", opacity: b.dis ? 0.4 : 1,
+                fontFamily: "inherit", borderRadius: 999,
+              }}
+            >{b.icon}</button>
+          ))}
+          <span style={{ padding: "0 6px", fontSize: 12, fontWeight: 800, color: T.text, whiteSpace: "nowrap" }}>
+            {currentPage}<span style={{ color: T.muted, fontWeight: 600 }}> / {numPages}</span>
+          </span>
+          <span style={{ width: 1, height: 14, background: T.border, margin: "0 2px" }} />
+          <button
+            onClick={() => { focusPinRef.current = false; setFocusPinned(false); setChromeHidden(false); }}
+            title="Show tools"
+            style={{
+              padding: "4px 10px", border: "none", background: "none",
+              color: "#F5A623", fontSize: 15, fontWeight: 800, cursor: "pointer",
+              fontFamily: "inherit", borderRadius: 999,
+            }}
+          >⌄</button>
         </div>
       )}
 
@@ -5714,17 +5776,30 @@ Passage:
                       solve problems, and quiz you as you read.
                     </div>
                     <div style={s.welcomeCards}>
-                      {WELCOME_CARDS.map((c) => (
-                        <button key={c.label} style={s.welcomeCard} className="sc-welcome-card" onClick={() => sendFollowUp(c.prompt)}>
-                          <span style={{ fontSize: 15 }}>{c.icon}</span>
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: T.text }}>{c.label}</span>
-                        </button>
-                      ))}
+                      {WELCOME_CARDS.map((c, ci) => {
+                        const label = ci === 0 ? `Explain page ${currentPage}` : c.label;
+                        const prompt = ci === 0 ? `Explain the key points on page ${currentPage} — keep it clear and simple.` : c.prompt;
+                        return (
+                          <button key={c.label} style={s.welcomeCard} className="sc-welcome-card" onClick={() => sendFollowUp(prompt)}>
+                            <span style={{ fontSize: 15 }}>{c.icon}</span>
+                            <span style={{ fontSize: 11.5, fontWeight: 700, color: T.text }}>{label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
-                {chatMessages.map((msg, i) => (
-                  <div key={i} style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
+                {chatMessages.map((msg, i) => {
+                  const prevPaged = chatMessages.slice(0, i).reverse().find((m) => m.page != null);
+                  const drifted = msg.page != null && prevPaged && prevPaged.page !== msg.page;
+                  return (
+                  <Fragment key={i}>
+                    {drifted && (
+                      <div style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: T.muted, letterSpacing: "0.05em", margin: "8px 0 2px" }}>
+                        —— now asking about p.{msg.page} ——
+                      </div>
+                    )}
+                  <div style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
                     {msg.role === "assistant" && <AiOrb size={18} pulsing={!!msg.streaming} style={{ marginTop: 2 }} />}
                     {msg.role === "user" && msg.image && (
                       <button
@@ -5848,7 +5923,9 @@ Passage:
                       )
                       : msg.content}
                   </div>
-                ))}
+                  </Fragment>
+                  );
+                })}
                 {chatLoading && !chatMessages[chatMessages.length - 1]?.streaming && (
                   <ThinkingBubble s={s} />
                 )}
@@ -5887,7 +5964,7 @@ Passage:
                   style={s.chatTextarea}
                   className="sc-chat-input"
                   rows={1}
-                  placeholder={chatMessages.length === 0 ? `Ask about p.${chatCtxPage}…` : "Ask a follow-up…"}
+                  placeholder={chatMessages.length === 0 ? `Ask about p.${currentPage}…` : "Ask a follow-up…"}
                   value={chatInput}
                   onChange={(e) => { setChatInput(e.target.value); autoGrowInput(e.target); }}
                   onKeyDown={handleChatKeyDown}
