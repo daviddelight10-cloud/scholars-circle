@@ -2485,6 +2485,27 @@ router.post("/fsrs/flashcards/generate", requireAuth, aiRateLimit, async (req, r
   }
 });
 
+// ── POST /api/resources/fsrs/flashcards ── single manual card (selection → card)
+router.post("/fsrs/flashcards", requireAuth, async (req, res) => {
+  try {
+    const { resourceId, front, back, sourcePage } = req.body || {};
+    const f = String(front || "").trim(), b = String(back || "").trim();
+    if (!resourceId || !f || !b) return res.status(400).json({ error: "resourceId, front and back are required" });
+    const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
+    if (!resource) return res.status(404).json({ error: "Resource not found" });
+    const card = await prisma.pdfFlashcard.create({
+      data: { userId: req.user.sub, resourceId, front: f.slice(0, 2000), back: b.slice(0, 2000), sourcePage: sourcePage ?? null },
+    });
+    await prisma.pdfReviewItem.create({
+      data: { userId: req.user.sub, resourceId, itemType: "flashcard", pageIndex: -1, flashcardId: card.id, topic: resource.title, subject: resource.subject },
+    }).catch(() => {});
+    res.status(201).json({ flashcard: card });
+  } catch (error) {
+    console.error("Error saving flashcard:", error);
+    res.status(500).json({ error: "Failed to save flashcard" });
+  }
+});
+
 // ── GET /api/resources/fsrs/flashcards/:resourceId ──
 router.get("/fsrs/flashcards/:resourceId", requireAuth, async (req, res) => {
   try {

@@ -11,7 +11,6 @@ import TranscriptOverlay from "../features/voice-tutor/TranscriptOverlay.jsx";
 import { VOICE_STATES, COLORS } from "../features/voice-tutor/voiceConfig.js";
 import {
   recordPracticeResult, recordPracticeSession,
-  getMastery, getMasteryColor, getMasteryEmoji,
 } from "../lib/studyHistory.js";
 import { rateQuestion } from "./streak-survival/fsrsBridge.js";
 import { questEvent } from "./streak-survival/survivalStore.js";
@@ -42,6 +41,7 @@ import Celebration from "./pdf-reader/page-tutor/Celebration.jsx";
 import { checkRankJump } from "../lib/rankWatch.js";
 import { buildLessonContext } from "./pdf-reader/page-tutor/lessonUtils.js";
 import { logEvent as tutorLogEvent } from "./pdf-reader/page-tutor/pageTutorApi.js";
+import { smoothPath, taperedOutline, dotPath, arrowHeadPath, eraseSplit } from "./pdf-reader/ink.js";
 
 
 const RING_C = 2 * Math.PI * 6.4;
@@ -104,7 +104,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     return (base + b) || "none";
   };
 
-  // Tool mode: "none" | "highlight" | "erase" | "circle" | "pen"
+  // Tool mode: "none" | "highlight" | "erase" | "circle" | "pen" | "line" | "arrow"
   const [tool, setTool] = useState("none");
   const [askNudge, setAskNudge] = useState(false); // intro "circle" — hint at the Ask AI tool instead of auto-arming it
   const [penColor, setPenColor] = useState(INK_COLORS[0].value);
@@ -112,16 +112,26 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Annotate popover state (mobile)
   const [annotatePopOpen, setAnnotatePopOpen] = useState(false);
-  const [annotateTab, setAnnotateTab] = useState("none"); // "none" | "pen" | "highlight" | "erase"
+  const [annotateTab, setAnnotateTab] = useState("none"); // "none" | armed tool name
   const [penWidth, setPenWidth] = useState(2.5);
   const [highlightColor, setHighlightColor] = useState(HIGHLIGHT_COLORS[0].value);
   const [highlightWidth, setHighlightWidth] = useState(16);
   const [overflowBackdropOpen, setOverflowBackdropOpen] = useState(false);
+  const [stylusOnly, setStylusOnly] = useState(() => loadStored("sc_pdf_stylusonly", false));
 
-  // Annotations: { [pageNum]: [{ color, width, points: [{x,y}] }] }  (points in PDF coords)
+  // Annotations: { [pageNum]: [{ id, color, width, points: [{x,y,p?,v?}], type }] }  (points in PDF coords)
   const [annotations, setAnnotations] = useState(() => loadStored(`sc_pdf_annots_${docKey}`, {}));
   const currentStrokes = useRef([]); // strokes being drawn in screen coords
-  const [renderStrokes, setRenderStrokes] = useState(""); // SVG path string for current stroke
+  const [renderStrokes, setRenderStrokes] = useState(""); // SVG path string for current marker stroke
+  const [penPreview, setPenPreview] = useState(""); // filled-outline path for the live pen stroke
+  const [shapePreview, setShapePreview] = useState(null); // {type:"line"|"arrow", a, b}
+  const [eraseDot, setEraseDot] = useState(null); // {x,y} eraser cursor while dragging
+  const shapeRef = useRef(null); // [start, current] for line/arrow
+  const eraseTrail = useRef([]); // screen-coord erase points for the active gesture
+  const undoStackRef = useRef([]); // {kind:"stroke",page,ref} | {kind:"mark",page,id}
+  const [undoCount, setUndoCount] = useState(0);
+  const [definePop, setDefinePop] = useState(null); // {x,y,above,word,loading,data}
+  const [cardEdit, setCardEdit] = useState(null); // {front,back,page} flashcard mini-sheet
 
   // Bookmarks — named entries { page, name }; legacy number[] data is
   // upgraded on load so nothing is lost.
@@ -281,11 +291,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     },
     onPlayFailed: () => { if (lectureRef.current) setLectureBlocked(true); },
   });
-
-  // Mastery — fed by recordPracticeResult from chat quiz answers and any
-  // legacy local practice data for this document.
-  const [mastery, setMastery] = useState(() => getMastery(studyResourceId));
-  const refreshMastery = useCallback(() => setMastery(getMastery(studyResourceId)), [studyResourceId]);
 
   const [aiUsage, setAiUsage] = useState(null);
   const pageEnterTimeRef = useRef(Date.now());
@@ -1163,6 +1168,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       kind, color, rects: sel.rects, text: sel.text, note: "", createdAt: Date.now(),
     };
     setTextMarks((prev) => ({ ...prev, [sel.page]: [...(prev[sel.page] || []), mark] }));
+    undoStackRef.current.push({ kind: "mark", page: sel.page, id: mark.id });
+    setUndoCount(undoStackRef.current.length);
     window.getSelection()?.removeAllRanges?.();
     pendingSelRef.current = null;
     setSelPop(null);
@@ -1598,7 +1605,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     hideChat();
     closeAllMobileOverlays();
     setStudyToolsOpen(true);
-    refreshMastery();
     checkRankCelebration();
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     if (authData.authToken) {
@@ -2084,7 +2090,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       const appMcq = { question: mcq.question, options: optionsObj, correct: QUIZ_LETTERS[mcq.answer], explanation: mcq.explanation || "" };
       recordPracticeResult(studyResourceId, [appMcq], { 0: QUIZ_LETTERS[pickedIdx] });
       recordPracticeSession(studyResourceId, null, correct ? 1 : 0, 1);
-      refreshMastery();
     } catch {}
     // Aggregate FSRS card per document — chat questions are ephemeral and
     // have no stable bank index, so the server pins chat_mcq to pageIndex -1.
@@ -2388,6 +2393,57 @@ Passage:
     quizFromText(sel.text, sel.page);
   };
 
+  // ── Define — instant dictionary card for short selections, AI for long ──
+  const handleDefine = () => {
+    const sel = pendingSelRef.current;
+    const word = sel?.text?.trim() || "";
+    const short = word && word.split(/\s+/).length <= 3 && word.length <= 40;
+    if (!short) {
+      askAboutSelection("Define this term precisely and simply, with one concrete example:");
+      return;
+    }
+    const pos = selPop;
+    setDefinePop({
+      x: pos?.x ?? window.innerWidth / 2,
+      y: pos?.y ?? window.innerHeight / 3,
+      above: pos?.above ?? false,
+      word, loading: true, data: null,
+    });
+    setSelPop(null);
+    window.getSelection()?.removeAllRanges?.();
+    fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setDefinePop((p) => (p ? { ...p, loading: false, data: json } : p)))
+      .catch(() => setDefinePop((p) => (p ? { ...p, loading: false, data: null } : p)));
+  };
+
+  // ── Selection → flashcard — back carries the passage, front is the prompt ──
+  const openCardEdit = () => {
+    const sel = pendingSelRef.current;
+    if (!sel) return;
+    setCardEdit({ front: "", back: sel.text.slice(0, 600), page: sel.page });
+    setSelPop(null);
+    window.getSelection()?.removeAllRanges?.();
+  };
+  const saveCard = async () => {
+    if (!cardEdit || !propResourceId) return;
+    const front = cardEdit.front.trim(), back = cardEdit.back.trim();
+    if (!front || !back) return;
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/resources/fsrs/flashcards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resourceId: propResourceId, front, back, sourcePage: cardEdit.page }),
+      });
+      if (!res.ok) throw new Error();
+      toastDeck("🃏 Card saved — it'll appear in your review deck");
+      window.dispatchEvent(new Event("sc-fsrs-rated"));
+      setCardEdit(null);
+    } catch {
+      toastDeck("Couldn't save the card — try again", "error");
+    }
+  };
+
   // Add one answered chat-quiz question to the Survival Quiz deck.
   // Chat mcq shape {question, options:[], answer:idx} → app shape {options:{A..}, correct:"A"}.
   const addChatMcqToDeck = async (mcq, page, key) => {
@@ -2569,8 +2625,42 @@ Passage:
   const overlayEventsFor = (pg) =>
     tool === "none" || (tool === "highlight" && pageHasText(pg)) ? "none" : "auto";
 
+  // Erase gesture — split strokes at contact points and drop marks the
+  // cursor touches. Points arrive in PDF coords; radius scales with zoom.
+  const applyErase = (pg, pdfPts) => {
+    const radius = 10 / scale;
+    setAnnotations((prev) => {
+      const list = prev[pg] || [];
+      if (!list.length) return prev;
+      const out = [];
+      let changed = false;
+      for (const st of list) {
+        const runs = eraseSplit(st.points, pdfPts, radius);
+        if (runs.length === 1 && runs[0].length === st.points.length) { out.push(st); continue; }
+        changed = true;
+        for (const r of runs) out.push({ ...st, points: r });
+      }
+      return changed ? { ...prev, [pg]: out } : prev;
+    });
+    const eb = pageDimsRef.current[pg] || { width: 1, height: 1 };
+    setTextMarks((prev) => {
+      const list = prev[pg] || [];
+      if (!list.length) return prev;
+      const hit = (m) => m.rects.some((r) => pdfPts.some((ep) => {
+        const nx = ep.x / eb.width, ny = ep.y / eb.height;
+        return nx >= r[0] && nx <= r[2] && ny >= r[1] && ny <= r[3];
+      }));
+      const kept = list.filter((m) => !hit(m));
+      return kept.length === list.length ? prev : { ...prev, [pg]: kept };
+    });
+  };
+
+  const newStrokeId = () => `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e5)}`;
+
   const onOverlayDown = (e, pg = currentPage) => {
     if (tool === "none") return;
+    // Stylus-only mode: only pen/mouse inks — fingers keep scrolling (palm rejection).
+    if (stylusOnly && e.pointerType === "touch") return;
     e.preventDefault();
     // Dismiss the tool picker as soon as ink lands so it never covers the page.
     setAnnotatePopOpen(false);
@@ -2595,39 +2685,26 @@ Passage:
       return;
     }
 
+    if (tool === "line" || tool === "arrow") {
+      setIsDrawing(true);
+      shapeRef.current = [p, p];
+      setShapePreview({ type: tool, a: p, b: p });
+      return;
+    }
+
     if (tool === "erase") {
-      // Hit-test marks first — text highlights and scanned-region boxes both
-      // live in textMarks as normalized rects.
-      const pdfP = screenToPdf(p);
-      const eb = pageDimsRef.current[pg] || { width: 1, height: 1 };
-      const nx = pdfP.x / eb.width, ny = pdfP.y / eb.height;
-      const hitMark = (textMarks[pg] || []).find((m) =>
-        m.rects.some((r) => nx >= r[0] && nx <= r[2] && ny >= r[1] && ny <= r[3]));
-      if (hitMark) { removeMark(pg, hitMark.id); return; }
-      // Freehand strokes: find nearest stroke within threshold
-      const pageAnnots = annotations[pg] || [];
-      const threshold = 12 / scale;
-      for (let si = pageAnnots.length - 1; si >= 0; si--) {
-        const stroke = pageAnnots[si];
-        const pdfP = screenToPdf(p);
-        const hit = stroke.points.some((sp) => Math.hypot(sp.x - pdfP.x, sp.y - pdfP.y) < threshold);
-        if (hit) {
-          setAnnotations((prev) => {
-            const arr = [...(prev[pg] || [])];
-            arr.splice(si, 1);
-            return { ...prev, [pg]: arr };
-          });
-          break;
-        }
-      }
+      setIsDrawing(true);
+      eraseTrail.current = [p];
+      setEraseDot(p);
+      applyErase(pg, [screenToPdf(p)]);
       return;
     }
 
     if (tool === "highlight" || tool === "pen") {
       setIsDrawing(true);
-      currentStrokes.current = [p];
-      const d = `M ${p.x},${p.y}`;
-      setRenderStrokes(d);
+      currentStrokes.current = [{ x: p.x, y: p.y, p: e.pressure || 0.5, v: 0 }];
+      if (tool === "pen") setPenPreview(dotPath(p, penWidth / 2));
+      else setRenderStrokes(`M ${p.x},${p.y}`);
     }
   };
 
@@ -2649,15 +2726,39 @@ Passage:
       return;
     }
 
+    if (tool === "line" || tool === "arrow") {
+      const p = getRelPoint(evts[evts.length - 1]);
+      if (shapeRef.current) {
+        shapeRef.current[1] = p;
+        setShapePreview({ type: tool, a: shapeRef.current[0], b: p });
+      }
+      return;
+    }
+
+    if (tool === "erase") {
+      const fresh = [];
+      for (const ev of evts) {
+        const p = getRelPoint(ev);
+        const last = eraseTrail.current[eraseTrail.current.length - 1];
+        if (last && Math.hypot(p.x - last.x, p.y - last.y) < 2) continue;
+        eraseTrail.current.push(p);
+        fresh.push(screenToPdf(p));
+      }
+      setEraseDot(eraseTrail.current[eraseTrail.current.length - 1]);
+      if (fresh.length) applyErase(drawPageRef.current || currentPage, fresh);
+      return;
+    }
+
     if (tool === "highlight" || tool === "pen") {
       for (const ev of evts) {
         const p = getRelPoint(ev);
         const last = currentStrokes.current[currentStrokes.current.length - 1];
-        if (last && Math.hypot(p.x - last.x, p.y - last.y) < 2) continue;
-        currentStrokes.current.push(p);
+        const dist = last ? Math.hypot(p.x - last.x, p.y - last.y) : 0;
+        if (last && dist < 2) continue;
+        currentStrokes.current.push({ x: p.x, y: p.y, p: ev.pressure || 0.5, v: Math.min(1, dist / 18) });
       }
-      const d = "M " + currentStrokes.current.map((p) => `${p.x},${p.y}`).join(" L ");
-      setRenderStrokes(d);
+      if (tool === "pen") setPenPreview(taperedOutline(currentStrokes.current, penWidth) || dotPath(currentStrokes.current[0], penWidth / 2));
+      else setRenderStrokes(smoothPath(currentStrokes.current));
     }
   };
 
@@ -2686,37 +2787,63 @@ Passage:
       return;
     }
 
+    if (tool === "line" || tool === "arrow") {
+      const seg = shapeRef.current;
+      shapeRef.current = null;
+      setShapePreview(null);
+      if (!seg || Math.hypot(seg[1].x - seg[0].x, seg[1].y - seg[0].y) < 8) return;
+      const stroke = { id: newStrokeId(), type: tool, color: penColor, width: penWidth / scale, points: [screenToPdf(seg[0]), screenToPdf(seg[1])] };
+      setAnnotations((prev) => ({ ...prev, [pg]: [...(prev[pg] || []), stroke] }));
+      undoStackRef.current.push({ kind: "stroke", page: pg, ref: stroke });
+      setUndoCount(undoStackRef.current.length);
+      return;
+    }
+
+    if (tool === "erase") {
+      eraseTrail.current = [];
+      setEraseDot(null);
+      return;
+    }
+
     if (tool === "highlight" || tool === "pen") {
       const pts = currentStrokes.current;
       currentStrokes.current = [];
       setRenderStrokes("");
-      if (pts.length < 2) return;
-      // Convert to PDF coords and save
-      const pdfPts = pts.map(screenToPdf);
+      setPenPreview("");
+      // Convert to PDF coords, keeping captured pressure/velocity.
+      const pdfPts = pts.map((q) => ({ ...screenToPdf(q), p: q.p, v: q.v }));
       if (tool === "pen") {
-        setAnnotations((prev) => ({
-          ...prev,
-          [pg]: [...(prev[pg] || []), { color: penColor, width: penWidth / scale, points: pdfPts, type: "pen" }],
-        }));
+        // Single tap → dot; a stroke → tapered ink. Renderer decides by point count.
+        const stroke = { id: newStrokeId(), color: penColor, width: penWidth / scale, points: pdfPts, type: "pen" };
+        setAnnotations((prev) => ({ ...prev, [pg]: [...(prev[pg] || []), stroke] }));
+        undoStackRef.current.push({ kind: "stroke", page: pg, ref: stroke });
+        setUndoCount(undoStackRef.current.length);
         return;
       }
-      // Highlight only ever reaches here on pages with no text layer
-      // (scanned) — text pages select instead. Store the stroke's bounding
-      // box as a mark so it renders like a highlight and lists in
-      // Highlights & notes just like a text mark.
+      // Marker on scanned pages: a wide-thin drag straightens into a clean
+      // highlight mark; anything else becomes a freehand multiply-blend stroke.
       const xs = pdfPts.map((p) => p.x), ys = pdfPts.map((p) => p.y);
-      const base = pageDimsRef.current[pg] || { width: 1, height: 1 };
-      const x0 = Math.max(0, Math.min(...xs) / base.width), y0 = Math.max(0, Math.min(...ys) / base.height);
-      const x1 = Math.min(1, Math.max(...xs) / base.width), y1 = Math.min(1, Math.max(...ys) / base.height);
-      if (x1 - x0 < 0.005 || y1 - y0 < 0.005) return;
-      setTextMarks((prev) => ({
-        ...prev,
-        [pg]: [...(prev[pg] || []), {
+      const bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
+      if (bh > 0 && bw / bh > 2.2) {
+        const base = pageDimsRef.current[pg] || { width: 1, height: 1 };
+        const x0 = Math.max(0, Math.min(...xs) / base.width), y0 = Math.max(0, Math.min(...ys) / base.height);
+        const x1 = Math.min(1, Math.max(...xs) / base.width), y1 = Math.min(1, Math.max(...ys) / base.height);
+        if (x1 - x0 < 0.005 || y1 - y0 < 0.005) return;
+        const mark = {
           id: `m${Date.now().toString(36)}${Math.floor(Math.random() * 1e5)}`,
           kind: "highlight", color: highlightColor, rects: [[x0, y0, x1, y1]],
           text: "", note: "", createdAt: Date.now(),
-        }],
-      }));
+        };
+        setTextMarks((prev) => ({ ...prev, [pg]: [...(prev[pg] || []), mark] }));
+        undoStackRef.current.push({ kind: "mark", page: pg, id: mark.id });
+        setUndoCount(undoStackRef.current.length);
+        return;
+      }
+      if (pdfPts.length < 2) return;
+      const stroke = { id: newStrokeId(), type: "hl", color: highlightColor, width: highlightWidth / scale, points: pdfPts };
+      setAnnotations((prev) => ({ ...prev, [pg]: [...(prev[pg] || []), stroke] }));
+      undoStackRef.current.push({ kind: "stroke", page: pg, ref: stroke });
+      setUndoCount(undoStackRef.current.length);
     }
   };
 
@@ -2733,8 +2860,13 @@ Passage:
       await finishLasso(lassoPoints.current, pg);
       return;
     }
+    shapeRef.current = null;
+    eraseTrail.current = [];
     currentStrokes.current = [];
+    setShapePreview(null);
+    setEraseDot(null);
     setRenderStrokes("");
+    setPenPreview("");
   };
 
   const clearPageAnnotations = () => {
@@ -2748,13 +2880,22 @@ Passage:
   };
 
   // Build SVG paths for saved annotations on current page
-  const savedAnnotationPaths = (annotations[currentPage] || []).map((stroke, si) => {
-    const d = "M " + stroke.points.map((p) => {
-      const s = pdfToScreen(p);
-      return `${s.x},${s.y}`;
-    }).join(" L ");
-    return { si, d, color: stroke.color, width: stroke.width * scale, type: stroke.type || "highlight" };
-  });
+  // Saved stroke → render geometry. Pen strokes become tapered filled
+  // outlines (old strokes render tapered too — defaults cover missing p/v).
+  const strokeGeom = (stroke, toScreen) => {
+    const pts = stroke.points.map((p) => { const s = toScreen(p); return { x: s.x, y: s.y, p: p.p, v: p.v }; });
+    const w = stroke.width * scale;
+    const type = stroke.type || "hl";
+    if (type === "pen") {
+      return pts.length < 2
+        ? { kind: "fill", d: dotPath(pts[0], Math.max(1.5, w / 2)), color: stroke.color }
+        : { kind: "fill", d: taperedOutline(pts, w), color: stroke.color };
+    }
+    if (type === "line") return { kind: "stroke", d: `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`, color: stroke.color, width: w };
+    if (type === "arrow") return { kind: "arrow", d: `M ${pts[0].x},${pts[0].y} L ${pts[1].x},${pts[1].y}`, head: arrowHeadPath(pts[0], pts[1], w), color: stroke.color, width: w };
+    return { kind: "stroke", d: smoothPath(pts), color: stroke.color, width: w, multiply: true };
+  };
+  const savedAnnotationPaths = (annotations[currentPage] || []).map((stroke, si) => ({ si, ...strokeGeom(stroke, pdfToScreen) }));
 
   // ---- TTS ----
   const toggleTTS = async () => {
@@ -2817,7 +2958,13 @@ Passage:
         const pt = { ...prev.pageTimes };
         pt[currentPage] = (pt[currentPage] || 0) + elapsed;
         const pr = prev.pagesRead.includes(currentPage) ? prev.pagesRead : [...prev.pagesRead, currentPage];
-        const updated = { ...prev, pageTimes: pt, pagesRead: pr, totalSeconds: prev.totalSeconds + elapsed };
+        const day = new Date().toISOString().slice(0, 10);
+        const days = { ...(prev.days || {}) };
+        const d = days[day] || { pages: [], sec: 0 };
+        if (!d.pages.includes(currentPage)) d.pages = [...d.pages, currentPage];
+        d.sec += elapsed;
+        days[day] = d;
+        const updated = { ...prev, pageTimes: pt, pagesRead: pr, totalSeconds: prev.totalSeconds + elapsed, days };
         saveStored(`sc_pdf_stats_${docKey}`, updated);
         return updated;
       });
@@ -2835,7 +2982,13 @@ Passage:
           const pt = { ...prev.pageTimes };
           pt[currentPage] = (pt[currentPage] || 0) + elapsed;
           const pr = prev.pagesRead.includes(currentPage) ? prev.pagesRead : [...prev.pagesRead, currentPage];
-          const updated = { ...prev, pageTimes: pt, pagesRead: pr, totalSeconds: prev.totalSeconds + elapsed };
+          const day = new Date().toISOString().slice(0, 10);
+          const days = { ...(prev.days || {}) };
+          const d = days[day] || { pages: [], sec: 0 };
+          if (!d.pages.includes(currentPage)) d.pages = [...d.pages, currentPage];
+          d.sec += elapsed;
+          days[day] = d;
+          const updated = { ...prev, pageTimes: pt, pagesRead: pr, totalSeconds: prev.totalSeconds + elapsed, days };
           saveStored(`sc_pdf_stats_${docKey}`, updated);
           return updated;
         });
@@ -3123,14 +3276,41 @@ Passage:
       if (next === "none") {
         setLassoPath("");
         setRenderStrokes("");
+        setPenPreview("");
+        setShapePreview(null);
+        setEraseDot(null);
         lassoPoints.current = [];
         currentStrokes.current = [];
+        shapeRef.current = null;
+        eraseTrail.current = [];
         if (prev === "circle" && !dockMode) hideChat(); // docked chat persists — dismiss via ✕
       }
-      setAnnotateTab(next === "pen" || next === "highlight" || next === "erase" ? next : "none");
+      setAnnotateTab(next);
       return next;
     });
   };
+
+  // Undo the most recent annotation/mark (dock ↩ + Ctrl/Cmd-Z).
+  const undoLast = () => {
+    const item = undoStackRef.current.pop();
+    if (!item) return;
+    if (item.kind === "mark") removeMark(item.page, item.id);
+    else setAnnotations((prev) => ({ ...prev, [item.page]: (prev[item.page] || []).filter((s) => s !== item.ref && s.id !== item.id) }));
+    setUndoCount(undoStackRef.current.length);
+    buzz(8);
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z" || e.shiftKey) return;
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable) return;
+      if (!undoStackRef.current.length) return;
+      e.preventDefault();
+      undoLast();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Annotate popover: select a tab (pen / highlight / erase) ----
   const selectAnnotateTab = (tab) => {
@@ -3541,6 +3721,10 @@ Passage:
   const progressLine = numPages
     ? `Page ${currentPage} of ${numPages} · ${progressPct}%${etaMin ? ` · ~${etaMin} min left` : ""}`
     : "";
+  const todayStats = readingStats.days?.[new Date().toISOString().slice(0, 10)];
+  const todayLine = todayStats && todayStats.sec >= 30
+    ? ` · today ${todayStats.pages.length}p ${Math.round(todayStats.sec / 60)}m`
+    : "";
 
   const reader = (
     <div style={s.container}>
@@ -3677,7 +3861,7 @@ Passage:
           <span style={s.docTitle}>{title || "PDF"}</span>
           <span style={{ ...s.docSubtitle, display: "inline-flex", alignItems: "center", gap: 5 }}>
             <ProgressRing pct={progressPct} />
-            {progressLine}
+            {progressLine}{todayLine}
           </span>
         </div>
 
@@ -3971,6 +4155,20 @@ Passage:
                   MARK
                 </button>
                 <button
+                  style={{ ...s.toolTab, ...(annotateTab === "line" ? { ...s.toolTabActive, color: CHROME.blue } : {}) }}
+                  onClick={() => selectAnnotateTab("line")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M5 19L19 5"/></svg>
+                  LINE
+                </button>
+                <button
+                  style={{ ...s.toolTab, ...(annotateTab === "arrow" ? { ...s.toolTabActive, color: CHROME.blue } : {}) }}
+                  onClick={() => selectAnnotateTab("arrow")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M5 19L19 5M19 5h-7M19 5v7"/></svg>
+                  ARROW
+                </button>
+                <button
                   style={{ ...s.toolTab, ...(annotateTab === "erase" ? { ...s.toolTabActive, color: CHROME.coral } : {}) }}
                   onClick={() => selectAnnotateTab("erase")}
                 >
@@ -3979,8 +4177,8 @@ Passage:
                 </button>
               </div>
 
-              {/* Pen options */}
-              {annotateTab === "pen" && (
+              {/* Pen / line / arrow options — shared ink colour + width */}
+              {(annotateTab === "pen" || annotateTab === "line" || annotateTab === "arrow") && (
                 <>
                   <div style={s.popRowLabel}>Ink colour</div>
                   <div style={s.swatchRow}>
@@ -4029,6 +4227,18 @@ Passage:
                       />
                     ))}
                   </div>
+                  <div style={s.popRowLabel}>Thickness</div>
+                  <div style={s.widthRow}>
+                    {HIGHLIGHT_WIDTHS.map((w) => (
+                      <button
+                        key={w}
+                        style={{ ...s.widthChip, ...(highlightWidth === w ? s.widthChipActive : {}) }}
+                        onClick={() => setHighlightWidth(w)}
+                      >
+                        <div style={{ width: 20, height: Math.min(10, w / 2), borderRadius: 3, background: highlightWidth === w ? CHROME.gold : T.muted }} />
+                      </button>
+                    ))}
+                  </div>
                   <div style={{ fontSize: 12, color: T.muted, padding: "10px 0 2px" }}>
                     Drag across text to highlight — saves to Highlights &amp; notes.
                   </div>
@@ -4038,7 +4248,7 @@ Passage:
               {/* Erase hint */}
               {annotateTab === "erase" && (
                 <div style={{ fontSize: 12, color: T.muted, textAlign: "center", padding: "12px 0" }}>
-                  Tap on a highlight or pen stroke to erase it.
+                  Drag through ink to cut it — tap a highlight to remove it.
                 </div>
               )}
 
@@ -4048,6 +4258,15 @@ Passage:
                   Pick a tool above to start annotating this page.
                 </div>
               )}
+
+              {/* Stylus-only mode — fingers scroll, only pen/mouse inks */}
+              <button
+                style={{ ...s.overflowItem, padding: "8px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 8, color: stylusOnly ? CHROME.blue : T.muted, border: `1px solid ${stylusOnly ? "rgba(79,142,247,0.4)" : T.border}`, borderRadius: 8, marginTop: 8, background: stylusOnly ? "rgba(79,142,247,0.10)" : "none" }}
+                onClick={() => { const v = !stylusOnly; setStylusOnly(v); saveStored("sc_pdf_stylusonly", v); }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                Stylus only {stylusOnly ? "· on" : "· off"}
+              </button>
 
               {/* Clear button */}
               {annotations[currentPage]?.length > 0 && (
@@ -4493,12 +4712,116 @@ Passage:
             📝 Note
           </button>
           <button style={s.selPopBtn} onClick={() => askAboutSelection("Explain this passage clearly and concisely — under 100 words:")}>✨ Explain</button>
-          <button style={s.selPopBtn} onClick={() => askAboutSelection("Define this term precisely and simply, with one concrete example:")}>📖 Define</button>
+          <button style={s.selPopBtn} onClick={handleDefine}>📖 Define</button>
           <button style={s.selPopBtn} onClick={genQuizFromSelection} disabled={chatLoading}>❓ Quiz</button>
+          {propResourceId && <button style={s.selPopBtn} onClick={openCardEdit}>🃏 Card</button>}
           <button style={s.selPopBtn} onClick={shareSelection} disabled={shareBusy} title="Share this highlight with everyone reading this PDF">📤 Share</button>
           <button style={s.selPopBtn} onClick={copySelection}>📋 Copy</button>
           <button style={s.selPopBtn} onClick={speakSelection} title="Read aloud" aria-label="Read aloud">🔊</button>
         </div>
+      )}
+
+      {/* ── Define card — instant dictionary lookup for short selections ── */}
+      {definePop && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 299 }} onClick={() => setDefinePop(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: Math.max(8, Math.min(window.innerWidth - 250, definePop.x - 110)),
+              ...(definePop.above ? { bottom: window.innerHeight - definePop.y } : { top: definePop.y }),
+              transform: "translateX(-50%)",
+              zIndex: 300,
+              background: T.toolbar,
+              border: `1px solid ${T.border}`,
+              borderRadius: 12,
+              boxShadow: `0 10px 32px ${T.shadow}`,
+              padding: "10px 12px",
+              width: 240,
+              maxWidth: "92vw",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{definePop.word}</span>
+              {definePop.data?.[0]?.phonetic && <span style={{ fontSize: 11, color: T.muted }}>{definePop.data[0].phonetic}</span>}
+            </div>
+            {definePop.loading && <div style={{ fontSize: 12, color: T.muted, padding: "8px 0" }}>Looking up…</div>}
+            {!definePop.loading && !definePop.data && (
+              <div style={{ fontSize: 12, color: T.muted, padding: "8px 0" }}>No dictionary entry — try Ask AI below.</div>
+            )}
+            {!definePop.loading && definePop.data?.[0]?.meanings?.slice(0, 2).map((m, i) => (
+              <div key={i} style={{ marginTop: 6 }}>
+                <span style={{ fontSize: 10, fontStyle: "italic", color: CHROME.blue }}>{m.partOfSpeech}</span>
+                <div style={{ fontSize: 12, color: T.text, lineHeight: 1.45 }}>{m.definitions?.[0]?.definition}</div>
+              </div>
+            ))}
+            <button
+              style={{ ...s.selPopBtn, marginTop: 8, width: "100%" }}
+              onClick={() => { setDefinePop(null); askAboutSelection("Define this term precisely and simply, with one concrete example:"); }}
+            >
+              ✨ Ask AI for more
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ── Flashcard mini-sheet — selection becomes the card's back ── */}
+      {cardEdit && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 299, background: "rgba(0,0,0,0.3)" }} onClick={() => setCardEdit(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: "50%",
+              bottom: isMobile ? 96 : 60,
+              transform: "translateX(-50%)",
+              zIndex: 300,
+              background: T.toolbar,
+              border: `1px solid ${T.border}`,
+              borderRadius: 14,
+              boxShadow: `0 12px 36px ${T.shadow}`,
+              padding: 14,
+              width: 300,
+              maxWidth: "92vw",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: T.muted, marginBottom: 8 }}>
+              New flashcard · p.{cardEdit.page}
+            </div>
+            <input
+              autoFocus
+              value={cardEdit.front}
+              onChange={(e) => setCardEdit({ ...cardEdit, front: e.target.value })}
+              placeholder="Front — question or term"
+              style={{ ...s.pageInput, width: "100%", textAlign: "left", padding: "8px 10px", fontSize: 13, marginBottom: 8 }}
+              onKeyDown={(e) => { if (e.key === "Enter") saveCard(); }}
+            />
+            <textarea
+              value={cardEdit.back}
+              onChange={(e) => setCardEdit({ ...cardEdit, back: e.target.value })}
+              rows={3}
+              placeholder="Back — answer"
+              style={{ width: "100%", textAlign: "left", padding: "8px 10px", fontSize: 12, resize: "vertical", fontFamily: "inherit", lineHeight: 1.45, marginBottom: 10, border: `1px solid ${T.border}`, borderRadius: 6, background: T.inputBg, color: T.text }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={{ flex: 1, background: "linear-gradient(145deg, #F5A623, #d98a12)", color: "#1a1200", border: "none", borderRadius: 12, padding: "8px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: cardEdit.front.trim() && cardEdit.back.trim() ? 1 : 0.5 }}
+                onClick={saveCard}
+                disabled={!cardEdit.front.trim() || !cardEdit.back.trim()}
+              >
+                Save card
+              </button>
+              <button
+                style={{ background: T.hover, color: T.text, border: `1px solid ${T.border}`, borderRadius: 12, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}
+                onClick={() => setCardEdit(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Mark context menu (tap an existing highlight) ── */}
@@ -5022,29 +5345,31 @@ Passage:
                 onLostPointerCapture={onOverlayCancel}
               >
                 {/* Saved annotations */}
-                {savedAnnotationPaths.map((sp) => (
-                  <path
-                    key={`a${sp.si}`}
-                    d={sp.d}
-                    stroke={sp.color}
-                    strokeWidth={sp.width}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={sp.type === "pen" ? undefined : { mixBlendMode: "multiply" }}
-                  />
-                ))}
-                {/* Current stroke being drawn */}
-                {renderStrokes && (tool === "highlight" || tool === "pen") && (
-                  <path
-                    d={renderStrokes}
-                    stroke={tool === "pen" ? penColor : highlightColor}
-                    strokeWidth={tool === "pen" ? penWidth : highlightWidth}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={tool === "highlight" ? { mixBlendMode: "multiply" } : undefined}
-                  />
+                {savedAnnotationPaths.map((sp) =>
+                  sp.kind === "fill" ? (
+                    <path key={`a${sp.si}`} d={sp.d} fill={sp.color} stroke="none" />
+                  ) : sp.kind === "arrow" ? (
+                    <g key={`a${sp.si}`}>
+                      <path d={sp.d} stroke={sp.color} strokeWidth={sp.width} fill="none" strokeLinecap="round" />
+                      <path d={sp.head} fill={sp.color} stroke="none" />
+                    </g>
+                  ) : (
+                    <path key={`a${sp.si}`} d={sp.d} stroke={sp.color} strokeWidth={sp.width} fill="none" strokeLinecap="round" strokeLinejoin="round" style={sp.multiply ? { mixBlendMode: "multiply" } : undefined} />
+                  )
+                )}
+                {/* Live ink: pen is a tapered fill, marker a multiply stroke */}
+                {penPreview && tool === "pen" && <path d={penPreview} fill={penColor} stroke="none" />}
+                {renderStrokes && tool === "highlight" && (
+                  <path d={renderStrokes} stroke={highlightColor} strokeWidth={highlightWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ mixBlendMode: "multiply" }} />
+                )}
+                {shapePreview && (tool === "line" || tool === "arrow") && (
+                  <>
+                    <path d={`M ${shapePreview.a.x},${shapePreview.a.y} L ${shapePreview.b.x},${shapePreview.b.y}`} stroke={penColor} strokeWidth={penWidth} fill="none" strokeLinecap="round" />
+                    {tool === "arrow" && <path d={arrowHeadPath(shapePreview.a, shapePreview.b, penWidth)} fill={penColor} />}
+                  </>
+                )}
+                {eraseDot && tool === "erase" && (
+                  <circle cx={eraseDot.x} cy={eraseDot.y} r={10} fill="none" stroke="#94a3b8" strokeWidth={1.2} strokeDasharray="3 3" />
                 )}
                 {/* Lasso path for circle-to-ask */}
                 {lassoPath && tool === "circle" && <path d={lassoPath} style={s.lassoPath} />}
@@ -5199,23 +5524,31 @@ Passage:
                         >
                           {/* Saved annotations */}
                           {(annotations[pg] || []).map((stroke, si) => {
-                            const d = "M " + stroke.points.map((p) => `${p.x * scale},${p.y * scale}`).join(" L ");
-                            return (
-                              <path
-                                key={`p${pg}a${si}`}
-                                d={d}
-                                stroke={stroke.color}
-                                strokeWidth={stroke.width * scale}
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                style={stroke.type === "pen" ? undefined : { mixBlendMode: "multiply" }}
-                              />
+                            const sp = strokeGeom(stroke, (p) => ({ x: p.x * scale, y: p.y * scale }));
+                            return sp.kind === "fill" ? (
+                              <path key={`p${pg}a${si}`} d={sp.d} fill={sp.color} stroke="none" />
+                            ) : sp.kind === "arrow" ? (
+                              <g key={`p${pg}a${si}`}>
+                                <path d={sp.d} stroke={sp.color} strokeWidth={sp.width} fill="none" strokeLinecap="round" />
+                                <path d={sp.head} fill={sp.color} stroke="none" />
+                              </g>
+                            ) : (
+                              <path key={`p${pg}a${si}`} d={sp.d} stroke={sp.color} strokeWidth={sp.width} fill="none" strokeLinecap="round" strokeLinejoin="round" style={sp.multiply ? { mixBlendMode: "multiply" } : undefined} />
                             );
                           })}
-                          {/* Active stroke (page the gesture started on) */}
-                          {pg === drawPage && renderStrokes && (tool === "highlight" || tool === "pen") && (
-                            <path d={renderStrokes} stroke={tool === "pen" ? penColor : highlightColor} strokeWidth={tool === "pen" ? penWidth : highlightWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" style={tool === "highlight" ? { mixBlendMode: "multiply" } : undefined} />
+                          {/* Live ink (page the gesture started on) */}
+                          {pg === drawPage && penPreview && tool === "pen" && <path d={penPreview} fill={penColor} stroke="none" />}
+                          {pg === drawPage && renderStrokes && tool === "highlight" && (
+                            <path d={renderStrokes} stroke={highlightColor} strokeWidth={highlightWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ mixBlendMode: "multiply" }} />
+                          )}
+                          {pg === drawPage && shapePreview && (tool === "line" || tool === "arrow") && (
+                            <>
+                              <path d={`M ${shapePreview.a.x},${shapePreview.a.y} L ${shapePreview.b.x},${shapePreview.b.y}`} stroke={penColor} strokeWidth={penWidth} fill="none" strokeLinecap="round" />
+                              {tool === "arrow" && <path d={arrowHeadPath(shapePreview.a, shapePreview.b, penWidth)} fill={penColor} />}
+                            </>
+                          )}
+                          {pg === drawPage && eraseDot && tool === "erase" && (
+                            <circle cx={eraseDot.x} cy={eraseDot.y} r={10} fill="none" stroke="#94a3b8" strokeWidth={1.2} strokeDasharray="3 3" />
                           )}
                           {/* Lasso path for circle-to-ask (page the gesture started on) */}
                           {pg === drawPage && lassoPath && tool === "circle" && (
@@ -5665,6 +5998,80 @@ Passage:
 
 
           {/* Page Tutor mini player — audio keeps playing while the panel is closed */}
+          {/* ── Annotate tool dock — persistent while a tool is armed ── */}
+          {annotateTab !== "none" && (
+            <div style={s.toolDock} onPointerDown={(e) => e.stopPropagation()}>
+              {[
+                { t: "pen", tint: CHROME.blue, icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg> },
+                { t: "highlight", tint: CHROME.gold, icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18h6l-3 3z" fill="currentColor"/><path d="M9.5 14.5l5-5m-7 7l7-7L17 12l-7 7-2.5-2.5z"/></svg> },
+                { t: "line", tint: CHROME.blue, icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M5 19L19 5"/></svg> },
+                { t: "arrow", tint: CHROME.blue, icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M5 19L19 5M19 5h-7M19 5v7"/></svg> },
+                { t: "erase", tint: CHROME.coral, icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/></svg> },
+              ].map(({ t, tint, icon }) => (
+                <button
+                  key={t}
+                  style={{ ...s.dockBtn, color: annotateTab === t ? tint : T.muted, background: annotateTab === t ? `${tint === CHROME.gold ? "rgba(245,166,35,0.16)" : tint === CHROME.coral ? "rgba(227,93,106,0.14)" : "rgba(79,142,247,0.16)"}` : "none", borderColor: annotateTab === t ? `${tint === CHROME.gold ? "rgba(245,166,35,0.45)" : tint === CHROME.coral ? "rgba(227,93,106,0.4)" : "rgba(79,142,247,0.4)"}` : "transparent" }}
+                  onClick={() => selectAnnotateTab(t)}
+                  title={{ pen: "Pen", highlight: "Marker", line: "Line", arrow: "Arrow", erase: "Eraser" }[t]}
+                  aria-label={t}
+                >
+                  {icon}
+                </button>
+              ))}
+              <span style={s.dockSep} />
+              {(annotateTab === "pen" || annotateTab === "line" || annotateTab === "arrow") && (
+                <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                  {INK_COLORS.map((c) => (
+                    <button key={c.name} style={{ ...s.dockSwatch, background: c.value, boxShadow: penColor === c.value ? `0 0 0 2px ${T.toolbar}, 0 0 0 3.5px ${CHROME.blue}` : "none" }} onClick={() => setPenColor(c.value)} title={c.name} aria-label={c.name} />
+                  ))}
+                </div>
+              )}
+              {annotateTab === "highlight" && (
+                <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                  {HIGHLIGHT_COLORS.map((c) => (
+                    <button key={c.name} style={{ ...s.dockSwatch, background: c.value, boxShadow: highlightColor === c.value ? `0 0 0 2px ${T.toolbar}, 0 0 0 3.5px ${CHROME.gold}` : "none" }} onClick={() => setHighlightColor(c.value)} title={c.name} aria-label={c.name} />
+                  ))}
+                </div>
+              )}
+              {(annotateTab === "pen" || annotateTab === "line" || annotateTab === "arrow") && (
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  {PEN_WIDTHS.map((w) => (
+                    <button key={w} style={{ ...s.dockBtn, width: 26, height: 26 }} onClick={() => setPenWidth(w)} title={`${w}px`} aria-label={`Stroke ${w}px`}>
+                      <div style={{ width: 16, height: w, borderRadius: w, background: penWidth === w ? CHROME.blue : T.muted }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {annotateTab === "highlight" && (
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  {HIGHLIGHT_WIDTHS.map((w) => (
+                    <button key={w} style={{ ...s.dockBtn, width: 26, height: 26 }} onClick={() => setHighlightWidth(w)} title={`${w}px`} aria-label={`Thickness ${w}px`}>
+                      <div style={{ width: 16, height: Math.min(10, w / 2), borderRadius: 3, background: highlightWidth === w ? CHROME.gold : T.muted }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <span style={s.dockSep} />
+              <button
+                style={{ ...s.dockBtn, color: undoCount ? T.text : T.muted, opacity: undoCount ? 1 : 0.4 }}
+                onClick={undoLast}
+                disabled={!undoCount}
+                title="Undo (Ctrl+Z)"
+                aria-label="Undo"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+              </button>
+              <button
+                style={{ ...s.dockBtn, color: "#4ADE80", background: "rgba(74,222,128,0.12)", borderColor: "rgba(74,222,128,0.35)" }}
+                onClick={() => toggleTool("none")}
+                title="Done annotating"
+                aria-label="Done"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6L9 17l-5-5"/></svg>
+              </button>
+            </div>
+          )}
+
           {!studyToolsOpen && pageTutor.lesson && pageTutor.player.idx >= 0 && (
             <button
               onClick={() => { setStudyView("lesson"); openStudyTools(); }}
@@ -5887,40 +6294,6 @@ Passage:
                         <span style={{ fontSize: 12 }}>🔒</span>
                       </div>
                     ))}
-
-                    {/* ── Practice: document mastery ── */}
-                    {mastery.totalQuestions > 0 && (
-                      <>
-                      <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: T.muted, margin: "16px 2px 4px" }}>Practice</div>
-                      <div style={{
-                        padding: "10px 14px",
-                        background: T.hover,
-                        border: `1px solid ${T.border}`,
-                        borderRadius: 10,
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
-                            {getMasteryEmoji(mastery.correctRate)} Document mastery
-                          </span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: getMasteryColor(mastery.correctRate) }}>
-                            {mastery.correctRate}%
-                          </span>
-                        </div>
-                        <div style={{ height: 6, background: T.border, borderRadius: 4, overflow: "hidden" }}>
-                          <div style={{
-                            height: "100%",
-                            width: `${mastery.correctRate}%`,
-                            background: getMasteryColor(mastery.correctRate),
-                            borderRadius: 4,
-                            transition: "width 0.4s ease",
-                          }} />
-                        </div>
-                        <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>
-                          {mastery.mastered}/{mastery.totalQuestions} questions mastered · Practiced {mastery.practicedCount} time{mastery.practicedCount !== 1 ? "s" : ""}
-                        </div>
-                      </div>
-                      </>
-                    )}
 
                     {/* ── Ask ── */}
                     <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: T.muted, margin: "16px 2px 4px" }}>Ask</div>
