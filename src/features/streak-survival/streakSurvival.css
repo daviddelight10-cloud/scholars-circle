@@ -1236,17 +1236,32 @@
 }
 .deck-scroll{ flex:1; overflow-y:auto; padding:16px 16px 0; scrollbar-width:thin; }
 .deck-scroll-pad{ height:calc(112px + env(safe-area-inset-bottom)); }
+/* Gizmo-style flashcard browse — the card IS the deck: question on the
+   front, flip to reveal the answer on the back. No option rows on the
+   front, so nothing on screen masquerades as the quiz runner. */
 .deck-card{
   background: var(--app-card); border:1px solid var(--card-border,var(--app-tint-med));
   box-shadow: 0 1px 3px rgba(var(--app-tint-rgb),.07), 0 1px 2px rgba(var(--app-tint-rgb),.04);
-  border-radius:16px; padding:14px 15px; margin-bottom:11px; cursor:pointer;
-  content-visibility:auto; contain-intrinsic-size:auto 180px;
-  animation:deckRise .38s cubic-bezier(.2,.8,.2,1) both;
+  border-radius:18px; padding:14px 15px; margin-bottom:11px; cursor:pointer;
+  content-visibility:auto; contain-intrinsic-size:auto 150px;
+  perspective:900px;
+  animation:deckPop .48s cubic-bezier(.34,1.45,.64,1) backwards;
   transition:border-color .2s ease;
 }
 .deck-card:hover{ border-color:var(--app-tint-strong); }
-.deck-card.open{ border-color:rgba(110,231,160,0.35); cursor:default; }
-@keyframes deckRise{ from{ opacity:0; transform:translateY(12px);} to{ opacity:1; transform:translateY(0);} }
+.deck-card.open{ border-color:rgba(110,231,160,0.35); }
+@keyframes deckPop{ from{ opacity:0; transform:scale(.9) translateY(12px);} to{ opacity:1; transform:none;} }
+.deck-card-in{
+  position:relative; transform-style:preserve-3d;
+  transition:transform .52s cubic-bezier(.3,.9,.35,1.15);
+}
+.deck-card.open .deck-card-in{ transform:rotateY(180deg); }
+.deck-face{ backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+.deck-face.back{
+  position:absolute; inset:0; transform:rotateY(180deg);
+  overflow:hidden auto; scrollbar-width:thin;
+  display:flex; flex-direction:column;
+}
 .deck-card-top{
   display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
   font-family:var(--font-mono,monospace); font-size:9px; font-weight:700;
@@ -1257,51 +1272,19 @@
 .deck-hint{ color:var(--text-dim,var(--c-9aa3b5)); opacity:0.7; }
 .deck-card.open .deck-hint{ color:rgba(110,231,160,0.75); }
 .deck-q{
-  font-size:13.5px; font-weight:600; line-height:1.55; margin:0 0 10px; color:var(--text,var(--c-edeff5));
+  font-size:14px; font-weight:600; line-height:1.55; margin:0; color:var(--text,var(--c-edeff5));
 }
-.deck-opts{ display:flex; flex-direction:column; gap:2px; }
-/* Preview rows are deliberately flat — bordered/letter-chipped rows read as
-   tappable answers and users mistook the list for the runner itself. */
-.deck-opt{
-  display:flex; align-items:center; gap:8px; padding:6px 10px;
-  border-radius:8px; border:none; background:transparent;
-  font-size:12px; line-height:1.45;
-  color:var(--text-dim,var(--c-c9d1e0)); opacity:.8; transition:all .18s ease;
+.deck-front-foot{
+  margin-top:10px; font-family:var(--font-mono,monospace); font-size:9px; font-weight:700;
+  letter-spacing:.8px; text-transform:uppercase;
+  color:var(--text-dim,var(--c-9aa3b5)); opacity:.55;
 }
-.deck-opt-letter{
-  flex-shrink:0; font-family:var(--font-mono,monospace); font-size:10px; font-weight:700;
-  color:var(--text-dim,var(--c-9aa3b5)); opacity:.7;
-}
-.deck-opt-letter::after{ content:"·"; margin-left:5px; }
-.deck-opt-text{ flex:1; min-width:0; }
-.deck-card.open .deck-opt.is-correct{ background:rgba(110,231,160,0.07); opacity:1; color:var(--text,var(--c-edeff5)); }
-.deck-card.open .deck-opt.is-correct .deck-opt-letter{ color:var(--c-6ee7a0); opacity:1; }
-.deck-opt-tag{
-  flex-shrink:0; margin-left:auto; font-family:var(--font-mono,monospace);
-  font-size:8.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase;
-  color:var(--c-6ee7a0); background:rgba(110,231,160,.13);
-  padding:3px 8px; border-radius:99px;
-}
-.deck-check{ color:var(--c-6ee7a0); font-weight:700; flex-shrink:0; }
-
-/* Hero start card at the top of the scroll — the run CTA leads, the card
-   list below reads as the preview it is. */
-.deck-hero{
-  display:flex; flex-direction:column; gap:10px; margin-bottom:14px;
-  padding:14px; border-radius:14px;
-  background:linear-gradient(135deg,rgba(110,231,160,.10),rgba(110,231,160,.03));
-  border:1px solid rgba(110,231,160,.22);
-}
-.deck-hero-t b{ display:block; font-size:14px; font-weight:800; color:var(--text,var(--c-edeff5)); }
-.deck-hero-t span{ font-size:11.5px; color:var(--text-dim,var(--c-c9d1e0)); }
-.deck-start.hero{ width:100%; padding:12px; font-size:14px; }
-.deck-hero .deck-cooldown{ margin:0; }
-.deck-list-label{
-  margin:0 0 10px; font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700;
-  letter-spacing:1px; text-transform:uppercase; color:var(--text-dim,var(--c-9aa3b5)); opacity:.8;
+.deck-back-label{ color:var(--c-6ee7a0); }
+.deck-ans{
+  margin:2px 0 0; font-size:14px; font-weight:800; line-height:1.5; color:var(--c-6ee7a0);
 }
 .deck-expl{
-  margin:11px 0 0; font-size:11.5px; line-height:1.55; color:var(--text-dim,var(--c-9aa3b5));
+  margin:10px 0 0; font-size:11.5px; line-height:1.55; color:var(--text-dim,var(--c-9aa3b5));
   border-left:2px solid rgba(255,181,71,0.4); padding-left:10px;
 }
 .deck-card-skel{ cursor:default; }
@@ -1316,6 +1299,37 @@
   height:36px; flex:1; border-radius:11px;
   background:linear-gradient(90deg,var(--app-tint-soft),var(--app-tint-med),var(--app-tint-soft));
   background-size:200% 100%; animation:deckShimmer 1.3s infinite;
+}
+
+/* Hero — one big bouncy play CTA with pastel stat pills; the list below is
+   unmistakably a deck of cards, not the run itself. */
+.deck-hero{
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  margin-bottom:16px; padding:20px 16px 16px; border-radius:20px; text-align:center;
+  background:linear-gradient(150deg,rgba(110,231,160,.13),rgba(255,182,39,.07) 70%,transparent);
+  border:1px solid rgba(110,231,160,.22);
+}
+.deck-hero-t b{ display:block; font-size:17px; font-weight:800; color:var(--text,var(--c-edeff5)); }
+.deck-hero-t span{ font-size:11.5px; color:var(--text-dim,var(--c-c9d1e0)); }
+.deck-pills{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
+.deck-pill{
+  font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700;
+  letter-spacing:.4px; padding:5px 11px; border-radius:99px;
+  background:var(--app-tint-soft); color:var(--text-dim,var(--c-c9d1e0));
+}
+.deck-pill.due{ background:rgba(255,182,39,.16); color:#FFB627; }
+.deck-pill.mast{ background:rgba(110,231,160,.13); color:var(--c-6ee7a0); }
+.deck-start.hero{
+  width:100%; padding:14px; font-size:15px; border-radius:16px;
+  transition:transform .12s ease, box-shadow .2s ease;
+  box-shadow:0 6px 18px rgba(110,231,160,.18);
+}
+.deck-start.hero:hover:not(:disabled){ transform:translateY(-1px); box-shadow:0 8px 22px rgba(110,231,160,.24); }
+.deck-start.hero:active:not(:disabled){ transform:scale(.96); box-shadow:none; }
+.deck-hero .deck-cooldown{ margin:0; width:100%; }
+.deck-list-label{
+  margin:0 0 10px; font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700;
+  letter-spacing:1px; text-transform:uppercase; color:var(--text-dim,var(--c-9aa3b5)); opacity:.8;
 }
 @keyframes deckShimmer{ from{ background-position:200% 0;} to{ background-position:-200% 0;} }
 .deck-error{
@@ -1467,12 +1481,10 @@
 
 /* ---------- Light theme: deepen the neon accents for cream surfaces ---------- */
 html[data-theme="light"] .ss-root{ --blue:#0891B2; --green:#2F9E6A; }
-html[data-theme="light"] .ss-root .deck-card.open .deck-opt.is-correct{ color:#1F7A4D; }
-html[data-theme="light"] .ss-root .deck-opt-tag{ color:#1F7A4D; background:rgba(47,158,106,.14); }
-html[data-theme="light"] .ss-root .deck-hero{ background:linear-gradient(135deg,rgba(47,158,106,.09),rgba(47,158,106,.03)); border-color:rgba(47,158,106,.25); }
+html[data-theme="light"] .ss-root .deck-back-label, html[data-theme="light"] .ss-root .deck-ans{ color:#1F7A4D; }
+html[data-theme="light"] .ss-root .deck-pill.mast{ background:rgba(47,158,106,.13); color:#1F7A4D; }
+html[data-theme="light"] .ss-root .deck-hero{ background:linear-gradient(150deg,rgba(47,158,106,.10),rgba(255,182,39,.08) 70%,transparent); border-color:rgba(47,158,106,.25); }
 html[data-theme="light"] .ss-root .deck-hero-t b{ color:#1a2333; }
 html[data-theme="light"] .ss-root .deck-hero-t span{ color:#5a6478; }
-html[data-theme="light"] .ss-root .deck-card.open .deck-opt.is-correct .deck-opt-letter{ color:#1F7A4D; }
-html[data-theme="light"] .ss-root .deck-opt.is-correct .deck-check{ color:#1F7A4D; }
 html[data-theme="light"] .ss-root .opt.correct{ color:#1F7A4D; }
 html[data-theme="light"] .ss-root .fsrs-note{ color:var(--text); }

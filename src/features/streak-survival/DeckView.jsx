@@ -12,10 +12,13 @@ import "./streakSurvival.css";
 // Rendered for saved Practice Questions decks (from StreakSurvival's 'deck' screen)
 // and for streaming drafts (from ResearchHub's generation overlay).
 
+// Gizmo-style flashcard: front shows only the stem — tap flips the card to
+// reveal the answer. No option rows on the front means nothing on screen
+// pretends to be the quiz runner.
 function DeckCard({ q, state, delay }) {
   const [open, setOpen] = useState(false);
   const ring = state ? masteryDots(state) : null;
-  const letters = q.opts.map((_, i) => String.fromCharCode(65 + i));
+  const answer = q.opts?.[q.a];
   return (
     <div
       className={`deck-card${open ? " open" : ""}`}
@@ -24,28 +27,32 @@ function DeckCard({ q, state, delay }) {
       role="button"
       tabIndex={0}
       aria-expanded={open}
+      aria-label={open ? `Answer: ${answer}` : `Question: ${q.q}`}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } }}
     >
-      <div className="deck-card-top">
-        {ring && (
-          <span className={`deck-ring${ring.due ? " due" : ""}`} title={ring.due ? "Due for review" : "Mastery"}>
-            {ring.due ? "⏰ DUE" : "●".repeat(Math.max(1, ring.dots))}
-          </span>
-        )}
-        <span className="deck-hint">{open ? "tap to hide" : "👁 peek"}</span>
-      </div>
-      <QuestionMeta q={q} className="deck-meta" />
-      <p className="deck-q">{q.q}</p>
-      <div className="deck-opts">
-        {q.opts.map((opt, i) => (
-          <div key={i} className={`deck-opt${open && i === q.a ? " is-correct" : ""}`}>
-            <span className="deck-opt-letter">{letters[i]}</span>
-            <span className="deck-opt-text">{opt}</span>
-            {open && i === q.a && <span className="deck-opt-tag">✓ answer</span>}
+      <div className="deck-card-in">
+        <div className="deck-face front">
+          <div className="deck-card-top">
+            {ring ? (
+              <span className={`deck-ring${ring.due ? " due" : ""}`} title={ring.due ? "Due for review" : "Mastery"}>
+                {ring.due ? "⏰ DUE" : "●".repeat(Math.max(1, ring.dots))}
+              </span>
+            ) : <span />}
+            <span className="deck-hint">tap to flip</span>
           </div>
-        ))}
+          <QuestionMeta q={q} className="deck-meta" />
+          <p className="deck-q">{q.q}</p>
+          <div className="deck-front-foot">{q.opts?.length || 0} options · tap to reveal answer</div>
+        </div>
+        <div className="deck-face back">
+          <div className="deck-card-top">
+            <span className="deck-back-label">✓ ANSWER</span>
+            <span className="deck-hint">flip back</span>
+          </div>
+          <p className="deck-ans">{answer}</p>
+          {q.explanation && <p className="deck-expl">{q.explanation}</p>}
+        </div>
       </div>
-      {open && q.explanation && <p className="deck-expl">{q.explanation}</p>}
     </div>
   );
 }
@@ -159,11 +166,12 @@ function DeckView({
           <div className="deck-hero">
             <div className="deck-hero-t">
               <b>Ready to run it?</b>
-              <span>
-                {scope ? <><b>{scope.label}</b> · </> : null}
-                {session.indices.length} question{session.indices.length === 1 ? "" : "s"} · about {sessionMinutes(session.indices.length)} min
-                {session.due > 0 ? ` · ${session.due} due` : ""}
-              </span>
+              <span>{scope ? <>{scope.label} · </> : null}about {sessionMinutes(session.indices.length)} min</span>
+            </div>
+            <div className="deck-pills">
+              <span className="deck-pill">{session.indices.length} in this run</span>
+              {session.due > 0 && <span className="deck-pill due">⏰ {session.due} due</span>}
+              {masteredN > 0 && <span className="deck-pill mast">★ {masteredN} mastered</span>}
             </div>
             {cooldownNote ? (
               <div className="deck-cooldown">{cooldownNote}</div>
@@ -206,9 +214,7 @@ function DeckView({
         )}
 
         {list.length > 0 && !generating && (
-          <div className="deck-list-label">
-            📋 Preview — tap a card to peek{showModes ? " · answers only count in a run" : ""}
-          </div>
+          <div className="deck-list-label">🃏 Your cards — tap to flip</div>
         )}
         {shown.map((q, i) => (
           <DeckCard key={q._key || i} q={q} state={states?.[q._key]} delay={i * 35} />
