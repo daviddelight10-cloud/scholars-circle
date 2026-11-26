@@ -8,6 +8,36 @@ const PING_MS = 20000;
 const RECONNECT_DELAY_MS = 1500;
 const MAX_RECONNECTS = 8;
 
+// Post-session question review: the socket already broadcasts every question
+// + reveal live, so the client keeps a per-index deck CompleteView can replay
+// — the server wipes per-round answers, it never sees this again.
+const deckFromQuestion = (deck, msg) => {
+  const next = deck.slice();
+  next[msg.index] = { ...(next[msg.index] || {}), question: msg.question, options: msg.options };
+  return next;
+};
+const deckFromReveal = (deck, msg, myId) => {
+  const next = deck.slice();
+  const mine = msg.picks?.[myId] || null;
+  const dist = { A: 0, B: 0, C: 0, D: 0 };
+  let answeredCount = 0;
+  for (const p of Object.values(msg.picks || {})) {
+    if (dist[p.option] != null) { dist[p.option]++; answeredCount++; }
+  }
+  next[msg.index] = {
+    ...(next[msg.index] || {}),
+    correct: msg.correct,
+    explanation: msg.explanation || "",
+    myPick: mine?.option || null,
+    myCorrect: mine?.correct ?? null,
+    myConfidence: mine?.confidence || null,
+    answered: !!mine,
+    dist,
+    answeredCount,
+  };
+  return next;
+};
+
 const initialState = {
   phase: "connecting", // connecting | lobby | transition | question | reveal | teachback | complete | ended | error
   roomId: null,
@@ -34,6 +64,7 @@ const initialState = {
   groupStreak: 0,
   talkedThrough: 0,
   complete: null,
+  reviewDeck: [], // [index] → {question, options, correct, explanation, myPick, myCorrect, myConfidence, answered, dist, answeredCount}
   battle: null, // group-vs-group mode: {id, mode, myTeam, a:{id,name,lineup}, b:{...}, scores:{a,b}}
   nextIndex: 0,
   endReason: null,
@@ -75,8 +106,15 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
     switch (msg.type) {
       case "room_state": {
         const offset = msg.serverNow ? msg.serverNow - Date.now() : 0;
-        setState((s) => ({
+        setState((s) => {
+          // Seed the review deck from a mid-game snapshot — a reconnect or
+          // late join only sees the current round; earlier ones are gone.
+          let deck = s.reviewDeck;
+          if (msg.question?.index != null) deck = deckFromQuestion(deck, msg.question);
+          if (msg.reveal?.index != null) deck = deckFromReveal(deck, msg.reveal, myIdRef.current);
+          return {
           ...s,
+          reviewDeck: deck,
           phase: msg.phase,
           roomId: msg.roomId,
           code: msg.code,
@@ -106,7 +144,8 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           hostTally: null,
           paused: false,
           serverOffset: offset,
-        }));
+          };
+        });
         break;
       }
       case "lobby_state":
@@ -149,11 +188,20 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
         break;
       case "phase":
         if (msg.phase === "transition") {
-          patch({ phase: "transition", nextIndex: msg.nextIndex, reveal: null, ready: { ready: [], needed: [] }, readyDeadline: null, teachBack: null, poll: null });
+          patch({
+            phase: "transition", nextIndex: msg.nextIndex, reveal: null,
+            ready: { ready: [], needed: [] }, readyDeadline: null, teachBack: null, poll: null,
+            ...(msg.nextIndex === 0 ? { reviewDeck: [] } : {}), // rematch starts a fresh deck
+          });
         }
         break;
       case "question":
-        patch({ phase: "question", question: msg, reveal: null, poll: null, teachBack: null, ready: { ready: [], needed: [] }, readyDeadline: null });
+        setState((s) => ({
+          ...s,
+          phase: "question", question: msg, reveal: null, poll: null, teachBack: null,
+          ready: { ready: [], needed: [] }, readyDeadline: null,
+          reviewDeck: deckFromQuestion(s.reviewDeck, msg),
+        }));
         break;
       case "lock_update":
         setState((s) => s.question
@@ -170,6 +218,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
           reveal: msg,
           talkedThrough: (msg.index ?? 0) + 1,
           groupStreak: msg.groupStreak,
+          reviewDeck: deckFromReveal(s.reviewDeck, msg, myIdRef.current),
           participants: msg.points
             ? s.participants.map((p) => msg.points[p.userId] != null ? { ...p, points: msg.points[p.userId] } : p)
             : s.participants,

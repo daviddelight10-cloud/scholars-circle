@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { IconBolt, IconBrain, IconClover, IconShare, IconTrophy, IconZap } from "../icons.jsx";
 import { getLiveHistory } from "../liveQuizApi.js";
+import { isPremium, openPremium } from "../../../lib/premium.js";
 import AvatarMark from "../../../components/AvatarMark.jsx";
+
+// Free users see explanations on the first questions — the rest lock behind
+// the resultInsights premium gate (same pattern as exam explanations).
+const FREE_EXPLAINS = 2;
 
 function initials(name) {
   return (name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -39,6 +44,12 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
   const [sharing, setSharing] = useState(false);
   const [history, setHistory] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const premium = isPremium();
+  // Questions the client saw live (question + reveal broadcasts), tagged
+  // with their original index — late joiners only have the rounds they saw.
+  const reviewItems = (room.reviewDeck || []).map((d, i) => (d ? { ...d, i } : null)).filter(Boolean);
+  const hasReview = reviewItems.length > 0;
 
   useEffect(() => {
     getLiveHistory().then(setHistory).catch(() => setHistory([]));
@@ -186,6 +197,59 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
       </div>
       )}
 
+      {hasReview && showReview && (
+        <div className="lq-card lq-review">
+          <p className="lq-card-label">QUESTION REVIEW{!premium ? " · first explanations free" : ""}</p>
+          {reviewItems.map((d, j) => {
+            const roomPct = d.answeredCount ? Math.round(((d.dist?.[d.correct] || 0) / d.answeredCount) * 100) : 0;
+            const explFree = premium || j < FREE_EXPLAINS;
+            return (
+              <div className="lq-review-item" key={d.i}>
+                <div className="lq-review-head">
+                  <span className="lq-review-num">Q{d.i + 1}</span>
+                  {d.answeredCount > 0 && (
+                    <>
+                      <span className="lq-review-acc" aria-hidden="true"><i style={{ width: `${roomPct}%` }} /></span>
+                      <span className="lq-review-acc-label">{roomPct}% of room</span>
+                    </>
+                  )}
+                </div>
+                <p className="lq-review-q">{d.question}</p>
+                {["A", "B", "C", "D"].filter((l) => d.options?.[l]).map((l) => {
+                  const isCorrect = l === d.correct;
+                  const isMine = l === d.myPick;
+                  const share = d.answeredCount ? Math.round(((d.dist?.[l] || 0) / d.answeredCount) * 100) : 0;
+                  return (
+                    <div key={l} className={`lq-review-opt${isCorrect ? " correct" : ""}${isMine ? (isCorrect ? " mine-good" : " mine-bad") : ""}`}>
+                      <b className="lq-review-letter">{l}</b>
+                      <span className="lq-review-opt-text">{d.options[l]}</span>
+                      <span className="lq-review-tags">
+                        {isMine && <em className="yours">you{d.myConfidence ? ` · ${d.myConfidence}` : ""}</em>}
+                        {isCorrect && <em className="right">✓</em>}
+                        {share > 0 && <em className="share">{share}%</em>}
+                      </span>
+                    </div>
+                  );
+                })}
+                {!d.answered && <p className="lq-review-skip">You didn't answer this one</p>}
+                {d.explanation ? (explFree ? (
+                  <p className="lq-review-expl">💡 {d.explanation}</p>
+                ) : (
+                  <button className="lq-review-expl locked" onClick={() => openPremium("resultInsights")}>
+                    🔒 Explanation — unlock with Premium
+                  </button>
+                )) : null}
+              </div>
+            );
+          })}
+          {!premium && reviewItems.some((d, j) => d.explanation && j >= FREE_EXPLAINS) && (
+            <button className="lq-review-unlock" onClick={() => openPremium("resultInsights")}>
+              🔓 Unlock every explanation — Premium
+            </button>
+          )}
+        </div>
+      )}
+
       {history && history.length > 0 && !showHistory && (
         <button className="lq-linkbtn" onClick={() => setShowHistory(true)}>Show my recent live sessions</button>
       )}
@@ -214,6 +278,11 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
 
       <div className="lq-action-group">
         <button className="lq-btn-primary" onClick={onBackToLobby}>Rematch — back to lobby</button>
+        {hasReview && (
+          <button className="lq-btn-secondary" onClick={() => setShowReview((v) => !v)}>
+            📋 {showReview ? "Hide question review" : "Review the questions"}
+          </button>
+        )}
         <button className="lq-btn-secondary" onClick={shareResults} disabled={sharing}>
           <IconShare size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
           {sharing ? "Preparing card…" : "Share results"}
