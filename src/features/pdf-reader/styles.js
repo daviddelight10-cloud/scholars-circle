@@ -501,6 +501,8 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       justifyContent: "space-between",
       alignItems: "center",
       padding: isMobile ? "6px 14px 8px" : "10px 14px",
+      touchAction: "none", // grab zone — drags drive the sheet, not scroll
+      cursor: isMobile ? "grab" : "default",
       borderBottom: `1px solid ${T.border}`,
       flexShrink: 0,
     },
@@ -1381,6 +1383,8 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       padding: isMobile ? "6px 14px 8px" : "10px 14px",
       borderBottom: `1px solid ${T.border}`,
       flexShrink: 0,
+      touchAction: "none", // grab zone — drags drive the sheet, not scroll
+      cursor: isMobile ? "grab" : "default",
     },
     studyTitle: {
       fontSize: isMobile ? 13 : 14,

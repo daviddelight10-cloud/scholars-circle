@@ -256,7 +256,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [showJumpLatest, setShowJumpLatest] = useState(false); // scrolled-up pill
   const chatAbortRef = useRef(null); // in-flight stream AbortController
   const chatNearBottomRef = useRef(true); // auto-scroll only while pinned
-  const sheetDragRef = useRef(null); // mobile sheet swipe-to-dismiss/expand
+  const sheetDragRef = useRef(null); // live sheet-drag state (chat + study panel)
+  const chatPopupRef = useRef(null); // mobile bottom-sheet element for drag transforms
+  const studyPanelRef = useRef(null); // same for the Study Tools sheet
 
   // Refs
   const pdfDocRef = useRef(null);
@@ -2097,15 +2099,55 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     el.style.height = `${Math.min(96, el.scrollHeight)}px`;
   };
 
-  // Mobile sheet: swipe down dismisses, swipe up expands, tap toggles.
-  const sheetTouchStart = (e) => { sheetDragRef.current = e.touches[0].clientY; };
-  const sheetTouchEnd = (e) => {
-    if (sheetDragRef.current == null) return;
-    const dy = e.changedTouches[0].clientY - sheetDragRef.current;
-    sheetDragRef.current = null;
-    if (dy > 80) hideChat();
-    else if (dy < -60) setChatExpanded(true);
-    else if (Math.abs(dy) < 8) setChatExpanded((v) => !v);
+  // Mobile bottom sheets (chat + study tools) drag like the file sheet:
+  // the sheet follows the finger downward, release past ~30% height or a
+  // fast flick dismisses, an upward swipe expands, a tap toggles.
+  const onSheetDragStart = (e, el, { onDismiss, onSwipeUp, onTap } = {}) => {
+    if (!el || e.target.closest("button")) return;
+    sheetDragRef.current = { startY: e.clientY, lastY: e.clientY, lastT: performance.now(), v: 0, dy: 0 };
+    el.style.transition = "none";
+    el.setPointerCapture?.(e.pointerId);
+    const onMove = (ev) => {
+      const d = sheetDragRef.current;
+      if (!d) return;
+      const now = performance.now();
+      const dt = now - d.lastT;
+      if (dt > 0) d.v = (ev.clientY - d.lastY) / dt;
+      d.lastY = ev.clientY;
+      d.lastT = now;
+      d.dy = ev.clientY - d.startY;
+      if (d.dy > 0) el.style.transform = `translateY(${d.dy}px)`;
+    };
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      const d = sheetDragRef.current;
+      sheetDragRef.current = null;
+      if (!d || !el.isConnected) return;
+      if (d.dy > el.offsetHeight * 0.3 || (d.dy > 0 && d.v > 0.5)) {
+        // Flick / far enough — animate out, then dismiss
+        el.style.transition = "transform 0.22s ease-in";
+        el.style.transform = "translateY(105%)";
+        setTimeout(onDismiss, 200);
+      } else if (d.dy < -60 && onSwipeUp) {
+        el.style.transform = "";
+        el.style.transition = "";
+        onSwipeUp();
+      } else if (Math.abs(d.dy) < 8 && onTap) {
+        el.style.transform = "";
+        el.style.transition = "";
+        onTap();
+      } else {
+        // Snap back
+        el.style.transition = "transform 0.25s cubic-bezier(0.32,0.72,0,1)";
+        el.style.transform = "translateY(0)";
+        setTimeout(() => { el.style.transition = ""; el.style.transform = ""; }, 260);
+      }
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
   };
 
   // Refresh the AI-credit chip whenever the chat opens.
@@ -5747,13 +5789,25 @@ Passage:
         {chatOpen && (
           <>
             {isMobile && <div style={s.chatBackdrop} onClick={hideChat} onTouchStart={(e) => e.stopPropagation()} />}
-            <div style={s.chatPopup} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
-              {isMobile && <div style={s.sheetHandle} onTouchStart={sheetTouchStart} onTouchEnd={sheetTouchEnd} />}
+            <div ref={chatPopupRef} style={s.chatPopup} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+              {isMobile && (
+                <div
+                  style={s.sheetHandle}
+                  onPointerDown={(e) => onSheetDragStart(e, chatPopupRef.current, {
+                    onDismiss: hideChat,
+                    onSwipeUp: () => setChatExpanded(true),
+                    onTap: () => setChatExpanded((v) => !v),
+                  })}
+                />
+              )}
               {!isMobile && !dockMode && <div style={s.chatGoldLine} />}
               <div
                 style={s.chatHead}
-                onTouchStart={isMobile ? sheetTouchStart : undefined}
-                onTouchEnd={isMobile ? sheetTouchEnd : undefined}
+                onPointerDown={isMobile ? (e) => onSheetDragStart(e, chatPopupRef.current, {
+                  onDismiss: hideChat,
+                  onSwipeUp: () => setChatExpanded(true),
+                  onTap: () => setChatExpanded((v) => !v),
+                }) : undefined}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                   <AiOrb size={22} pulsing={chatLoading} />
@@ -6383,9 +6437,17 @@ Passage:
           {studyToolsOpen && (
             <>
               {isMobile && <div style={s.studyBackdrop} onClick={closeStudyTools} onTouchStart={(e) => e.stopPropagation()} />}
-              <div style={s.studyPanel} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
-                {isMobile && <div style={s.sheetHandle} />}
-                <div style={s.studyHead}>
+              <div ref={studyPanelRef} style={s.studyPanel} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                {isMobile && (
+                  <div
+                    style={s.sheetHandle}
+                    onPointerDown={(e) => onSheetDragStart(e, studyPanelRef.current, { onDismiss: closeStudyTools })}
+                  />
+                )}
+                <div
+                  style={s.studyHead}
+                  onPointerDown={isMobile ? (e) => onSheetDragStart(e, studyPanelRef.current, { onDismiss: closeStudyTools }) : undefined}
+                >
                   <span style={s.studyTitle}>
                     {studyView !== "tools" ? (
                       <>
