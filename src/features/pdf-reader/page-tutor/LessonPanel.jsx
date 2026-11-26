@@ -138,9 +138,11 @@ function TermChip({ T, term }) {
   );
 }
 
-export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, onToast, follow, onToggleFollow }) {
+export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, onToast, follow, onToggleFollow, view: viewProp, onViewChange }) {
   const [openSections, setOpenSections] = useState({ 0: true });
-  const [view, setView] = useState("list"); // list | map
+  const [internalView, setInternalView] = useState("list"); // list | map — header 🧠 can drive it via props
+  const view = viewProp ?? internalView;
+  const setView = onViewChange ?? setInternalView;
   const [reportOpen, setReportOpen] = useState(false);
   const [reportSent, setReportSent] = useState(false);
   const [reportNote, setReportNote] = useState("");

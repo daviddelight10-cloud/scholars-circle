@@ -1633,6 +1633,27 @@ html[data-theme="light"] .pm-tile.tint-amber  { --tint:#B8760A; --tint-bg:#FDE9C
   display: flex;
 }
 
+/* Inline podcast controls on the Summary tile — replaces the chevron */
+.pm-tile-play {
+  position: absolute; right: 10px; bottom: 9px;
+  display: flex; align-items: center; gap: 6px;
+}
+.pm-tile-play-btn {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--tint-bg); border: 1px solid var(--tint-border);
+  color: var(--tint); font-size: 11px; cursor: pointer;
+  transition: transform .15s ease;
+}
+.pm-tile-play-btn:hover { transform: scale(1.1); }
+.pm-tile-play-x {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--c-949cac); font-size: 9px; cursor: pointer;
+  border: 1px solid var(--app-tint-med);
+}
+.pm-tile-play-x:hover { color: var(--c-f2f4f8); }
+
 .pm-live {
   --tint: #4ED9C3; --tint-bg: rgba(78,217,195,.15);
   --tint-bg2: rgba(78,217,195,.07); --tint-border: rgba(78,217,195,.30);

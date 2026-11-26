@@ -312,6 +312,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [studyToolsOpen, setStudyToolsOpen] = useState(false);
   const [studyTab, setStudyTab] = useState("tools"); // "tools" | "deck"
   const [studyView, setStudyView] = useState("tools"); // "tools" | "lesson" — lesson = Page Tutor
+  const [lessonView, setLessonView] = useState("list"); // "list" | "map" — Page Tutor sub-view
+  useEffect(() => { setLessonView("list"); }, [studyView, currentPage]); // map closes on page/view change
   const studyDeck = usePdfDeck(propResourceId, studyToolsOpen);
   const studyResourceId = propResourceId || docKey;
 
@@ -2138,22 +2140,25 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
     else if (intro === "chat") openChatDirect();
     else if (intro === "lecture") {
-      // Practice sheet "Smart Lecture" — coachmark intro: two slides talk up
-      // Page Tutor + Ask AI, then the card collapses into the study FAB so
-      // the student learns where the tools live. Nudge stays until first tap.
-      setAskNudge(true);
+      // Practice sheet "Smart Lecture" — coachmark intro: three slides talk
+      // up Page Tutor, Ask AI and Circle to Ask, then the card collapses
+      // into the study FAB so the student learns where the tools live.
       const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
       if (!reduce) setLectureStep(1);
+      else setAskNudge(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Smart Lecture coachmark step driver: slide 1 → slide 2 → collapse → off.
+  // Smart Lecture coachmark step driver: slides 1-3 → collapse → off.
+  // The Ask AI nudge fires exactly when the Circle-to-Ask slide appears so
+  // the button pulses while the card is describing it — and stays after.
   useEffect(() => {
     if (!lectureStep) return;
+    if (lectureStep === 3) setAskNudge(true);
     const t = setTimeout(
-      () => setLectureStep((s) => (s >= 3 ? 0 : s + 1)),
-      lectureStep === 3 ? 420 : 2600
+      () => setLectureStep((s) => (s >= 4 ? 0 : s + 1)),
+      lectureStep === 4 ? 420 : 2600
     );
     return () => clearTimeout(t);
   }, [lectureStep]);
@@ -6173,7 +6178,7 @@ Passage:
               where the tools live. Tap anywhere on it to skip to the collapse. */}
           {lectureStep > 0 && !studyToolsOpen && !chromeHidden && !loadError && (
             <button
-              onClick={() => setLectureStep(3)}
+              onClick={() => setLectureStep(4)}
               aria-label="Study tools intro — tap to dismiss"
               style={{
                 position: "absolute",
@@ -6188,12 +6193,12 @@ Passage:
                 boxShadow: "0 14px 36px rgba(0,0,0,0.4)",
                 cursor: "pointer", textAlign: "left", fontFamily: "inherit",
                 transformOrigin: "bottom right",
-                animation: lectureStep === 3
+                animation: lectureStep === 4
                   ? "sc-coach-out .42s cubic-bezier(.55,-0.1,.7,.4) both"
                   : "sc-fade-in-up .3s ease both",
               }}
             >
-              <div key={lectureStep === 1 ? "tutor" : "ask"} style={{ animation: "sc-fade-in-up .25s ease both" }}>
+              <div key={Math.min(lectureStep, 3)} style={{ animation: "sc-fade-in-up .25s ease both" }}>
                 {lectureStep === 1 ? (
                   <>
                     <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>🎓 This PDF talks back</div>
@@ -6201,11 +6206,18 @@ Passage:
                       Page Tutor turns any page into an audio lesson — listen while you read.
                     </div>
                   </>
-                ) : (
+                ) : lectureStep === 2 ? (
                   <>
                     <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>💬 Ask AI anything</div>
                     <div style={{ fontSize: 11.5, lineHeight: 1.45, color: T.muted, marginTop: 3 }}>
-                      Tap to chat about the page — or circle anything for an instant answer.
+                      Chat about the page as you read — definitions, examples, quick quizzes.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>⭕ Circle to Ask</div>
+                    <div style={{ fontSize: 11.5, lineHeight: 1.45, color: T.muted, marginTop: 3 }}>
+                      Draw a circle around anything confusing for an instant answer — the Ask AI button is pulsing right now.
                     </div>
                   </>
                 )}
@@ -6225,7 +6237,7 @@ Passage:
               <button
                 style={{
                   ...s.aiFab,
-                  transform: lectureStep === 3 ? "scale(1.16)" : undefined,
+                  transform: lectureStep === 4 ? "scale(1.16)" : undefined,
                   opacity: studyToolsOpen || showOverflow ? 0 : 1,
                   pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
                 }}
@@ -6250,7 +6262,7 @@ Passage:
               <button
                 style={{
                   ...s.studyFab,
-                  transform: lectureStep === 3 ? "scale(1.16)" : undefined,
+                  transform: lectureStep === 4 ? "scale(1.16)" : undefined,
                   transition: "transform .18s ease",
                   opacity: studyToolsOpen || showOverflow ? 0 : 1,
                   pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
@@ -6383,6 +6395,25 @@ Passage:
                           title="Back to tools"
                         >‹</button>
                         {studyView === "review" ? "Chapter review" : `Page Tutor · p.${currentPage}`}
+                        {studyView === "lesson" && (
+                          <button
+                            onClick={() => setLessonView((v) => (v === "map" ? "list" : "map"))}
+                            disabled={!pageTutor.lesson?.lesson?.sections?.length}
+                            title={pageTutor.lesson?.lesson?.sections?.length
+                              ? (lessonView === "map" ? "Back to lesson" : "Mind map")
+                              : "Explain this page first"}
+                            aria-label="Mind map"
+                            style={{
+                              marginLeft: 5, width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                              display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              border: `1px solid ${lessonView === "map" ? "rgba(79,142,247,0.5)" : T.border}`,
+                              background: lessonView === "map" ? "rgba(79,142,247,0.14)" : "transparent",
+                              color: lessonView === "map" ? "#4F8EF7" : T.muted,
+                              fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0,
+                              opacity: pageTutor.lesson?.lesson?.sections?.length ? 1 : 0.4,
+                            }}
+                          >🧠</button>
+                        )}
                       </>
                     ) : (
                       <>
@@ -6424,6 +6455,8 @@ Passage:
                     T={T}
                     page={currentPage}
                     tutor={pageTutor}
+                    view={lessonView}
+                    onViewChange={setLessonView}
                     onAskVoice={handleTutorAsk}
                     onSeeOnPage={handleSeeOnPage}
                     onToast={(m) => toastDeck(m)}

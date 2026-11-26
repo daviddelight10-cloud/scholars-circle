@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "../lib/constants";
 import { callAIMultimodal } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText";
+import { SpeechEngine, chunkNarration, mdToSpeechText, speechSupported } from "./pdf-reader/page-tutor/speech";
 
 const D = {
   bg: "var(--app-bg)",
@@ -78,6 +79,45 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
 
   const mcqToken = resource?.sourceResource?.derivedResources
     ?.find((d) => d.contentType === "mcq")?.shareToken || null;
+
+  // ── Podcast listen — same chunked SpeechEngine the Page Tutor fallback uses ──
+  const speechRef = useRef(null);
+  const chunksRef = useRef([]);
+  const [audio, setAudio] = useState(null); // { playing, idx, count, rate, done }
+  const getEngine = () => (speechRef.current ||= new SpeechEngine());
+
+  const bindAndStart = (rate, startAt = 0) => {
+    getEngine().start(chunksRef.current, {
+      startAt,
+      rate,
+      onChunk: (idx, count) => setAudio((a) => (a ? { ...a, idx, count, playing: true, done: false } : a)),
+      onEnd: () => setAudio((a) => (a ? { ...a, playing: false, done: true } : a)),
+    });
+    setAudio({ playing: true, idx: startAt, count: chunksRef.current.length, rate, done: false });
+  };
+
+  const startAudio = () => {
+    chunksRef.current = chunkNarration(mdToSpeechText(resource?.description || ""));
+    if (chunksRef.current.length) bindAndStart(audio?.rate || 1);
+  };
+
+  const toggleAudio = () => {
+    if (!speechSupported()) return;
+    if (!audio || audio.done) return startAudio();
+    const eng = getEngine();
+    if (audio.playing) { eng.pause(); setAudio({ ...audio, playing: false }); }
+    else { eng.resume(); setAudio({ ...audio, playing: true }); }
+  };
+
+  const stopAudio = () => { getEngine().cancel(); setAudio(null); };
+  const skipAudio = (n) => getEngine().skipBy(n);
+  const cycleRate = () => {
+    const next = audio.rate === 1 ? 1.25 : audio.rate === 1.25 ? 1.5 : 1;
+    getEngine().setRate(next);
+    setAudio({ ...audio, rate: next });
+  };
+
+  useEffect(() => () => speechRef.current?.cancel(), []);
 
   // ── Ask AI chat ──
   const [chatOpen, setChatOpen] = useState(false);
@@ -228,6 +268,16 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
             </div>
           </div>
 
+          {speechSupported() && (
+            <button
+              onClick={toggleAudio}
+              title={audio?.playing ? "Pause the audio summary" : "Listen to this summary like a podcast"}
+              style={pill(!!audio)}
+            >
+              {audio?.playing ? "❚❚ Listening" : "🎧 Listen"}
+            </button>
+          )}
+
           <button
             onClick={() => setChatOpen((o) => !o)}
             title="Ask AI about this summary"
@@ -265,7 +315,7 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
         </div>
 
         {/* Body — markdown on the page background, centered column */}
-        <div ref={bodyRef} style={{ flex: 1, padding: "26px 18px 60px" }}>
+        <div ref={bodyRef} style={{ flex: 1, padding: `26px 18px ${audio ? 150 : 60}px` }}>
           <div style={{ maxWidth: 780, margin: "0 auto", width: "100%" }}>
             <MarkdownText theme="gold" recallMode={recall}>{resource?.description || ""}</MarkdownText>
             <div style={{
@@ -278,12 +328,69 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
         </div>
       </div>
 
+      {/* Podcast mini-player */}
+      {audio && (
+        <div style={{
+          position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)",
+          width: "min(440px, calc(100vw - 32px))", zIndex: 45,
+          background: D.bar, border: `0.5px solid ${D.line}`, borderRadius: 16,
+          padding: "10px 12px 12px", boxShadow: "0 10px 30px rgba(0,0,0,0.55)",
+          display: "flex", flexDirection: "column", gap: 8,
+          animation: "sumFadeUp 0.25s ease", fontFamily: "Manrope,sans-serif",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: D.gold, flexShrink: 0 }}>
+              {audio.playing ? "LISTENING" : audio.done ? "FINISHED" : "PAUSED"}
+            </span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, color: D.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {resource?.title || "Summary"}
+            </span>
+            <button onClick={stopAudio} aria-label="Stop playback" style={{ background: "none", border: "none", color: D.hint, fontSize: 15, cursor: "pointer", padding: 2, fontFamily: "inherit" }}>✕</button>
+          </div>
+
+          {/* Progress — tap to seek */}
+          <div
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); getEngine().seekTo((e.clientX - r.left) / r.width); }}
+            style={{ height: 14, display: "flex", alignItems: "center", cursor: "pointer" }}
+          >
+            <div style={{ width: "100%", height: 4, borderRadius: 99, background: D.accent, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${audio.count ? (audio.idx / audio.count) * 100 : 0}%`, background: D.gold, transition: "width 0.3s linear" }} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+            {[["↺ 15", () => skipAudio(-1), "Back ~15s"], ["↻ 15", () => skipAudio(1), "Forward ~15s"]].map(([l, fn, t]) => (
+              <button key={l} onClick={fn} title={t} style={{
+                padding: "5px 10px", borderRadius: 9, border: `0.5px solid ${D.line}`,
+                background: "none", color: D.muted, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              }}>{l}</button>
+            ))}
+            <button
+              onClick={toggleAudio}
+              aria-label={audio.playing ? "Pause" : "Play"}
+              style={{
+                width: 40, height: 40, borderRadius: "50%", border: "none",
+                background: D.gold, color: "var(--app-ink)", fontSize: 15, fontWeight: 800,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >{audio.playing ? "❚❚" : audio.done ? "↻" : "▶"}</button>
+            <button onClick={cycleRate} title="Playback speed" style={{
+              padding: "5px 9px", borderRadius: 9, border: `0.5px solid ${D.line}`,
+              background: "none", color: D.gold, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit",
+            }}>{audio.rate}×</button>
+            <span style={{ fontSize: 10.5, color: D.hint, minWidth: 34, textAlign: "right" }}>
+              {audio.count ? `${Math.round((audio.idx / audio.count) * 100)}%` : ""}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Resume where you left off */}
       {resumeTo !== null && (
         <button
           onClick={resume}
           style={{
-            position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
+            position: "fixed", bottom: audio ? 118 : 20, left: "50%", transform: "translateX(-50%)",
             zIndex: 40, padding: "9px 18px", borderRadius: 999, cursor: "pointer",
             background: D.gold, color: "var(--app-ink)", border: "none",
             fontSize: 12, fontWeight: 700, fontFamily: "Manrope,sans-serif",

@@ -7,6 +7,7 @@ import { loadHistory } from "../../lib/studyHistory.js";
 import { mcqRingPct } from "../../lib/researchUtils";
 import { getExamAttempts } from "../exam/examApi";
 import AvatarMark from "../../components/AvatarMark.jsx";
+import { SpeechEngine, chunkNarration, mdToSpeechText, speechSupported } from "../pdf-reader/page-tutor/speech";
 
 // Answer-style options — same ids as StreakSurvival's Session setup
 const STYLE_OPTIONS = [
@@ -121,7 +122,7 @@ const IcoGradCap = (p) => (
 );
 
 
-function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000 }) {
+function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000, side }) {
   return (
     <button
       className={`pm-tile${tint ? ` ${tint}` : ""}`}
@@ -133,7 +134,7 @@ function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wd
       <span className="pm-tile-icon">{icon}</span>
       <span className="pm-tile-name">{name}</span>
       <span className="pm-tile-sub">{sub}</span>
-      <span className="pm-tile-arrow"><IcoChevron size={14} /></span>
+      {side || <span className="pm-tile-arrow"><IcoChevron size={14} /></span>}
     </button>
   );
 }
@@ -193,6 +194,35 @@ export default function PracticeSheet({
   const [prefs, setPrefs] = useState(() => loadSave()?.quizPrefs || { style: "smart", recallFirst: true, speedRound: false });
   const [settingsPos, setSettingsPos] = useState(null);
   const gearRef = useRef(null);
+
+  // Inline podcast playback on the Summary tile — same SpeechEngine as the
+  // summary page's mini-player; plays without leaving the sheet.
+  const speechRef = useRef(null);
+  const chunksRef = useRef([]);
+  const [sumAudio, setSumAudio] = useState(null); // { playing, idx, count, done }
+  const getEngine = () => (speechRef.current ||= new SpeechEngine());
+
+  const startSumAudio = () => {
+    chunksRef.current = chunkNarration(mdToSpeechText(summary?.description || ""));
+    if (!chunksRef.current.length) return;
+    getEngine().start(chunksRef.current, {
+      onChunk: (idx, count) => setSumAudio((a) => (a ? { ...a, idx, count, playing: true, done: false } : a)),
+      onEnd: () => setSumAudio((a) => (a ? { ...a, playing: false, done: true } : a)),
+    });
+    setSumAudio({ playing: true, idx: 0, count: chunksRef.current.length, done: false });
+  };
+
+  const toggleSumAudio = () => {
+    if (!speechSupported()) return;
+    if (!sumAudio || sumAudio.done) return startSumAudio();
+    const eng = getEngine();
+    if (sumAudio.playing) { eng.pause(); setSumAudio({ ...sumAudio, playing: false }); }
+    else { eng.resume(); setSumAudio({ ...sumAudio, playing: true }); }
+  };
+
+  const stopSumAudio = () => { getEngine().cancel(); setSumAudio(null); };
+
+  useEffect(() => () => speechRef.current?.cancel(), []);
   // Eased 0→N count-up for the hero's question count (prototype)
   const mcqCountForAnim = getVariantCount(file?.variants?.mcq);
   const qNum = useCountUp(file ? mcqCountForAnim : 0);
@@ -621,9 +651,27 @@ export default function PracticeSheet({
               tint="tint-blue"
               icon={<IcoFileText size={17} />}
               name="Summary"
-              sub={summary ? "AI recap" : "Tap to create"}
+              sub={sumAudio
+                ? (sumAudio.done ? "Finished · tap ▶ to replay" : `${sumAudio.playing ? "Playing" : "Paused"} · ${Math.round((sumAudio.idx / (sumAudio.count || 1)) * 100)}%`)
+                : summary ? "AI recap · ▶ to listen" : "Tap to create"}
               disabled={generating}
               onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
+              side={summary && speechSupported() ? (
+                <span className="pm-tile-play" aria-hidden="true">
+                  {sumAudio && (
+                    <span
+                      className="pm-tile-play-x"
+                      onClick={(e) => { e.stopPropagation(); stopSumAudio(); }}
+                      title="Stop"
+                    >✕</span>
+                  )}
+                  <span
+                    className="pm-tile-play-btn"
+                    onClick={(e) => { e.stopPropagation(); toggleSumAudio(); }}
+                    title={sumAudio?.playing ? "Pause" : "Listen to the summary"}
+                  >{sumAudio?.playing ? "❚❚" : "▶"}</span>
+                </span>
+              ) : undefined}
             />
             {!isPdf && (
               <PmTile

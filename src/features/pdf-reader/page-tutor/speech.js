@@ -38,6 +38,27 @@ export function chunkNarration(text) {
   return out;
 }
 
+// Strip markdown into narration-friendly prose for the listen/podcast
+// features: fences, headings, emphasis, links and list markers all become
+// plain sentences before chunking.
+export function mdToSpeechText(md) {
+  return String(md || "")
+    .replace(/```[\s\S]*?```/g, " ")          // code fences
+    .replace(/`([^`]+)`/g, "$1")              // inline code
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")    // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")  // links → text
+    .replace(/^#{1,6}\s+/gm, "")              // headings
+    .replace(/^>\s?/gm, "")                   // blockquotes
+    .replace(/^[\s]*[-*+]\s+/gm, "")          // bullets
+    .replace(/^[\s]*\d+[.)]\s+/gm, "")        // numbered lists
+    .replace(/\|/g, ", ")                     // table pipes read as pauses
+    .replace(/^[-: |]+$/gm, " ")              // table separator rows
+    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1") // bold/italic/strike
+    .replace(/<[^>]+>/g, " ")                 // html tags
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 let voicesPromise = null;
 
 // Voice pick: an English voice, preferring on-device (localService) ones which
