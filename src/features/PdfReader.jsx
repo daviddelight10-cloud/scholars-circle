@@ -142,6 +142,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // Tool mode: "none" | "highlight" | "erase" | "circle" | "pen" | "line" | "arrow"
   const [tool, setTool] = useState("none");
   const [askNudge, setAskNudge] = useState(false); // intro "circle" — hint at the Ask AI tool instead of auto-arming it
+  const [lectureStep, setLectureStep] = useState(0); // "lecture" intro coachmark — 0 off, 1-2 slides, 3 collapsing into the FAB
   const [penColor, setPenColor] = useState(INK_COLORS[0].value);
 
 
@@ -2137,15 +2138,25 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
     else if (intro === "chat") openChatDirect();
     else if (intro === "lecture") {
-      // Practice sheet "Smart Lecture" — land on the tools view so Page Tutor
-      // and Ask AI are both visible, and keep the circle nudge pulsing until
-      // the student actually taps Ask AI (cleared in the tool handler).
-      setStudyView("tools");
-      openStudyTools();
+      // Practice sheet "Smart Lecture" — coachmark intro: two slides talk up
+      // Page Tutor + Ask AI, then the card collapses into the study FAB so
+      // the student learns where the tools live. Nudge stays until first tap.
       setAskNudge(true);
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      if (!reduce) setLectureStep(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Smart Lecture coachmark step driver: slide 1 → slide 2 → collapse → off.
+  useEffect(() => {
+    if (!lectureStep) return;
+    const t = setTimeout(
+      () => setLectureStep((s) => (s >= 3 ? 0 : s + 1)),
+      lectureStep === 3 ? 420 : 1900
+    );
+    return () => clearTimeout(t);
+  }, [lectureStep]);
 
   // Chat MCQ answers feed the same weakspot store, FSRS scheduler, streak,
   // XP pool and quest counters as a Streak Survival run — one progress record.
@@ -3845,6 +3856,7 @@ Passage:
         @keyframes sc-cursor-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
         @keyframes sc-msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes sc-fade-in-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes sc-coach-out { to { transform: scale(0.06) translate(30px, 34px); opacity: 0; } }
         @keyframes sc-q-in-r { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes sc-q-in-l { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes sc-pt-eq { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
@@ -6156,6 +6168,56 @@ Passage:
             </div>
           )}
 
+          {/* Smart Lecture coachmark — talks up Page Tutor + Ask AI in two
+              slides, then collapses into the study FAB so the student learns
+              where the tools live. Tap anywhere on it to skip to the collapse. */}
+          {lectureStep > 0 && !studyToolsOpen && !chromeHidden && !loading && !loadError && (
+            <button
+              onClick={() => setLectureStep(3)}
+              aria-label="Study tools intro — tap to dismiss"
+              style={{
+                position: "absolute",
+                right: isMobile ? 14 : 18,
+                bottom: isMobile ? 152 : 82,
+                zIndex: 90,
+                width: 236,
+                padding: "12px 14px",
+                borderRadius: 16,
+                background: T.toolbar,
+                border: `1px solid ${T.border}`,
+                boxShadow: "0 14px 36px rgba(0,0,0,0.4)",
+                cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                transformOrigin: "bottom right",
+                animation: lectureStep === 3
+                  ? "sc-coach-out .42s cubic-bezier(.55,-0.1,.7,.4) both"
+                  : "sc-fade-in-up .3s ease both",
+              }}
+            >
+              <div key={lectureStep === 1 ? "tutor" : "ask"} style={{ animation: "sc-fade-in-up .25s ease both" }}>
+                {lectureStep === 1 ? (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>🎓 This PDF talks back</div>
+                    <div style={{ fontSize: 11.5, lineHeight: 1.45, color: T.muted, marginTop: 3 }}>
+                      Page Tutor turns any page into an audio lesson — listen while you read.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>💬 Ask AI anything</div>
+                    <div style={{ fontSize: 11.5, lineHeight: 1.45, color: T.muted, marginTop: 3 }}>
+                      Tap to chat about the page — or circle anything for an instant answer.
+                    </div>
+                  </>
+                )}
+              </div>
+              <span style={{
+                position: "absolute", bottom: -6, right: 24, width: 12, height: 12,
+                background: T.toolbar, transform: "rotate(45deg)",
+                borderRight: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`,
+              }} />
+            </button>
+          )}
+
           {/* AI Study Tools floating button — hidden only under the mobile sheet; the
               desktop dock leaves the document usable so the FAB stays visible */}
           {(!chatOpen || dockMode) && !loading && !loadError && !chromeHidden && !(voiceActive && !voiceMinimized) && (
@@ -6163,6 +6225,7 @@ Passage:
               <button
                 style={{
                   ...s.aiFab,
+                  transform: lectureStep === 3 ? "scale(1.16)" : undefined,
                   opacity: studyToolsOpen || showOverflow ? 0 : 1,
                   pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
                 }}
@@ -6187,6 +6250,8 @@ Passage:
               <button
                 style={{
                   ...s.studyFab,
+                  transform: lectureStep === 3 ? "scale(1.16)" : undefined,
+                  transition: "transform .18s ease",
                   opacity: studyToolsOpen || showOverflow ? 0 : 1,
                   pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
                 }}
