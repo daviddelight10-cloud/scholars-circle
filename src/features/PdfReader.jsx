@@ -2134,6 +2134,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       return () => clearTimeout(t);
     }
     else if (intro === "chat") openChatDirect();
+    else if (intro === "lecture") {
+      // Practice sheet "Smart Lecture" — land on the tools view so Page Tutor
+      // and Ask AI are both visible, and keep the circle nudge pulsing until
+      // the student actually taps Ask AI (cleared in the tool handler).
+      setStudyView("tools");
+      openStudyTools();
+      setAskNudge(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -3768,16 +3776,21 @@ Passage:
     const m = chatMessages[lastAssistantIdx];
     return m?.streaming ? null : parseSuggestedChips(m.content);
   }, [chatMessages, lastAssistantIdx]);
+  const lastAnswer = lastAssistantIdx >= 0 ? stripChipsLine(chatMessages[lastAssistantIdx]?.content || "") : "";
   const intentChips = useMemo(() => {
     const t = lastUserPrompt.toLowerCase();
+    const ans = lastAnswer;
     if (/\bsimpler|easier|simple\b/.test(t)) return INTENT_CHIPS.explain;
-    if (/\bquiz|test|question|mcq\b/.test(t)) return INTENT_CHIPS.quiz;
     if (/mnemonic/.test(t)) return INTENT_CHIPS.mnemonic;
     if (/key points|summar|recap/.test(t)) return INTENT_CHIPS.summary;
-    if (/\bdefin|what is|what are|meaning of|meaning\b/.test(t)) return INTENT_CHIPS.define;
-    if (/explain|walk me|break down|why does|why is|how does|how is/.test(t)) return INTENT_CHIPS.explain;
+    if (/\bdefin|what is|what are|meaning of|meaning\b/.test(t) || /```term/.test(ans)) return INTENT_CHIPS.define;
+    // Quiz/test prompts reach here only when the answer had NO mcq block —
+    // the model taught instead, so the explain set fits, not quiz controls.
+    // The ```steps/```idea answer-shape check catches teaching replies to
+    // freeform prompts the regex would have missed.
+    if (/explain|teach|walk me|break down|quiz|test|question|why does|why is|how does|how is/.test(t) || /```(steps|idea)/.test(ans)) return INTENT_CHIPS.explain;
     return INTENT_CHIPS.default;
-  }, [lastUserPrompt]);
+  }, [lastUserPrompt, lastAnswer]);
   const chipsToShow = useMemo(() => {
     if (chatMessages.length === 0) return STARTER_CHIPS;
     if (lastMcqState === "answered") return QUIZ_NEXT_CHIPS;

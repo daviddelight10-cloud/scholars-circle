@@ -1,13 +1,17 @@
 import { CHEMISTRY_RULES } from "../../lib/chemistryPrompt.js";
 
 export const SMART_CHIPS = [
-  { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
-  { label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points in this." },
-  { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
+  { label: "Key points", prompt: "Summarize the key points on this page in a few bullet points." },
+  { label: "An example", prompt: "Give me one concrete real-world example of this." },
+  { label: "Explain the page", prompt: "Explain the key points on this page — keep it clear and simple." },
 ];
 
-// Intent-aware follow-ups — chosen by what the user last asked, so
-// "Explain simpler" only exists after an explanation, never out of context.
+// Intent-aware follow-ups — gated so refinement chips only exist where they
+// make sense: "Explain simpler" needs a prior explanation/definition to
+// simplify, and "Test my knowledge" needs taught content to test (it lives
+// in the teaching sets below, never in the default or starter rows).
+// Quiz controls come from QUIZ_NEXT_CHIPS while an mcq card is on screen —
+// there is no quiz intent set here on purpose.
 export const INTENT_CHIPS = {
   explain: [
     { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
@@ -15,6 +19,7 @@ export const INTENT_CHIPS = {
     { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
   ],
   define: [
+    { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
     { label: "An example", prompt: "Give me one concrete real-world example of this." },
     { label: "Go deeper", prompt: "Go deeper on this — the mechanism and why it matters." },
     { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
@@ -28,11 +33,6 @@ export const INTENT_CHIPS = {
     { label: "Explain it again", prompt: "Explain the key points on this page — keep it clear and simple." },
     { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
     { label: "Key points", prompt: "Summarize the key points on this page in a few bullet points." },
-  ],
-  quiz: [
-    { label: "▶ Next question", prompt: "Next question — same mcq format." },
-    { label: "📊 Score so far", prompt: "How am I doing in this quiz so far? One-line score summary." },
-    { label: "Stop quiz", prompt: "Stop the quiz — explain the key points on this page simply instead." },
   ],
   default: SMART_CHIPS,
 };
@@ -51,11 +51,11 @@ export function stripChipsLine(content) {
   return String(content || "").replace(CHIPS_LINE, "");
 }
 
-// Shown on an empty chat thread — page-scoped by definition.
+// Shown on an empty chat thread — page-scoped by definition. No "Test my
+// knowledge" here: with zero taught content, a quiz would have nothing to test.
 export const STARTER_CHIPS = [
   { label: "Explain the page simply", prompt: "Explain the key points on this page — keep it clear and simple." },
   { label: "Key points", prompt: "Summarize the key points on this page in a few bullet points." },
-  { label: "Test my knowledge", prompt: "Test my knowledge of this page — ask me one multiple-choice question at a time using the mcq format." },
   { label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points on this page." },
 ];
 

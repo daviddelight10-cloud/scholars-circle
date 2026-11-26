@@ -112,6 +112,13 @@ const IcoSliders = (p) => (
 const IcoChevron = (p) => <I {...p}><path d="M9 6l6 6-6 6" /></I>;
 const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></I>;
 const IcoBookmark = (p) => <I {...p}><path d="M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z" /></I>;
+const IcoGradCap = (p) => (
+  <I {...p}>
+    <path d="M12 4 2 9l10 5 10-5-10-5z" />
+    <path d="M6 11.4V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.6" />
+    <path d="M22 9v5" />
+  </I>
+);
 
 
 function PmTile({ icon, name, sub, tint, badge, disabled, onClick, delay = 0, wdelay = 2000 }) {
@@ -561,6 +568,26 @@ export default function PracticeSheet({
           </section>
 
           <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to study</div>
+          {isPdf && (
+            <button
+              className="pm-feature"
+              style={{ "--d": "70ms" }}
+              onClick={askAi("lecture")}
+              aria-label="Smart Lecture — Page Tutor, Circle to Ask and Ask AI"
+            >
+              <span className="pm-tile-icon"><IcoGradCap size={20} /></span>
+              <span className="pm-feature-body">
+                <span className="pm-feature-name">Smart Lecture<span className="pm-premium">✦ PREMIUM</span></span>
+                <span className="pm-feature-sub">Listen. Understand. Learn.</span>
+                <span className="pm-caps" aria-hidden="true">
+                  <span>📄 Page Tutor</span>
+                  <span>⭕ Circle to Ask</span>
+                  <span>💬 Ask AI</span>
+                </span>
+              </span>
+              <span className="pm-chev"><IcoChevron size={16} /></span>
+            </button>
+          )}
           <div className="pm-grid">
             <PmTile
               delay={90} wdelay={2000}
@@ -598,14 +625,16 @@ export default function PracticeSheet({
               disabled={generating}
               onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
             />
-            <PmTile
-              delay={170} wdelay={5600}
-              tint="tint-rose"
-              icon={<IcoFile size={17} />}
-              name={isPdf ? "Read & ask AI" : "Open file"}
-              sub={isPdf ? "Circle anything for an instant answer" : (file.fileName || "Source document")}
-              onClick={isPdf ? askAi("circle") : act(() => onOpen(file.shareToken))}
-            />
+            {!isPdf && (
+              <PmTile
+                delay={170} wdelay={5600}
+                tint="tint-rose"
+                icon={<IcoFile size={17} />}
+                name="Open file"
+                sub={file.fileName || "Source document"}
+                onClick={act(() => onOpen(file.shareToken))}
+              />
+            )}
           </div>
 
           <button
