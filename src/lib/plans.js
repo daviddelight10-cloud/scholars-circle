@@ -3,7 +3,8 @@
 // Keep ids in sync with the backend PlanType enum (server/src/routes/payment.js).
 
 export const PLANS = [
-  { id: "week1", label: "1 Week", days: 7, price: 1200, icon: "⚡", note: "Perfect for trying out" },
+  { id: "days3", label: "3 Days", days: 3, price: 700, icon: "🔥", note: "Perfect for trying out — or an exam crunch" },
+  { id: "week1", label: "1 Week", days: 7, price: 1200, icon: "⚡", note: "A full week of Premium" },
   { id: "month1", label: "1 Month", days: 30, price: 4400, icon: "💎", note: "Save ~₦800 vs weekly — most scholars pick this" },
   { id: "semester", label: "6 Months", days: 180, price: 23000, icon: "🎓", note: "Save ₦3,400 vs monthly — one payment till next semester", best: true },
 ];

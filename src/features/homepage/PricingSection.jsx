@@ -160,7 +160,7 @@ export default function PricingSection() {
                 border: plan.best ? 'none' : '1px solid var(--app-tint-strong)',
                 color: plan.best ? '#1A1300' : 'var(--app-text)', textDecoration: 'none'
               }}>
-                {plan.id === 'week1' ? 'Try Premium' : 'Get Premium'}
+                {plan.id === 'days3' ? 'Try Premium' : 'Get Premium'}
               </Link>
             </div>
           ))}

@@ -16,16 +16,17 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-const PLAN_PRICES = { week1: 1200, month1: 4400, semester: 23000 };
+const PLAN_PRICES = { days3: 700, week1: 1200, month1: 4400, semester: 23000 };
 const PLAN_DURATIONS = {
+  days3: 3 * 864e5,
   week1: 7 * 864e5,
   week2: 14 * 864e5, // legacy — existing subscribers only
   month1: 30 * 864e5,
   semester: 180 * 864e5,
 };
-const PLAN_LABELS = { week1: "1 Week", week2: "2 Weeks", month1: "1 Month", semester: "6 Months" };
+const PLAN_LABELS = { days3: "3 Days", week1: "1 Week", week2: "2 Weeks", month1: "1 Month", semester: "6 Months" };
 // Monthly-equivalent for MRR estimate
-const PLAN_MONTHLY = { week1: 5143, month1: 4400, semester: 3833 };
+const PLAN_MONTHLY = { days3: 7000, week1: 5143, month1: 4400, semester: 3833 };
 
 const admin = [requireAuth, requireRole("TEACHER")];
 

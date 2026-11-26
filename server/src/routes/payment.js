@@ -7,14 +7,15 @@ import { invalidatePremium } from "../lib/premium.js";
 const router = Router();
 
 const PLAN_DURATIONS = {
+  days3: 3 * 24 * 60 * 60 * 1000,
   week1: 7 * 24 * 60 * 60 * 1000,
   week2: 14 * 24 * 60 * 60 * 1000, // legacy — kept for existing subscribers
   month1: 30 * 24 * 60 * 60 * 1000,
   semester: 180 * 24 * 60 * 60 * 1000,
 };
 
-const PLAN_PRICES = { week1: 1200, month1: 4400, semester: 23000 };
-const VALID_PLANS = ["week1", "month1", "semester"];
+const PLAN_PRICES = { days3: 700, week1: 1200, month1: 4400, semester: 23000 };
+const VALID_PLANS = ["days3", "week1", "month1", "semester"];
 
 // Apply a user's banked referral days on top of a freshly purchased plan,
 // then zero the bank. Returns the adjusted expiry date.
@@ -47,8 +48,7 @@ router.post("/verify", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Missing payment reference or plan" });
     }
 
-    const validPlans = ["week1", "month1", "semester"];
-    if (!validPlans.includes(plan)) {
+    if (!VALID_PLANS.includes(plan)) {
       return res.status(400).json({ error: "Invalid plan" });
     }
 

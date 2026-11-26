@@ -25,6 +25,8 @@ enum Role {
 
 enum PlanType {
 
+  days3
+
   week1
 
   week2
