@@ -32,7 +32,7 @@ function DeckCard({ q, state, delay }) {
             {ring.due ? "⏰ DUE" : "●".repeat(Math.max(1, ring.dots))}
           </span>
         )}
-        <span className="deck-hint">{open ? "tap to hide" : "tap to reveal"}</span>
+        <span className="deck-hint">{open ? "tap to hide" : "👁 peek"}</span>
       </div>
       <QuestionMeta q={q} className="deck-meta" />
       <p className="deck-q">{q.q}</p>
@@ -41,7 +41,7 @@ function DeckCard({ q, state, delay }) {
           <div key={i} className={`deck-opt${open && i === q.a ? " is-correct" : ""}`}>
             <span className="deck-opt-letter">{letters[i]}</span>
             <span className="deck-opt-text">{opt}</span>
-            {open && i === q.a && <span className="deck-check">✓</span>}
+            {open && i === q.a && <span className="deck-opt-tag">✓ answer</span>}
           </div>
         ))}
       </div>
@@ -154,6 +154,26 @@ function DeckView({
 
       {/* Cards */}
       <div className="deck-scroll">
+        {/* Hero CTA — the run setup leads; the card list below is the preview */}
+        {showModes && !generating && list.length > 0 && session && (
+          <div className="deck-hero">
+            <div className="deck-hero-t">
+              <b>Ready to run it?</b>
+              <span>
+                {scope ? <><b>{scope.label}</b> · </> : null}
+                {session.indices.length} question{session.indices.length === 1 ? "" : "s"} · about {sessionMinutes(session.indices.length)} min
+                {session.due > 0 ? ` · ${session.due} due` : ""}
+              </span>
+            </div>
+            {cooldownNote ? (
+              <div className="deck-cooldown">{cooldownNote}</div>
+            ) : (
+              <button className="deck-start hero" disabled={!canStart || session.indices.length === 0} onClick={start}>
+                <span className="deck-start-ico">▶</span>{scope ? `Practise ${scope.label}` : mode === "practice" ? "Start practice" : "Start recall"}
+              </button>
+            )}
+          </div>
+        )}
         {showModes && list.length > 0 && (
           <div className="deck-prog">
             <ProgressRing pct={masteredPct} />
@@ -185,6 +205,11 @@ function DeckView({
           </div>
         )}
 
+        {list.length > 0 && !generating && (
+          <div className="deck-list-label">
+            📋 Preview — tap a card to peek{showModes ? " · answers only count in a run" : ""}
+          </div>
+        )}
         {shown.map((q, i) => (
           <DeckCard key={q._key || i} q={q} state={states?.[q._key]} delay={i * 35} />
         ))}

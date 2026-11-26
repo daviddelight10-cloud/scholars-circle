@@ -58,6 +58,7 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
   const [done, setDone] = useState(false);
   const [confetti, setConfetti] = useState(false);
   const [ringPct, setRingPct] = useState(0);
+  const [dir, setDir] = useState(1); // slide direction: 1 forward, -1 back
 
   const quiz = roundItems || baseQuiz;
   const total = quiz.length;
@@ -79,6 +80,18 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
     return () => cancelAnimationFrame(t);
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ← back through the run, → forward once the current card is answered.
+  useEffect(() => {
+    const onKey = (e) => {
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || done) return;
+      if (e.key === "ArrowLeft" && idx > 0) { setDir(-1); setIdx(idx - 1); }
+      else if (e.key === "ArrowRight" && answers[idx] && idx + 1 < total) { setDir(1); setIdx(idx + 1); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [idx, answers, total, done]);
+
   if (!quiz.length) {
     return (
       <div style={{ padding: "40px 16px", textAlign: "center", color: T.muted, fontSize: 13, lineHeight: 1.6 }}>
@@ -86,6 +99,8 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
       </div>
     );
   }
+
+  const goto = (n, d) => { setDir(d); setIdx(n); };
 
   const mark = (ok, picked) => {
     const already = answers[idx] !== undefined; // re-answering after Back never re-awards
@@ -111,7 +126,7 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
       if (item.lessonId) logEvent(item.lessonId, "review_answer");
     }
     setTimeout(() => {
-      if (idx + 1 < total) setIdx(idx + 1);
+      if (idx + 1 < total) { setDir(1); setIdx(idx + 1); }
       else {
         setDone(true);
         if (item.lessonId) logEvent(item.lessonId, "review_finish");
@@ -126,6 +141,7 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
     setRoundItems(missed);
     setAnswers({});
     setRevealed({});
+    setDir(1);
     setIdx(0);
     setDone(false);
     setRingPct(0);
@@ -247,7 +263,7 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
     <div style={{ padding: "14px 14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
         <button
-          onClick={() => idx > 0 && setIdx(idx - 1)}
+          onClick={() => idx > 0 && goto(idx - 1, -1)}
           disabled={idx === 0}
           style={{
             background: "none", border: `1px solid ${T.border}`, borderRadius: 8,
@@ -255,11 +271,42 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
             cursor: idx === 0 ? "default" : "pointer", padding: "4px 10px",
             opacity: idx === 0 ? 0.4 : 1, fontFamily: "inherit",
           }}
-          title="Previous question"
+          title="Previous question (←)"
         >‹</button>
-        <div style={{ flex: 1, height: 4, background: `${T.border}55`, borderRadius: 3, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${(answered / total) * 100}%`, background: "#3DD68C", borderRadius: 3, transition: "width .3s ease" }} />
+        {/* Dot stepper — answered dots are tappable to jump back/ahead */}
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: 5 }}>
+          {quiz.map((_, i) => {
+            const a = answers[i];
+            const isCur = i === idx;
+            const bg = isCur ? "#F5A623" : a ? (a.ok === true ? "#3DD68C" : a.ok === "skip" ? T.muted : "#FF5470") : `${T.border}`;
+            const jumpable = !!a && i !== idx;
+            return (
+              <button
+                key={i}
+                onClick={() => jumpable && goto(i, i > idx ? 1 : -1)}
+                disabled={!jumpable}
+                aria-label={`Question ${i + 1}${a ? (a.ok === true ? " — correct" : a.ok === "skip" ? " — skipped" : " — missed") : ""}`}
+                style={{
+                  width: isCur ? 18 : 8, height: 8, borderRadius: 99, border: "none", padding: 0,
+                  background: bg, opacity: a || isCur ? 1 : 0.45,
+                  cursor: jumpable ? "pointer" : "default",
+                  transition: "all .25s ease",
+                }}
+              />
+            );
+          })}
         </div>
+        <button
+          onClick={() => cur && idx + 1 < total && goto(idx + 1, 1)}
+          disabled={!cur || idx + 1 >= total}
+          style={{
+            background: "none", border: `1px solid ${T.border}`, borderRadius: 8,
+            color: !cur || idx + 1 >= total ? T.muted : T.text, fontSize: 13, fontWeight: 700,
+            cursor: !cur || idx + 1 >= total ? "default" : "pointer", padding: "4px 10px",
+            opacity: !cur || idx + 1 >= total ? 0.4 : 1, fontFamily: "inherit",
+          }}
+          title="Next question (→)"
+        >›</button>
         <span style={{ fontSize: 11, fontWeight: 700, color: T.muted }}>{answered}/{total}</span>
         {xpEarned > 0 && (
           <span style={{ fontSize: 11, fontWeight: 800, color: "#F5A623" }}>⚡{xpEarned}</span>
@@ -275,7 +322,8 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
           >+XP</span>
         )}
       </div>
-      <div style={{ fontSize: 10.5, color: T.muted }}>
+      <div key={`${round}-${idx}`} style={{ animation: `${dir > 0 ? "sc-q-in-r" : "sc-q-in-l"} .3s cubic-bezier(.2,.8,.3,1) both` }}>
+      <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 8 }}>
         {round > 0 ? "Retest · " : ""}Question {idx + 1} of {total} · {item.deck
           ? <span>From <b style={{ color: "#F5A623" }}>your deck</b></span>
           : <>From <b style={{ color: "#F5A623" }}>page {item.page}</b></>}
@@ -322,6 +370,7 @@ export default function ChapterReview({ T, items, resourceId, onJumpPage, onRank
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

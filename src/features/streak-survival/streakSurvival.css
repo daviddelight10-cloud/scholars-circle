@@ -1259,23 +1259,47 @@
 .deck-q{
   font-size:13.5px; font-weight:600; line-height:1.55; margin:0 0 10px; color:var(--text,var(--c-edeff5));
 }
-.deck-opts{ display:flex; flex-direction:column; gap:7px; }
+.deck-opts{ display:flex; flex-direction:column; gap:2px; }
+/* Preview rows are deliberately flat — bordered/letter-chipped rows read as
+   tappable answers and users mistook the list for the runner itself. */
 .deck-opt{
-  display:flex; align-items:center; gap:9px; padding:9px 11px;
-  border-radius:11px; border:1px solid var(--app-tint-soft);
-  background:var(--app-tint-soft); font-size:12px; line-height:1.45;
-  color:var(--text-dim,var(--c-c9d1e0)); transition:all .18s ease;
+  display:flex; align-items:center; gap:8px; padding:6px 10px;
+  border-radius:8px; border:none; background:transparent;
+  font-size:12px; line-height:1.45;
+  color:var(--text-dim,var(--c-c9d1e0)); opacity:.8; transition:all .18s ease;
 }
 .deck-opt-letter{
-  flex-shrink:0; width:21px; height:21px; border-radius:7px;
-  display:flex; align-items:center; justify-content:center;
-  font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700;
-  background:var(--app-tint-soft); color:var(--text-dim,var(--c-9aa3b5));
+  flex-shrink:0; font-family:var(--font-mono,monospace); font-size:10px; font-weight:700;
+  color:var(--text-dim,var(--c-9aa3b5)); opacity:.7;
 }
+.deck-opt-letter::after{ content:"·"; margin-left:5px; }
 .deck-opt-text{ flex:1; min-width:0; }
-.deck-opt.is-correct{ border-color:rgba(110,231,160,0.5); background:rgba(110,231,160,0.08); color:#E9FFF2; }
-.deck-opt.is-correct .deck-opt-letter{ background:rgba(110,231,160,0.2); color:var(--c-6ee7a0); }
+.deck-card.open .deck-opt.is-correct{ background:rgba(110,231,160,0.07); opacity:1; color:var(--text,var(--c-edeff5)); }
+.deck-card.open .deck-opt.is-correct .deck-opt-letter{ color:var(--c-6ee7a0); opacity:1; }
+.deck-opt-tag{
+  flex-shrink:0; margin-left:auto; font-family:var(--font-mono,monospace);
+  font-size:8.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase;
+  color:var(--c-6ee7a0); background:rgba(110,231,160,.13);
+  padding:3px 8px; border-radius:99px;
+}
 .deck-check{ color:var(--c-6ee7a0); font-weight:700; flex-shrink:0; }
+
+/* Hero start card at the top of the scroll — the run CTA leads, the card
+   list below reads as the preview it is. */
+.deck-hero{
+  display:flex; flex-direction:column; gap:10px; margin-bottom:14px;
+  padding:14px; border-radius:14px;
+  background:linear-gradient(135deg,rgba(110,231,160,.10),rgba(110,231,160,.03));
+  border:1px solid rgba(110,231,160,.22);
+}
+.deck-hero-t b{ display:block; font-size:14px; font-weight:800; color:var(--text,var(--c-edeff5)); }
+.deck-hero-t span{ font-size:11.5px; color:var(--text-dim,var(--c-c9d1e0)); }
+.deck-start.hero{ width:100%; padding:12px; font-size:14px; }
+.deck-hero .deck-cooldown{ margin:0; }
+.deck-list-label{
+  margin:0 0 10px; font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700;
+  letter-spacing:1px; text-transform:uppercase; color:var(--text-dim,var(--c-9aa3b5)); opacity:.8;
+}
 .deck-expl{
   margin:11px 0 0; font-size:11.5px; line-height:1.55; color:var(--text-dim,var(--c-9aa3b5));
   border-left:2px solid rgba(255,181,71,0.4); padding-left:10px;
@@ -1443,8 +1467,12 @@
 
 /* ---------- Light theme: deepen the neon accents for cream surfaces ---------- */
 html[data-theme="light"] .ss-root{ --blue:#0891B2; --green:#2F9E6A; }
-html[data-theme="light"] .ss-root .deck-opt.is-correct{ color:#1F7A4D; }
-html[data-theme="light"] .ss-root .deck-opt.is-correct .deck-opt-letter{ background:rgba(47,158,106,.18); color:#1F7A4D; }
+html[data-theme="light"] .ss-root .deck-card.open .deck-opt.is-correct{ color:#1F7A4D; }
+html[data-theme="light"] .ss-root .deck-opt-tag{ color:#1F7A4D; background:rgba(47,158,106,.14); }
+html[data-theme="light"] .ss-root .deck-hero{ background:linear-gradient(135deg,rgba(47,158,106,.09),rgba(47,158,106,.03)); border-color:rgba(47,158,106,.25); }
+html[data-theme="light"] .ss-root .deck-hero-t b{ color:#1a2333; }
+html[data-theme="light"] .ss-root .deck-hero-t span{ color:#5a6478; }
+html[data-theme="light"] .ss-root .deck-card.open .deck-opt.is-correct .deck-opt-letter{ color:#1F7A4D; }
 html[data-theme="light"] .ss-root .deck-opt.is-correct .deck-check{ color:#1F7A4D; }
 html[data-theme="light"] .ss-root .opt.correct{ color:#1F7A4D; }
 html[data-theme="light"] .ss-root .fsrs-note{ color:var(--text); }

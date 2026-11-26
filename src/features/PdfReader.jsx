@@ -3810,6 +3810,8 @@ Passage:
         @keyframes sc-cursor-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
         @keyframes sc-msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes sc-fade-in-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes sc-q-in-r { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes sc-q-in-l { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes sc-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         @keyframes sc-card-enter { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
         @keyframes sc-ring-fill { from { stroke-dashoffset: var(--ring-circ, 283); } to { stroke-dashoffset: var(--ring-offset, 0); } }
