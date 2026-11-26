@@ -58,6 +58,44 @@ const ProgressRing = ({ pct }) => (
   </svg>
 );
 
+// Scholar's identity orb — gold gradient sphere; pulses while the AI is working.
+const AiOrb = ({ size = 18, pulsing = false, style }) => (
+  <div
+    aria-hidden="true"
+    style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      background: "radial-gradient(circle at 32% 28%, #FFE1A6, #F5A623 52%, #B06F0A)",
+      boxShadow: "0 0 10px rgba(245,166,35,0.45), inset 0 1px 2px rgba(255,255,255,0.5)",
+      animation: pulsing ? "sc-orb-pulse 1.4s ease-in-out infinite" : "none",
+      ...style,
+    }}
+  />
+);
+
+// Waiting-for-first-token state — typing dots + rotating status verbs.
+const THINK_VERBS = ["Reading the page", "Connecting ideas", "Drafting answer", "Checking details"];
+const ThinkingBubble = ({ s }) => {
+  const [vi, setVi] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setVi((v) => (v + 1) % THINK_VERBS.length), 1700);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div style={s.msgLoading}>
+      <span style={s.typingDots} className="sc-typing"><i /><i /><i /></span>
+      {THINK_VERBS[vi]}…
+    </div>
+  );
+};
+
+// Empty-chat welcome cards — replace the starter chips in the thread body.
+const WELCOME_CARDS = [
+  { icon: "📖", label: "Explain this page", prompt: STARTER_CHIPS[0].prompt },
+  { icon: "🧠", label: "Quiz me", prompt: STARTER_CHIPS[2].prompt },
+  { icon: "📝", label: "Key points", prompt: STARTER_CHIPS[1].prompt },
+  { icon: "✨", label: "Make a mnemonic", prompt: STARTER_CHIPS[3].prompt },
+];
+
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
 
@@ -3699,8 +3737,8 @@ Passage:
     : lastMcqState === "answered" ? QUIZ_NEXT_CHIPS
     : lastMcqState === "open" ? []
     : SMART_CHIPS;
-  const showChips = chipsToShow.length > 0 &&
-    (chatMessages.length === 0 || chatMessages[chatMessages.length - 1]?.role === "assistant") && !chatLoading;
+  const showChips = chatMessages.length > 0 && chipsToShow.length > 0 &&
+    chatMessages[chatMessages.length - 1]?.role === "assistant" && !chatLoading;
 
   // Turns an AI answer into an interactive quiz — same chat mcq cards as the
   // selection quiz. (FSRS + optional deck add live on the cards themselves.)
@@ -3748,6 +3786,23 @@ Passage:
         .sc-toolbar-btns button { transition: transform .12s ease, filter .15s ease; }
         .sc-toolbar-btns button:hover { filter: brightness(1.3); }
         .sc-toolbar-btns button:active { transform: scale(.9); }
+        @keyframes sc-comet { 0%, 100% { opacity: 0.4; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.15); } }
+        @keyframes sc-orb-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.12); filter: brightness(1.15); } }
+        @keyframes sc-dot-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.35; } 30% { transform: translateY(-4px); opacity: 1; } }
+        .sc-typing i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: sc-dot-bounce 1.1s ease-in-out infinite; }
+        .sc-typing i:nth-child(2) { animation-delay: 0.15s; }
+        .sc-typing i:nth-child(3) { animation-delay: 0.3s; }
+        .sc-chips-row button { animation: sc-fade-in-up 0.3s ease both; }
+        .sc-chips-row button:nth-child(2) { animation-delay: 0.06s; }
+        .sc-chips-row button:nth-child(3) { animation-delay: 0.12s; }
+        .sc-chips-row button:nth-child(4) { animation-delay: 0.18s; }
+        .sc-chips-row button:hover, .sc-msg-actions button:hover { border-color: rgba(245,166,35,0.5); color: #b07a10; }
+        .sc-msg-actions button { animation: sc-fade-in-up 0.3s ease both; }
+        .sc-msg-actions button:nth-child(2) { animation-delay: 0.05s; }
+        .sc-msg-actions button:nth-child(3) { animation-delay: 0.1s; }
+        .sc-chat-input:focus { border-color: rgba(245,166,35,0.6) !important; box-shadow: 0 0 0 3px rgba(245,166,35,0.15); }
+        .sc-welcome-card:hover { border-color: rgba(245,166,35,0.55); transform: translateY(-1px); }
+        .sc-welcome-card:active { transform: scale(0.97); }
         @keyframes sc-landing-pulse { 0% { box-shadow: 0 0 0 0 rgba(245,166,35,.65); } 100% { box-shadow: 0 0 0 14px rgba(245,166,35,0); } }
         .sc-pulse-once { animation: sc-landing-pulse .85s ease-out; }
         .sc-card-enter { animation: sc-card-enter 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
@@ -5576,13 +5631,22 @@ Passage:
             {isMobile && <div style={s.chatBackdrop} onClick={hideChat} onTouchStart={(e) => e.stopPropagation()} />}
             <div style={s.chatPopup} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
               {isMobile && <div style={s.sheetHandle} onTouchStart={sheetTouchStart} onTouchEnd={sheetTouchEnd} />}
+              {!isMobile && !dockMode && <div style={s.chatGoldLine} />}
               <div
                 style={s.chatHead}
                 onTouchStart={isMobile ? sheetTouchStart : undefined}
                 onTouchEnd={isMobile ? sheetTouchEnd : undefined}
               >
-                <span style={s.chatTag}>
-                  {chatMessages.length > 0 ? `Chat · p.${chatCtxPage}` : `Ask · p.${chatCtxPage}`}
+                <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <AiOrb size={22} pulsing={chatLoading} />
+                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <span style={s.chatName}>Scholar</span>
+                    <span style={{ ...s.chatStatus, color: chatLoading ? "#b07a10" : T.muted }}>
+                      {chatLoading
+                        ? (chatMessages[chatMessages.length - 1]?.streaming ? "Writing…" : "Thinking…")
+                        : `Reading p.${chatCtxPage}`}
+                    </span>
+                  </span>
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
                   {aiUsage && !aiUsage.isActivated && (
@@ -5619,18 +5683,26 @@ Passage:
               <div ref={chatScrollRef} style={s.chatThread} onScroll={onChatScroll}>
                 {chatMessages.length === 0 && !chatLoading && (
                   <div style={s.emptyWrap}>
-                    <div style={s.emptyGlyph}>✨</div>
-                    <div style={s.emptyTitle}>Ask this document anything</div>
+                    <AiOrb size={44} pulsing style={{ marginBottom: 6 }} />
+                    <div style={s.emptyTitle}>Scholar</div>
                     <div style={s.emptyText}>
-                      Circle any text, diagram or question on the page to ask about it directly — or type below.
-                      I can explain concepts, solve problems, and quiz you.
+                      Circle anything on the page to ask about it — I explain concepts,
+                      solve problems, and quiz you as you read.
+                    </div>
+                    <div style={s.welcomeCards}>
+                      {WELCOME_CARDS.map((c) => (
+                        <button key={c.label} style={s.welcomeCard} className="sc-welcome-card" onClick={() => sendFollowUp(c.prompt)}>
+                          <span style={{ fontSize: 15 }}>{c.icon}</span>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: T.text }}>{c.label}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
                 {chatMessages.map((msg, i) => (
                   <div key={i} style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
-                    {msg.role === "assistant" && <div style={s.aiMark}>✨ AI</div>}
-                    {msg.image && (
+                    {msg.role === "assistant" && <AiOrb size={18} pulsing={!!msg.streaming} style={{ marginTop: 2 }} />}
+                    {msg.role === "user" && msg.image && (
                       <button
                         style={s.msgImageWrap}
                         onClick={() => msg.page != null && goToPage(msg.page)}
@@ -5642,7 +5714,17 @@ Passage:
                     )}
                     {msg.role === "assistant"
                       ? (
-                        <>
+                        <div style={s.msgCard}>
+                          {msg.image && (
+                            <button
+                              style={s.msgImageWrap}
+                              onClick={() => msg.page != null && goToPage(msg.page)}
+                              aria-label={msg.page != null ? `Jump to page ${msg.page}` : "Circled content"}
+                            >
+                              <img src={msg.image} alt="Circled content" style={s.msgImage} />
+                              {msg.page != null && <span style={s.imgPageBadge}>p.{msg.page}</span>}
+                            </button>
+                          )}
                           {(chatSegs[i] || []).map((seg, j) => {
                             if (seg.type === "mcq") {
                               const qNum = mcqPrefix[i] + (chatSegs[i].slice(0, j + 1).filter((sg) => sg.type === "mcq").length);
@@ -5704,7 +5786,7 @@ Passage:
                           {msg.streaming && <span style={s.streamCursor} />}
                           {msg.sources?.length > 0 && (
                             <div style={s.srcRow}>
-                              <span style={s.srcLabel}>📄 also used</span>
+                              <span style={s.srcLabel}>📄 Pages used</span>
                               {msg.sources.map((p) => (
                                 <button key={p} style={s.srcChip} onClick={() => goToPage(p)} aria-label={`Jump to page ${p}`}>
                                   p.{p}
@@ -5713,7 +5795,7 @@ Passage:
                             </div>
                           )}
                           {!msg.streaming && (
-                            <div style={s.msgActions}>
+                            <div style={s.msgActions} className="sc-msg-actions">
                               <button
                                 style={s.msgActionBtn}
                                 onClick={() => copyMessage(i, msg)}
@@ -5738,20 +5820,19 @@ Passage:
                               )}
                             </div>
                           )}
-                        </>
+                        </div>
                       )
                       : msg.content}
                   </div>
                 ))}
                 {chatLoading && !chatMessages[chatMessages.length - 1]?.streaming && (
-                  <div style={s.msgLoading}>
-                    <span style={s.spinner} /> Analyzing…
-                  </div>
+                  <ThinkingBubble s={s} />
                 )}
                 {chatError && (
                   <div style={s.msgError}>
-                    {chatError}
-                    <button style={s.retryBtn} onClick={retryLastMessage}>Try again</button>
+                    <div style={{ fontWeight: 700 }}>⚠️ Scholar hit a snag</div>
+                    <div style={{ fontSize: 11.5, opacity: 0.85 }}>{chatError}</div>
+                    <button style={s.retryBtn} onClick={retryLastMessage}>↻ Try again</button>
                   </div>
                 )}
               </div>
@@ -5780,8 +5861,9 @@ Passage:
                 <textarea
                   ref={inputRef}
                   style={s.chatTextarea}
+                  className="sc-chat-input"
                   rows={1}
-                  placeholder="Ask a follow-up…"
+                  placeholder={chatMessages.length === 0 ? `Ask about p.${chatCtxPage}…` : "Ask a follow-up…"}
                   value={chatInput}
                   onChange={(e) => { setChatInput(e.target.value); autoGrowInput(e.target); }}
                   onKeyDown={handleChatKeyDown}
