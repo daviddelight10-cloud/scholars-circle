@@ -78,11 +78,13 @@ const ThinkingBubble = ({ s }) => {
 };
 
 // Empty-chat welcome cards — replace the starter chips in the thread body.
+// Prompts are self-contained here — never index into STARTER_CHIPS, its
+// contents change and a missing index crashes the module at import time.
 const WELCOME_CARDS = [
-  { icon: "📖", label: "Explain this page", prompt: STARTER_CHIPS[0].prompt },
-  { icon: "🧠", label: "Quiz me", prompt: STARTER_CHIPS[2].prompt },
-  { icon: "📝", label: "Key points", prompt: STARTER_CHIPS[1].prompt },
-  { icon: "✨", label: "Make a mnemonic", prompt: STARTER_CHIPS[3].prompt },
+  { icon: "📖", label: "Explain this page", prompt: "Explain the key points on this page — keep it clear and simple." },
+  { icon: "🧠", label: "Quiz me", prompt: "Test my knowledge of this page — ask me one multiple-choice question at a time using the mcq format." },
+  { icon: "📝", label: "Key points", prompt: "Summarize the key points on this page in a few bullet points." },
+  { icon: "✨", label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points on this page." },
 ];
 
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
