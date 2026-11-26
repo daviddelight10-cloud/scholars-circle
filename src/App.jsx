@@ -65,6 +65,7 @@ import { initTheme, resolveAppearance, getAppearancePref, setAppearancePref } fr
 const Home = lazyWithRetry(() => import("./pages/Home"));
 const AITutorPage = lazyWithRetry(() => import("./pages/AITutor"));
 const VoiceTutorPage = lazyWithRetry(() => import("./features/voice-tutor/VoiceTutor.jsx"));
+const GlobalScholar = lazyWithRetry(() => import("./features/scholar/GlobalScholar.jsx"));
 const Progress = lazyWithRetry(() => import("./pages/Progress"));
 const Resources = lazyWithRetry(() => import("./pages/Resources"));
 const ClassroomPage = lazyWithRetry(() => import("./pages/Classroom"));
@@ -9699,6 +9700,20 @@ function App() {
       </div>
 
       <InstallPrompt />
+
+      {/* Global Scholar — floating AI orb on every tab; hidden (not unmounted,
+          so chats survive) where a full-screen AI surface or the doc-scoped
+          reader already owns it. */}
+      {auth.user && (
+        <Suspense fallback={null}>
+          <GlobalScholar
+            hidden={homeViewerToken != null || ctxUI.hideMobileNav || tab === "aitutor" || tab === "voice-tutor"}
+            onOpenAITutor={() => setTab("aitutor")}
+            onOpenVoice={() => setTab("voice-tutor")}
+            theme={darkMode ? "dark" : "light"}
+          />
+        </Suspense>
+      )}
 
       {auth.user && booted && !showOnboarding && token && (
         <Suspense fallback={null}>

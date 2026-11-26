@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
 import { callAIMultimodalStream } from "../lib/aiClient.js";
+import AiOrb from "../components/AiOrb.jsx";
 import MarkdownText from "../components/MarkdownText.jsx";
 import McqCard from "../components/McqCard.jsx";
 import { parseMcqSegments } from "../lib/mcqBlocks.js";
@@ -60,19 +61,6 @@ const ProgressRing = ({ pct }) => (
 );
 
 // Scholar's identity orb — gold gradient sphere; pulses while the AI is working.
-const AiOrb = ({ size = 18, pulsing = false, style }) => (
-  <div
-    aria-hidden="true"
-    style={{
-      width: size, height: size, borderRadius: "50%", flexShrink: 0,
-      background: "radial-gradient(circle at 32% 28%, #FFE1A6, #F5A623 52%, #B06F0A)",
-      boxShadow: "0 0 10px rgba(245,166,35,0.45), inset 0 1px 2px rgba(255,255,255,0.5)",
-      animation: pulsing ? "sc-orb-pulse 1.4s ease-in-out infinite" : "none",
-      ...style,
-    }}
-  />
-);
-
 // Waiting-for-first-token state — typing dots + rotating status verbs.
 const THINK_VERBS = ["Reading the page", "Connecting ideas", "Drafting answer", "Checking details"];
 const ThinkingBubble = ({ s }) => {
