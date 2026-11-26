@@ -16,6 +16,7 @@ import { rateQuestion } from "./streak-survival/fsrsBridge.js";
 import { questEvent } from "./streak-survival/survivalStore.js";
 import { API_BASE } from "../lib/constants";
 import { fetchWithAuth, getValidToken } from "../lib/authToken.js";
+import { getResolvedTheme } from "../lib/theme.js";
 import { docKeyFromUrl } from "../lib/researchUtils.js";
 import pdfjsLib, { loadPdfJs } from "../lib/pdfjs.js";
 
@@ -121,21 +122,27 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [fullscreen, setFullscreen] = useState(initialFullscreen);
   const { setMobileNavHidden } = useUI();
 
-  // Theme
-  // Default: dim (image-safe night mode) at max brightness. Stored choices win.
-  const [theme, setTheme] = useState(() => {
-    const t = loadStored("sc_pdf_theme", "light");
-    return THEMES[t] ? t : "light";
+  // Theme — "auto" (default) follows the app theme; light/dark/sepia are
+  // explicit overrides. "dim" was removed: brightness-only darkening left
+  // black text black on a dimmed page — unreadable.
+  const [themePref, setThemePref] = useState(() => {
+    const t = loadStored("sc_pdf_theme", "auto");
+    return THEMES[t] ? t : "auto"; // "dim"/unknown/legacy → auto
   });
+  const [appTheme, setAppTheme] = useState(getResolvedTheme);
+  useEffect(() => {
+    const on = (e) => setAppTheme(e.detail.resolved);
+    window.addEventListener("sc:theme-change", on);
+    return () => window.removeEventListener("sc:theme-change", on);
+  }, []);
+  const theme = themePref === "auto" ? appTheme : themePref;
   const [readerBrightness, setReaderBrightness] = useState(() => loadStored("sc_pdf_bright", 1.1));
   const T = THEMES[theme];
 
   // Page-canvas filter: theme base + user brightness multiplier.
-  // "dark" inverts (classic night reader); "dim" only dims — the image-safe
-  // mode where figures/scans keep true colors.
+  // "dark" inverts the raster — black text becomes light on a dark page.
   const pageCssFilter = () => {
     const base = theme === "dark" ? "invert(1) hue-rotate(180deg)"
-      : theme === "dim" ? "brightness(0.72)"
       : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)"
       : "";
     const b = readerBrightness !== 1 ? ` brightness(${readerBrightness.toFixed(2)})` : "";
@@ -1361,7 +1368,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                 borderRadius: 2,
                 zIndex: 5,
                 cursor: "pointer",
-                mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+                mixBlendMode: (theme === "dark") ? "screen" : "multiply",
               }}
             />
           ))
@@ -1399,7 +1406,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
           left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
           width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
           background: "rgba(79,142,247,0.3)",
-          mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+          mixBlendMode: (theme === "dark") ? "screen" : "multiply",
           borderRadius: 2,
           zIndex: 6,
           pointerEvents: "none",
@@ -1474,7 +1481,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       if (e.key === "+" || e.key === "=") { handleZoomIn(); }
       if (e.key === "-" || e.key === "_") { handleZoomOut(); }
       if (e.key === "b") toggleBookmark();
-      if (e.key === "t") setTheme((t) => t === "light" ? "dim" : t === "dim" ? "dark" : t === "dark" ? "sepia" : "light");
+      if (e.key === "t") setThemePref((t) => t === "auto" ? "light" : t === "light" ? "dark" : t === "dark" ? "sepia" : "auto");
       if (e.key === "f") setFullscreen((v) => !v);
       if (e.key === "h") toggleTool("highlight");
     };
@@ -3448,7 +3455,7 @@ Passage:
   }, [fullscreen]);
 
   // ---- Theme persistence ----
-  useEffect(() => { saveStored("sc_pdf_theme", theme); }, [theme]);
+  useEffect(() => { saveStored("sc_pdf_theme", themePref); }, [themePref]);
   useEffect(() => { saveStored("sc_pdf_bright", readerBrightness); }, [readerBrightness]);
 
   // ---- Annotation persistence (debounced) ----
@@ -4520,25 +4527,26 @@ Passage:
                     <button
                       style={{
                         ...s.themeSwatch,
-                        background: THEMES.light.bg,
-                        color: THEMES.light.text,
-                        borderColor: theme === "light" ? CHROME.blue : "var(--app-tint-med)",
-                        boxShadow: theme === "light" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                        background: THEMES[appTheme].bg,
+                        color: THEMES[appTheme].text,
+                        borderColor: themePref === "auto" ? CHROME.blue : "var(--app-tint-med)",
+                        boxShadow: themePref === "auto" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
-                      onClick={() => { setTheme("light"); }}
+                      onClick={() => { setThemePref("auto"); }}
+                      title="Auto — follow the app theme"
                     >
-                      Aa
+                      ⟲
                     </button>
                     <button
                       style={{
                         ...s.themeSwatch,
-                        background: THEMES.dim.bg,
-                        color: THEMES.dim.text,
-                        borderColor: theme === "dim" ? CHROME.blue : "var(--app-tint-med)",
-                        boxShadow: theme === "dim" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                        background: THEMES.light.bg,
+                        color: THEMES.light.text,
+                        borderColor: themePref === "light" ? CHROME.blue : "var(--app-tint-med)",
+                        boxShadow: themePref === "light" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
-                      onClick={() => { setTheme("dim"); }}
-                      title="Dim — image-safe night mode (figures keep true colors)"
+                      onClick={() => { setThemePref("light"); }}
+                      title="Light — always"
                     >
                       Aa
                     </button>
@@ -4547,10 +4555,10 @@ Passage:
                         ...s.themeSwatch,
                         background: THEMES.dark.bg,
                         color: THEMES.dark.text,
-                        borderColor: theme === "dark" ? CHROME.blue : "var(--app-tint-med)",
-                        boxShadow: theme === "dark" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                        borderColor: themePref === "dark" ? CHROME.blue : "var(--app-tint-med)",
+                        boxShadow: themePref === "dark" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
-                      onClick={() => { setTheme("dark"); }}
+                      onClick={() => { setThemePref("dark"); }}
                       title="Dark — full invert"
                     >
                       Aa
@@ -4560,10 +4568,11 @@ Passage:
                         ...s.themeSwatch,
                         background: THEMES.sepia.bg,
                         color: THEMES.sepia.text,
-                        borderColor: theme === "sepia" ? CHROME.blue : "var(--app-tint-med)",
-                        boxShadow: theme === "sepia" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                        borderColor: themePref === "sepia" ? CHROME.blue : "var(--app-tint-med)",
+                        boxShadow: themePref === "sepia" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
-                      onClick={() => { setTheme("sepia"); }}
+                      onClick={() => { setThemePref("sepia"); }}
+                      title="Sepia — warm paper"
                     >
                       Aa
                     </button>
@@ -5376,7 +5385,7 @@ Passage:
                       left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
                       width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
                       background: m.color,
-                      mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+                      mixBlendMode: (theme === "dark") ? "screen" : "multiply",
                       borderRadius: 2,
                       zIndex: 6,
                       cursor: "pointer",
@@ -5477,7 +5486,7 @@ Passage:
                           left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
                           width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
                           background: m.color,
-                          mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+                          mixBlendMode: (theme === "dark") ? "screen" : "multiply",
                           borderRadius: 2,
                           zIndex: 6,
                           cursor: "pointer",
@@ -5549,7 +5558,7 @@ Passage:
                               left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
                               width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
                               background: m.color,
-                              mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+                              mixBlendMode: (theme === "dark") ? "screen" : "multiply",
                               borderRadius: 2,
                               zIndex: 6,
                               cursor: "pointer",
@@ -5614,7 +5623,7 @@ Passage:
                     </>
                   ) : (
                     // Placeholder for off-screen page — maintains scroll dimensions
-                    <div style={{ width: dims.width || "100%", height: dims.height || 200, background: (theme === "dark" || theme === "dim") ? "#1e1e28" : "#f0f0f0" }} />
+                    <div style={{ width: dims.width || "100%", height: dims.height || 200, background: (theme === "dark") ? "#1e1e28" : "#f0f0f0" }} />
                   )}
                   <span style={s.pageLabel}>{pg}</span>
                 </div>
