@@ -81,6 +81,23 @@ function runConfetti(canvas, onDone) {
   return () => cancelAnimationFrame(raf);
 }
 
+// ConfettiBurst — the cannon/rain without the rank banner, for wins that
+// aren't leaderboard climbs (e.g. acing a chapter review).
+export function ConfettiBurst({ onDone }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const stop = canvasRef.current ? runConfetti(canvasRef.current) : null;
+    const t = setTimeout(() => onDone?.(), 4200);
+    return () => { stop?.(); clearTimeout(t); };
+  }, [onDone]);
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 9998, pointerEvents: "none" }}
+    />
+  );
+}
+
 export default function Celebration({ from, to, passed, tier, onDone }) {
   const canvasRef = useRef(null);
   useEffect(() => {

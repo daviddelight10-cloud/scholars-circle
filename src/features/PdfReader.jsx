@@ -323,6 +323,30 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [studyView, setStudyView] = useState("tools"); // "tools" | "lesson" — lesson = Page Tutor
   const studyDeck = usePdfDeck(propResourceId, studyToolsOpen);
   const studyResourceId = propResourceId || docKey;
+
+  // FSRS review pulls — due items for this doc drive the review card's
+  // urgency copy, weakness-aware sampling, and the FAB badge. Refreshes when
+  // any rating lands (sc-fsrs-rated fires from rateQuestion).
+  const [dueItems, setDueItems] = useState([]);
+  useEffect(() => {
+    if (!propResourceId) { setDueItems([]); return; }
+    let dead = false;
+    const load = () => {
+      fetchWithAuth(`${API_BASE}/api/resources/fsrs/due?resources=${encodeURIComponent(propResourceId)}&limit=100`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!dead && d) setDueItems(Array.isArray(d.items) ? d.items : []); })
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener("sc-fsrs-rated", load);
+    return () => { dead = true; window.removeEventListener("sc-fsrs-rated", load); };
+  }, [propResourceId]);
+  const duePages = useMemo(
+    () => new Set(dueItems.map((i) => (i.pageIndex ?? -1) + 1).filter((p) => p > 0)),
+    [dueItems]
+  );
+  const dueCount = dueItems.length;
+  const [lastReview, setLastReview] = useState(() => loadStored(`sc_review_last_${docKey}`, null));
   const pageTutor = usePageTutor({
     resourceId: propResourceId,
     onLessonDone: (xpAwarded) => {
@@ -6067,6 +6091,14 @@ Passage:
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
                 </svg>
+                {dueCount > 0 && (
+                  <span style={{
+                    position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 5px",
+                    borderRadius: 999, background: "linear-gradient(145deg, #FFC24B, #F5A623)",
+                    color: "#1a1200", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center",
+                    justifyContent: "center", boxShadow: "0 2px 8px rgba(245,166,35,0.5)",
+                  }}>{dueCount > 99 ? "99" : dueCount}</span>
+                )}
               </button>
             ) : (
               <button
@@ -6083,6 +6115,14 @@ Passage:
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
                 </svg>
+                {dueCount > 0 && (
+                  <span style={{
+                    position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 5px",
+                    borderRadius: 999, background: "linear-gradient(145deg, #FFC24B, #F5A623)",
+                    color: "#1a1200", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center",
+                    justifyContent: "center", boxShadow: "0 2px 8px rgba(245,166,35,0.5)",
+                  }}>{dueCount > 99 ? "99" : dueCount}</span>
+                )}
               </button>
             )
           )}
@@ -6213,8 +6253,15 @@ Passage:
                     T={T}
                     items={pageTutor.reviewItems}
                     resourceId={propResourceId}
+                    duePages={duePages}
+                    deckItems={studyDeck.items}
                     onJumpPage={(p) => { goToPage(p); setStudyView("lesson"); }}
                     onRankCheck={checkRankCelebration}
+                    onFinish={(c, t) => {
+                      const r = { c, t, at: Date.now() };
+                      setLastReview(r);
+                      saveStored(`sc_review_last_${docKey}`, r);
+                    }}
                   />
                 ) : studyView === "lesson" ? (
                   <>
@@ -6356,7 +6403,8 @@ Passage:
                         style={{
                           display: "flex", alignItems: "center", gap: 10, marginTop: 8,
                           width: "100%", padding: "12px 14px", borderRadius: 12,
-                          border: `1px solid ${T.border}`, background: T.hover,
+                          border: `1px solid ${dueCount > 0 ? "rgba(245,166,35,0.5)" : T.border}`,
+                          background: dueCount > 0 ? "rgba(245,166,35,0.07)" : T.hover,
                           cursor: "pointer", textAlign: "left", fontFamily: "inherit",
                           animation: "sc-fade-in-up .35s ease both", animationDelay: "100ms",
                         }}
@@ -6364,8 +6412,11 @@ Passage:
                         <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: "rgba(245,166,35,0.14)", color: "#F5A623", fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center" }}>🧠</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Chapter review</div>
-                          <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.4 }}>
-                            {pageTutor.reviewItems.length} questions across {pageTutor.lessonPages.size} page{pageTutor.lessonPages.size !== 1 ? "s" : ""}
+                          <div style={{ fontSize: 11, lineHeight: 1.4, color: dueCount > 0 ? "#F5A623" : T.muted, fontWeight: dueCount > 0 ? 700 : 400 }}>
+                            {dueCount > 0
+                              ? `⚡ ${dueCount} due now`
+                              : `${pageTutor.reviewItems.length} questions across ${pageTutor.lessonPages.size} page${pageTutor.lessonPages.size !== 1 ? "s" : ""}`}
+                            {lastReview ? <span style={{ color: T.muted, fontWeight: 400 }}> · Last: {lastReview.c}/{lastReview.t}</span> : ""}
                           </div>
                         </div>
                         <span style={{ fontSize: 15, color: T.muted }}>›</span>
