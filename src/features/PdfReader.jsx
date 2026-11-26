@@ -6171,7 +6171,7 @@ Passage:
           {/* Smart Lecture coachmark — talks up Page Tutor + Ask AI in two
               slides, then collapses into the study FAB so the student learns
               where the tools live. Tap anywhere on it to skip to the collapse. */}
-          {lectureStep > 0 && !studyToolsOpen && !chromeHidden && !loading && !loadError && (
+          {lectureStep > 0 && !studyToolsOpen && !chromeHidden && !loadError && (
             <button
               onClick={() => setLectureStep(3)}
               aria-label="Study tools intro — tap to dismiss"
