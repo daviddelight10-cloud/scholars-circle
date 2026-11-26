@@ -116,6 +116,8 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   const [attachMenu, setAttachMenu] = useState(false);
   // One-shot mascot reaction shown on the live orbs (celebrate/oops).
   const [orbMood, setOrbMood] = useState(null);
+  // Companion teaser bubble — pops next to the orb with a contextual line.
+  const [bubble, setBubble] = useState(null); // { text, prompt? }
 
   const sessionRef = useRef(0);
   const abortRef = useRef(null);
@@ -126,6 +128,8 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   const imgRef = useRef(null);
   const docRef = useRef(null);
   const moodRef = useRef(0);
+  const bubbleCountRef = useRef(0);
+  const prevLoadingRef = useRef(false);
 
   const { folders, prefs } = useReviewPlan();
   const isMobile = typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia?.("(pointer: coarse)")?.matches);
@@ -164,6 +168,34 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     if (weak) lines.push(`- Weakest subject right now: ${weak.name}`);
     return lines.length ? `\n\nSTUDENT CONTEXT:\n${lines.join("\n")}` : "";
   }, [dueCount, exam, weak]);
+
+  // First name for the companion voice (best-effort from stored auth).
+  const userName = useMemo(() => {
+    try {
+      const a = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      return String(a.user?.fullName || a.user?.username || "").split(" ")[0];
+    } catch { return ""; }
+  }, []);
+
+  // Companion teaser lines — same live data as the welcome cards, phrased as
+  // the mascot talking. `prompt` rides along so tapping the bubble can act.
+  const teasers = useMemo(() => {
+    const t = [];
+    if (dueCount > 0) t.push({
+      text: `${dueCount} card${dueCount === 1 ? "" : "s"} due — 10-min review? 📚`,
+      prompt: `I have ${dueCount} flashcards due for review. Give me a focused 10-minute plan, then quiz me on the most likely weak points — one mcq question at a time.`,
+    });
+    if (exam && exam.days <= 30) t.push({
+      text: `${exam.name} in ${exam.days}d — cram plan? ⏳`,
+      prompt: `My ${exam.name} exam is in ${exam.days} days. Build me a realistic day-by-day revision plan with daily goals.`,
+    });
+    if (weak) t.push({
+      text: `${weak.name} is your weakest — drill it? 🧠`,
+      prompt: `${weak.name} is my weakest subject right now. Quiz me on its fundamentals — one mcq question at a time, starting with the basics.`,
+    });
+    t.push({ text: `${userName ? `${userName}, stuck` : "Stuck"} on a topic? Just ask me 💬`, prompt: null });
+    return t;
+  }, [dueCount, exam, weak, userName]);
 
   const scrollBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -345,6 +377,31 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     window.addEventListener("sc-open-scholar", onOpen);
     return () => window.removeEventListener("sc-open-scholar", onOpen);
   }, [openSheet]);
+
+  // Companion teasers — the orb speaks first, mascot-style. Max 3 bubbles
+  // per session, ~45s apart, only while the sheet is closed.
+  useEffect(() => {
+    if (hidden || open || !teasers.length) return;
+    let cancelled = false;
+    let hideT = null;
+    const show = () => {
+      if (cancelled || bubbleCountRef.current >= 3) return;
+      const t = teasers[bubbleCountRef.current % teasers.length];
+      bubbleCountRef.current += 1;
+      setBubble(t);
+      hideT = setTimeout(() => setBubble((b) => (b === t ? null : b)), 4600);
+    };
+    // First-ever visit: a quicker hello so the mascot introduces itself.
+    const first = setTimeout(show, seen ? 9000 : 2800);
+    const iv = setInterval(show, 45000);
+    return () => { cancelled = true; clearTimeout(first); clearTimeout(hideT); clearInterval(iv); };
+  }, [hidden, open, teasers, seen]);
+
+  // Reply landed while the sheet was closed — the orb bounces to flag it.
+  useEffect(() => {
+    if (prevLoadingRef.current && !loading && !open) setMood("excited");
+    prevLoadingRef.current = loading;
+  }, [loading, open]);
 
   // Escape closes the sheet; abort any in-flight stream on unmount.
   useEffect(() => {
@@ -554,6 +611,32 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       fontSize: 12, fontWeight: 600, color: "var(--app-text)",
       animation: "gs-fade-in-up 0.2s ease both",
     },
+    bubble: {
+      position: "fixed",
+      right: isMobile ? 82 : 94,
+      ...(fabTop != null
+        ? { top: Math.max(8, fabTop + 6) }
+        : { bottom: isMobile ? "calc(100px + env(safe-area-inset-bottom))" : 34 }),
+      maxWidth: 210, padding: "9px 26px 9px 12px",
+      borderRadius: 14, background: "var(--app-card2)",
+      border: "1px solid rgba(245,166,35,0.4)",
+      color: "var(--app-text)", fontSize: 12, fontWeight: 600, lineHeight: 1.4,
+      boxShadow: "0 8px 26px rgba(0,0,0,0.4), 0 0 18px rgba(245,166,35,0.12)",
+      cursor: "pointer", zIndex: 9989, fontFamily: "inherit", textAlign: "left",
+      animation: "gs-bubble-in 0.32s cubic-bezier(0.34,1.56,0.64,1) both",
+    },
+    bubbleTail: {
+      position: "absolute", right: -5, top: "50%", width: 10, height: 10,
+      transform: "translateY(-50%) rotate(45deg)",
+      background: "var(--app-card2)",
+      borderTop: "1px solid rgba(245,166,35,0.4)",
+      borderRight: "1px solid rgba(245,166,35,0.4)",
+    },
+    bubbleX: {
+      position: "absolute", top: 4, right: 7, background: "none", border: "none",
+      color: "var(--app-faint)", fontSize: 10, cursor: "pointer", padding: 2,
+      fontFamily: "inherit",
+    },
     card: {
       display: "flex", alignItems: "center", gap: 12, width: "100%",
       padding: "12px 13px", borderRadius: 14, textAlign: "left",
@@ -585,8 +668,11 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
         @keyframes gs-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3.5px); } }
         @keyframes gs-breathe { 0%, 100% { box-shadow: 0 8px 26px rgba(245,166,35,0.5), 0 0 0 0 rgba(245,166,35,0.35); } 50% { box-shadow: 0 10px 30px rgba(245,166,35,0.62), 0 0 0 7px rgba(245,166,35,0.10); } }
         @keyframes gs-shine { 0%, 72% { transform: translateX(-130%) rotate(18deg); } 100% { transform: translateX(230%) rotate(18deg); } }
+        @keyframes gs-hop { 0%,72%,100% { transform: translateY(0) scale(1,1); } 75% { transform: translateY(0) scale(1.1,0.82); } 81% { transform: translateY(-13px) scale(0.96,1.06); } 87% { transform: translateY(0) scale(1.06,0.86); } 93% { transform: translateY(-2px) scale(0.98,1.02); } }
+        @keyframes gs-bubble-in { from { opacity: 0; transform: translateX(14px) scale(0.7); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes sc-orb-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.12); filter: brightness(1.15); } }
         .gs-orb-idle { animation: gs-float 3.2s ease-in-out infinite; }
+        .gs-orb-hop { display: flex; animation: gs-hop 11s ease-in-out infinite; }
         .gs-shine { position: absolute; top: -20%; bottom: -20%; width: 34%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); animation: gs-shine 5.2s ease-in-out infinite; }
         .gs-typing i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: gs-dot-bounce 1.1s ease-in-out infinite; }
         .gs-typing i:nth-child(2) { animation-delay: 0.15s; }
@@ -616,10 +702,37 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
           title="Scholar — drag to move, tap to chat"
         >
           <span className="gs-shine" />
-          <span className="gs-orb-idle" style={{ display: "flex" }}>
-            <AiOrb size={30} state={orbMood || (loading ? "thinking" : !seen ? "excited" : undefined)} />
+          <span className="gs-orb-hop">
+            <span className="gs-orb-idle" style={{ display: "flex" }}>
+              <AiOrb size={30} state={orbMood || (loading ? "thinking" : !seen ? "excited" : undefined)} />
+            </span>
           </span>
           {dueCount > 0 && <span style={s.fabBadge}>{dueCount > 99 ? "99" : dueCount}</span>}
+        </button>
+      )}
+
+      {/* Companion teaser — the mascot speaks first, rate-limited */}
+      {!open && bubble && (
+        <button
+          style={s.bubble}
+          onClick={() => {
+            haptics.selection();
+            const p = bubble.prompt;
+            setBubble(null);
+            openSheet();
+            if (p) send(p);
+          }}
+          aria-label="Scholar suggestion"
+        >
+          {bubble.text}
+          <span style={s.bubbleTail} aria-hidden="true" />
+          <span
+            style={s.bubbleX}
+            role="button"
+            tabIndex={-1}
+            onClick={(e) => { e.stopPropagation(); bubbleCountRef.current = 99; setBubble(null); }}
+            aria-label="Dismiss suggestions"
+          >✕</span>
         </button>
       )}
 
