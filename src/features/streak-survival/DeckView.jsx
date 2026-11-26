@@ -161,27 +161,6 @@ function DeckView({
 
       {/* Cards */}
       <div className="deck-scroll">
-        {/* Hero CTA — the run setup leads; the card list below is the preview */}
-        {showModes && !generating && list.length > 0 && session && (
-          <div className="deck-hero">
-            <div className="deck-hero-t">
-              <b>Ready to run it?</b>
-              <span>{scope ? <>{scope.label} · </> : null}about {sessionMinutes(session.indices.length)} min</span>
-            </div>
-            <div className="deck-pills">
-              <span className="deck-pill">{session.indices.length} in this run</span>
-              {session.due > 0 && <span className="deck-pill due">⏰ {session.due} due</span>}
-              {masteredN > 0 && <span className="deck-pill mast">★ {masteredN} mastered</span>}
-            </div>
-            {cooldownNote ? (
-              <div className="deck-cooldown">{cooldownNote}</div>
-            ) : (
-              <button className="deck-start hero" disabled={!canStart || session.indices.length === 0} onClick={start}>
-                <span className="deck-start-ico">▶</span>{scope ? `Practise ${scope.label}` : mode === "practice" ? "Start practice" : "Start recall"}
-              </button>
-            )}
-          </div>
-        )}
         {showModes && list.length > 0 && (
           <div className="deck-prog">
             <ProgressRing pct={masteredPct} />

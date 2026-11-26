@@ -1301,32 +1301,6 @@
   background-size:200% 100%; animation:deckShimmer 1.3s infinite;
 }
 
-/* Hero — one big bouncy play CTA with pastel stat pills; the list below is
-   unmistakably a deck of cards, not the run itself. */
-.deck-hero{
-  display:flex; flex-direction:column; align-items:center; gap:12px;
-  margin-bottom:16px; padding:20px 16px 16px; border-radius:20px; text-align:center;
-  background:linear-gradient(150deg,rgba(110,231,160,.13),rgba(255,182,39,.07) 70%,transparent);
-  border:1px solid rgba(110,231,160,.22);
-}
-.deck-hero-t b{ display:block; font-size:17px; font-weight:800; color:var(--text,var(--c-edeff5)); }
-.deck-hero-t span{ font-size:11.5px; color:var(--text-dim,var(--c-c9d1e0)); }
-.deck-pills{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
-.deck-pill{
-  font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700;
-  letter-spacing:.4px; padding:5px 11px; border-radius:99px;
-  background:var(--app-tint-soft); color:var(--text-dim,var(--c-c9d1e0));
-}
-.deck-pill.due{ background:rgba(255,182,39,.16); color:#FFB627; }
-.deck-pill.mast{ background:rgba(110,231,160,.13); color:var(--c-6ee7a0); }
-.deck-start.hero{
-  width:100%; padding:14px; font-size:15px; border-radius:16px;
-  transition:transform .12s ease, box-shadow .2s ease;
-  box-shadow:0 6px 18px rgba(110,231,160,.18);
-}
-.deck-start.hero:hover:not(:disabled){ transform:translateY(-1px); box-shadow:0 8px 22px rgba(110,231,160,.24); }
-.deck-start.hero:active:not(:disabled){ transform:scale(.96); box-shadow:none; }
-.deck-hero .deck-cooldown{ margin:0; width:100%; }
 .deck-list-label{
   margin:0 0 10px; font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700;
   letter-spacing:1px; text-transform:uppercase; color:var(--text-dim,var(--c-9aa3b5)); opacity:.8;
@@ -1348,17 +1322,32 @@
   background:rgba(var(--app-glass-rgb),0.82); backdrop-filter:blur(14px);
   border-top:1px solid var(--app-tint-med);
 }
+/* The one primary CTA — alive: breathing glow + periodic shine sweep + a
+   spring press, so "Start recall" is unmistakably the action. */
 .deck-start{
   flex:1; display:flex; align-items:center; justify-content:center; gap:9px;
-  border:none; border-radius:14px; padding:15px; cursor:pointer;
-  font-family:var(--font-body,'Manrope',sans-serif); font-size:14.5px; font-weight:700;
+  position:relative; overflow:hidden;
+  border:none; border-radius:16px; padding:16px; cursor:pointer;
+  font-family:var(--font-body,'Manrope',sans-serif); font-size:15px; font-weight:800;
   color:#211302; background:linear-gradient(135deg,#FFB627,#FF7A9E);
   box-shadow:0 6px 22px rgba(255,122,158,0.3);
   transition:transform .15s ease;
+  animation:deckStartIn .55s cubic-bezier(.34,1.4,.64,1) .3s backwards,
+            deckStartGlow 2.6s ease-in-out .8s infinite;
 }
-.deck-start:active{ transform:scale(0.98); }
-.deck-start:disabled{ opacity:0.45; cursor:not-allowed; box-shadow:none; }
-.deck-start-ico{ font-size:11px; }
+.deck-start::after{
+  content:""; position:absolute; top:0; bottom:0; left:-60%; width:45%;
+  transform:skewX(-18deg); pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.38),transparent);
+  animation:deckShine 2.8s ease-in-out 1s infinite;
+}
+@keyframes deckStartIn{ from{ transform:translateY(14px) scale(.95); opacity:0;} to{ transform:none; opacity:1;} }
+@keyframes deckStartGlow{ 0%,100%{ box-shadow:0 6px 22px rgba(255,122,158,.30);} 50%{ box-shadow:0 6px 30px rgba(255,122,158,.52);} }
+@keyframes deckShine{ 0%{ left:-60%; } 55%{ left:130%; } 100%{ left:130%; } }
+.deck-start:active{ transform:scale(0.95); }
+.deck-start:disabled{ opacity:0.45; cursor:not-allowed; box-shadow:none; animation:none; }
+.deck-start:disabled::after{ display:none; }
+.deck-start-ico{ font-size:11px; animation:deckPulse 1.4s infinite; }
 .deck-live{
   display:flex; align-items:center; gap:7px; flex-shrink:0; cursor:pointer;
   border:1px solid rgba(255,94,126,0.45); background:rgba(255,94,126,0.08);
@@ -1388,6 +1377,10 @@
   .deck-card{ animation:none; }
   .deck-skel-line,.deck-skel-opt{ animation:none; }
   .deck-live-dot{ animation:none; }
+  .deck-card-in{ transition:none; }
+  .deck-start{ animation:none; }
+  .deck-start::after{ display:none; }
+  .deck-start-ico{ animation:none; }
 }
 
 /* ---------- Question metadata chips (topic + difficulty) ---------- */
@@ -1482,9 +1475,5 @@
 /* ---------- Light theme: deepen the neon accents for cream surfaces ---------- */
 html[data-theme="light"] .ss-root{ --blue:#0891B2; --green:#2F9E6A; }
 html[data-theme="light"] .ss-root .deck-back-label, html[data-theme="light"] .ss-root .deck-ans{ color:#1F7A4D; }
-html[data-theme="light"] .ss-root .deck-pill.mast{ background:rgba(47,158,106,.13); color:#1F7A4D; }
-html[data-theme="light"] .ss-root .deck-hero{ background:linear-gradient(150deg,rgba(47,158,106,.10),rgba(255,182,39,.08) 70%,transparent); border-color:rgba(47,158,106,.25); }
-html[data-theme="light"] .ss-root .deck-hero-t b{ color:#1a2333; }
-html[data-theme="light"] .ss-root .deck-hero-t span{ color:#5a6478; }
 html[data-theme="light"] .ss-root .opt.correct{ color:#1F7A4D; }
 html[data-theme="light"] .ss-root .fsrs-note{ color:var(--text); }
