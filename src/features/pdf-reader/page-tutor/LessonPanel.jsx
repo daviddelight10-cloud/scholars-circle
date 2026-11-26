@@ -14,8 +14,13 @@ const chip = (T, active) => ({
   color: active ? "#4F8EF7" : T.muted, fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
 });
 
-function Section({ T, item, expanded, onToggle, onPlay, playing, onSeeOnPage }) {
+function Section({ T, item, expanded, onToggle, onPlay, playing, active, onSeeOnPage }) {
   const s = item.section;
+  const [showFull, setShowFull] = useState(false);
+  // Audiobook-style transcript: while the section is the live audio target,
+  // the box shows `narration` — the verbatim spoken script — so what you read
+  // is exactly what you hear. "full text" flips to the richer explanation.
+  const liveText = active && s.narration && !showFull;
   return (
     <div
       data-ptsec={item.index}
@@ -63,7 +68,48 @@ function Section({ T, item, expanded, onToggle, onPlay, playing, onSeeOnPage }) 
               Part of this page could not be read clearly — check the original.
             </div>
           )}
-          <div style={{ fontSize: 13, color: T.text, lineHeight: 1.6 }}>{s.explanation}</div>
+          {liveText ? (
+            <div style={{
+              borderLeft: "3px solid rgba(79,142,247,0.6)", borderRadius: "0 10px 10px 0",
+              background: "rgba(79,142,247,0.06)", padding: "9px 11px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5, gap: 8 }}>
+                <span style={{
+                  fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em",
+                  color: "#4F8EF7", display: "inline-flex", alignItems: "center", gap: 5,
+                }}>
+                  <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 2, height: 10 }}>
+                    {[0, 1, 2].map((b) => (
+                      <span key={b} style={{
+                        width: 2.5, height: "100%", borderRadius: 2, background: "#4F8EF7",
+                        transformOrigin: "bottom",
+                        animation: playing ? `sc-pt-eq .9s ease-in-out ${b * 0.15}s infinite` : "none",
+                        transform: playing ? undefined : "scaleY(.35)",
+                      }} />
+                    ))}
+                  </span>
+                  Transcript
+                </span>
+                {s.explanation !== s.narration && (
+                  <button onClick={() => setShowFull(true)} style={chip(T, false)} title="Show the written explanation instead">
+                    📄 full text
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: 13, color: T.text, lineHeight: 1.6 }}>{s.narration}</div>
+            </div>
+          ) : (
+            <>
+              {active && s.narration && s.explanation !== s.narration && (
+                <div style={{ marginBottom: 6 }}>
+                  <button onClick={() => setShowFull(false)} style={chip(T, true)} title="Back to the spoken transcript">
+                    🔊 transcript
+                  </button>
+                </div>
+              )}
+              <div style={{ fontSize: 13, color: T.text, lineHeight: 1.6 }}>{s.explanation}</div>
+            </>
+          )}
           {s.terms?.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
               {s.terms.map((t) => <TermChip key={t.term} T={T} term={t} />)}
@@ -217,6 +263,7 @@ export default function LessonPanel({ T, page, tutor, onAskVoice, onSeeOnPage, o
               onToggle={() => setOpenSections((m) => ({ ...m, [i]: m[i] === false }))}
               onPlay={() => tutor.playSection(i)}
               playing={player.idx === i && player.playing}
+              active={player.idx === i}
               onSeeOnPage={onSeeOnPage}
             />
           ))}
