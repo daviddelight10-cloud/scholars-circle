@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import AiOrb from "../../components/AiOrb.jsx";
 import MarkdownText from "../../components/MarkdownText.jsx";
@@ -28,6 +28,7 @@ const T = {
 };
 
 const THINK_VERBS = ["Thinking", "Connecting ideas", "Drafting answer", "Checking details"];
+const INTRO_KEY = "sc_scholar_intro";
 
 // Questions phrased as "teach/study/learn me X" want the full AI Tutor, not a
 // chat bubble — routed there with the topic prefilled. Conservative on
@@ -118,6 +119,19 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   const [orbMood, setOrbMood] = useState(null);
   // Companion teaser bubble — pops next to the orb with a contextual line.
   const [bubble, setBubble] = useState(null); // { text, prompt? }
+  // True on the first-ever sheet open — guides the first chat (attach hint,
+  // "try me" card).
+  const [firstOpen, setFirstOpen] = useState(false);
+  // Dozing when untouched for a while — the sleepy mood dozes the FAB orb.
+  const [sleepy, setSleepy] = useState(false);
+  const lastActiveRef = useRef(Date.now());
+  // Sheet drag-to-dismiss (mobile) and orb→sheet morph (tap only).
+  const [panelDy, setPanelDy] = useState(0);
+  const sheetDragRef = useRef({ down: false, startY: 0 });
+  const [morph, setMorph] = useState(null); // { from:{x,y,size}, to:{x,y}, go }
+  const [morphing, setMorphing] = useState(false);
+  const morphFromRef = useRef(null);
+  const headOrbRef = useRef(null);
 
   const sessionRef = useRef(0);
   const abortRef = useRef(null);
@@ -141,6 +155,10 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   // Proactive welcome cards — built from live account data, generic fallbacks last.
   const cards = useMemo(() => {
     const list = [];
+    if (firstOpen) list.push({
+      icon: "✨", title: "Show me what you can do", sub: "Try a quick quiz on your subjects",
+      prompt: `Quiz me on ${weak?.name || folders?.[0]?.name || "general knowledge"} — one mcq question at a time, keep it fun.`,
+    });
     if (dueCount > 0) list.push({
       icon: "📚", title: `${dueCount} card${dueCount === 1 ? "" : "s"} due`, sub: "Quick review plan",
       prompt: `I have ${dueCount} flashcards due for review. Give me a focused 10-minute plan, then quiz me on the most likely weak points — one mcq question at a time.`,
@@ -158,7 +176,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       prompt: "I'm struggling with a topic but not sure where to start. Ask me what the topic is, then explain it simply and give me a mini study plan.",
     });
     return list.slice(0, 4);
-  }, [dueCount, exam, weak]);
+  }, [dueCount, exam, weak, firstOpen, folders]);
 
   // Injected into the prompt so Scholar answers with the student's reality in mind.
   const studyCtx = useMemo(() => {
@@ -168,6 +186,12 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     if (weak) lines.push(`- Weakest subject right now: ${weak.name}`);
     return lines.length ? `\n\nSTUDENT CONTEXT:\n${lines.join("\n")}` : "";
   }, [dueCount, exam, weak]);
+
+  // Time-of-day greeting for the welcome hero.
+  const greet = useMemo(() => {
+    const h = new Date().getHours();
+    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  }, []);
 
   // First name for the companion voice (best-effort from stored auth).
   const userName = useMemo(() => {
@@ -256,6 +280,8 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       ? "\n\n[The student attached image(s) — read them carefully and ground your answer in what they show.]"
       : "";
     const content = trimmed || (att.type === "img" ? "What's in this photo?" : `Here's my document: ${att.name}`);
+    lastActiveRef.current = Date.now();
+    setSleepy(false);
     setMessages((prev) => [...prev, {
       role: "user", content,
       images: images.length ? images : undefined,
@@ -273,7 +299,11 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     try {
       await streamAnswer(prompt, history, images);
     } catch (err) {
-      if (!err.stoppedByUser) setError(err.message || "Something went wrong. Try sending that again.");
+      if (!err.stoppedByUser) {
+        setError(err.message || "Something went wrong. Try sending that again.");
+        setMood("oops");
+        haptics.error();
+      }
     } finally {
       setLoading(false);
     }
@@ -334,6 +364,8 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   // keyframes can replay on the next trigger.
   const setMood = (m) => {
     const id = ++moodRef.current;
+    lastActiveRef.current = Date.now();
+    setSleepy(false);
     setOrbMood(m);
     if (m) setTimeout(() => { if (moodRef.current === id) setOrbMood(null); }, m === "celebrate" ? 1000 : 650);
   };
@@ -360,7 +392,12 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   const openSheet = useCallback(() => {
     setOpen(true);
     setConfirmClear(false);
-    try { localStorage.setItem(SEEN_KEY, "1"); } catch {}
+    lastActiveRef.current = Date.now();
+    setSleepy(false);
+    try {
+      if (!localStorage.getItem(SEEN_KEY)) setFirstOpen(true);
+      localStorage.setItem(SEEN_KEY, "1");
+    } catch {}
     setSeen(true);
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     if (authData.authToken) {
@@ -378,6 +415,27 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     return () => window.removeEventListener("sc-open-scholar", onOpen);
   }, [openSheet]);
 
+  // First-run intro — the mascot introduces itself once with three short
+  // bubbles, then hands off to the normal rotating teasers.
+  useEffect(() => {
+    if (hidden || open) return;
+    let done = true;
+    try { done = !!localStorage.getItem(INTRO_KEY); } catch {}
+    if (done) return;
+    const lines = [
+      { text: `Hey${userName ? ` ${userName}` : ""} — I'm Scholar, your study buddy ✨`, prompt: null },
+      { text: "Ask me anything — or snap your notes and I'll read them 📷", prompt: null },
+      { text: "Tap me anytime — I'm always here 💬", prompt: null },
+    ];
+    const timers = [];
+    lines.forEach((m, i) => {
+      timers.push(setTimeout(() => { bubbleCountRef.current += 1; setBubble(m); }, 2200 + i * 4900));
+      timers.push(setTimeout(() => setBubble((b) => (b === m ? null : b)), 2200 + i * 4900 + 4400));
+    });
+    timers.push(setTimeout(() => { try { localStorage.setItem(INTRO_KEY, "1"); } catch {} }, 2200 + lines.length * 4900));
+    return () => timers.forEach(clearTimeout);
+  }, [hidden, open, userName]);
+
   // Companion teasers — the orb speaks first, mascot-style. Max 3 bubbles
   // per session, ~45s apart, only while the sheet is closed.
   useEffect(() => {
@@ -391,11 +449,42 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       setBubble(t);
       hideT = setTimeout(() => setBubble((b) => (b === t ? null : b)), 4600);
     };
-    // First-ever visit: a quicker hello so the mascot introduces itself.
-    const first = setTimeout(show, seen ? 9000 : 2800);
+    // First-ever visit: a quicker hello so the mascot introduces itself —
+    // unless the intro sequence is still playing, in which case wait it out.
+    let introPending = false;
+    try { introPending = !localStorage.getItem(INTRO_KEY); } catch {}
+    const first = setTimeout(show, introPending ? 19000 : seen ? 9000 : 2800);
     const iv = setInterval(show, 45000);
     return () => { cancelled = true; clearTimeout(first); clearTimeout(hideT); clearInterval(iv); };
   }, [hidden, open, teasers, seen]);
+
+  // Doze off after ~60s without interaction — wakes on open/send/mood/drag.
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (Date.now() - lastActiveRef.current > 60000) setSleepy(true);
+    }, 10000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Orb → sheet morph: when opened by tapping the FAB, a ghost orb flies
+  // from the FAB's spot into the header as the sheet slides up.
+  useLayoutEffect(() => {
+    if (!open || !morphFromRef.current) return;
+    const from = morphFromRef.current;
+    morphFromRef.current = null;
+    setMorphing(true);
+    setMorph({ from });
+    let t2;
+    const t1 = setTimeout(() => {
+      const el = headOrbRef.current;
+      if (!el) { setMorph(null); setMorphing(false); return; }
+      const r = el.getBoundingClientRect();
+      setMorph({ from, to: { x: r.left, y: r.top } });
+      requestAnimationFrame(() => requestAnimationFrame(() => setMorph((c) => (c ? { ...c, go: true } : c))));
+      t2 = setTimeout(() => { setMorph(null); setMorphing(false); }, 360);
+    }, 290);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [open]);
 
   // Reply landed while the sheet was closed — the orb bounces to flag it.
   useEffect(() => {
@@ -415,6 +504,8 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   // FAB drag — chat-head style vertical repositioning along the screen edge.
   const onFabPointerDown = (e) => {
     const el = e.currentTarget;
+    lastActiveRef.current = Date.now();
+    setSleepy(false);
     const rect = el.getBoundingClientRect();
     dragRef.current = { down: true, moved: false, startY: e.clientY, startTop: rect.top };
     el.setPointerCapture?.(e.pointerId);
@@ -434,7 +525,13 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     if (!d.down) return;
     dragRef.current.down = false;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
-    if (!d.moved) { haptics.selection(); openSheet(); return; }
+    if (!d.moved) {
+      haptics.selection();
+      const r = e.currentTarget.getBoundingClientRect();
+      morphFromRef.current = { x: r.left + (r.width - 52) / 2, y: r.top + (r.height - 52) / 2, size: 52 };
+      openSheet();
+      return;
+    }
     setFabTop((top) => {
       try { localStorage.setItem(FAB_KEY, JSON.stringify(top)); } catch {}
       return top;
@@ -485,11 +582,11 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       transition: "box-shadow 0.2s ease",
     },
     fabBadge: {
-      position: "absolute", top: -3, right: -3, minWidth: 19, height: 19, padding: "0 5px",
-      borderRadius: 999, background: "linear-gradient(145deg, #FF5470, #d62b4b)",
-      color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center",
-      justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-      border: "1.5px solid var(--app-bg)",
+      position: "absolute", top: 0, right: 0, width: 15, height: 15,
+      borderRadius: "50%", background: "linear-gradient(145deg, #FF5470, #d62b4b)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.4), 0 0 8px rgba(255,84,112,0.5)",
+      border: "2px solid var(--app-bg)",
+      animation: "gs-dot-pulse 2.4s ease-in-out infinite",
     },
     backdrop: {
       position: "fixed", inset: 0, background: "rgba(8,6,2,0.55)",
@@ -512,9 +609,15 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       zIndex: 9991, animation: "gs-panel-in 0.28s cubic-bezier(0.32,0.72,0.24,1)",
       boxShadow: "0 28px 70px rgba(0,0,0,0.55)",
     },
+    grabStrip: {
+      flexShrink: 0, height: 15, display: "flex", alignItems: "center",
+      justifyContent: "center", cursor: "grab", touchAction: "none",
+      background: "linear-gradient(135deg, rgba(245,166,35,0.14), rgba(245,166,35,0.03) 55%, transparent)",
+    },
+    grabPill: { width: 38, height: 4.5, borderRadius: 99, background: "var(--app-line-strong)" },
     head: {
       position: "relative", flexShrink: 0,
-      display: "flex", alignItems: "center", gap: 10, padding: "14px 16px",
+      display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
       borderBottom: "1px solid var(--app-line)",
       background: "linear-gradient(135deg, rgba(245,166,35,0.14), rgba(245,166,35,0.03) 55%, transparent)",
       overflow: "hidden",
@@ -669,6 +772,8 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
         @keyframes gs-shine { 0%, 72% { transform: translateX(-130%) rotate(18deg); } 100% { transform: translateX(230%) rotate(18deg); } }
         @keyframes gs-hop { 0%,72%,100% { transform: translateY(0) scale(1,1); } 75% { transform: translateY(0) scale(1.1,0.82); } 81% { transform: translateY(-13px) scale(0.96,1.06); } 87% { transform: translateY(0) scale(1.06,0.86); } 93% { transform: translateY(-2px) scale(0.98,1.02); } }
         @keyframes gs-bubble-in { from { opacity: 0; transform: translateX(14px) scale(0.7); } to { opacity: 1; transform: translateX(0) scale(1); } }
+        @keyframes gs-dot-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.75); opacity: 0.75; } }
+        @keyframes gs-attachhint { 0%,100% { box-shadow: 0 0 0 0 rgba(245,166,35,0.55); } 50% { box-shadow: 0 0 0 6px rgba(245,166,35,0.12); } }
         @keyframes sc-orb-pulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.12); filter: brightness(1.15); } }
         .gs-orb-idle { animation: gs-float 3.2s ease-in-out infinite; }
         .gs-orb-hop { display: flex; animation: gs-hop 11s ease-in-out infinite; }
@@ -702,11 +807,29 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
         >
           <span className="gs-orb-hop">
             <span className="gs-orb-idle" style={{ display: "flex" }}>
-              <AiOrb size={52} state={orbMood || (loading ? "thinking" : !seen ? "excited" : undefined)} />
+              <AiOrb size={52} state={orbMood || (loading ? "thinking" : !seen ? "excited" : sleepy ? "sleepy" : undefined)} />
             </span>
           </span>
-          {dueCount > 0 && <span style={s.fabBadge}>{dueCount > 99 ? "99" : dueCount}</span>}
+          {dueCount > 0 && <span style={s.fabBadge} />}
         </button>
+      )}
+
+      {/* Ghost orb — flies from the FAB into the sheet header on tap-open */}
+      {morph && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed", zIndex: 9996, pointerEvents: "none", display: "flex",
+            left: morph.go && morph.to ? morph.to.x : morph.from.x,
+            top: morph.go && morph.to ? morph.to.y : morph.from.y,
+            transform: morph.go ? "scale(0.5)" : "scale(1)",
+            transformOrigin: "top left",
+            opacity: morph.go ? 0 : 1,
+            transition: "left .3s cubic-bezier(0.32,0.72,0.24,1), top .3s cubic-bezier(0.32,0.72,0.24,1), transform .3s cubic-bezier(0.32,0.72,0.24,1), opacity .1s ease .26s",
+          }}
+        >
+          <AiOrb size={morph.from.size} />
+        </div>
       )}
 
       {/* Companion teaser — the mascot speaks first, rate-limited */}
@@ -737,10 +860,46 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       {open && (
         <>
           <div style={s.backdrop} onClick={() => setOpen(false)} />
-          <div style={s.panel} role="dialog" aria-label="Scholar chat">
+          <div
+            style={{
+              ...s.panel,
+              ...(panelDy
+                ? { transform: `translateY(${panelDy}px)`, transition: "none" }
+                : { transition: "transform .22s cubic-bezier(0.32,0.72,0.24,1)" }),
+            }}
+            role="dialog" aria-label="Scholar chat"
+          >
+            {isMobile && (
+              <div
+                style={s.grabStrip}
+                onPointerDown={(e) => {
+                  sheetDragRef.current = { down: true, startY: e.clientY };
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const d = sheetDragRef.current;
+                  if (d.down) setPanelDy(Math.max(0, e.clientY - d.startY));
+                }}
+                onPointerUp={(e) => {
+                  const d = sheetDragRef.current;
+                  if (!d.down) return;
+                  d.down = false;
+                  e.currentTarget.releasePointerCapture?.(e.pointerId);
+                  const dismiss = e.clientY - d.startY > 110;
+                  setPanelDy(0);
+                  if (dismiss) setOpen(false);
+                }}
+                onPointerCancel={() => { sheetDragRef.current.down = false; setPanelDy(0); }}
+                aria-hidden="true"
+              >
+                <span style={s.grabPill} />
+              </div>
+            )}
             <div style={s.head}>
               <div style={s.headGoldLine} />
-              <AiOrb size={26} state={orbMood || (loading ? "thinking" : undefined)} style={{ marginLeft: 4 }} />
+              <span ref={headOrbRef} style={{ display: "flex", marginLeft: 4 }}>
+                <AiOrb size={26} state={orbMood || (loading ? "thinking" : undefined)} style={{ opacity: morphing ? 0 : 1, transition: "opacity .16s ease .06s" }} />
+              </span>
               <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 800, color: "var(--app-text)", letterSpacing: "-0.01em" }}>Scholar</span>
                 <span style={{ fontSize: 10.5, color: loading ? "var(--app-accent)" : "var(--app-dim)", fontWeight: 600 }}>
@@ -816,7 +975,9 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
                   <div className="gs-orb-idle" style={{ marginBottom: 12 }}>
                     <AiOrb size={54} state="greeting" />
                   </div>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: "var(--app-text)", letterSpacing: "-0.01em", marginBottom: 5 }}>Hey, I'm Scholar</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "var(--app-text)", letterSpacing: "-0.01em", marginBottom: 5 }}>
+                    {userName ? `${greet}, ${userName}` : "Hey, I'm Scholar"}
+                  </div>
                   <div style={{ fontSize: 12.5, color: "var(--app-dim)", lineHeight: 1.55, maxWidth: 300, marginBottom: 18 }}>
                     What's giving you trouble today? I explain, quiz, and plan — or say "teach me…" and I'll take you straight into a full lesson.
                   </div>
@@ -985,7 +1146,12 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
             <div style={s.inputRow}>
               <button
                 className={`gs-attach${attachMenu ? " gs-attachmenu-open" : ""}`}
-                style={s.attachBtn}
+                style={{
+                  ...s.attachBtn,
+                  ...(firstOpen && messages.length === 0 && !attach
+                    ? { animation: "gs-attachhint 1.7s ease-in-out infinite" }
+                    : {}),
+                }}
                 onClick={() => { haptics.selection(); setAttachMenu((v) => !v); }}
                 aria-label="Attach a photo or document"
                 title="Attach a photo or document"
