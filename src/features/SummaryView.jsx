@@ -3,6 +3,7 @@ import { API_BASE } from "../lib/constants";
 import { callAIMultimodal } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText";
 import { SpeechEngine, chunkNarration, mdToSpeechText, speechSupported } from "./pdf-reader/page-tutor/speech";
+import { isPremium, openPremium } from "../lib/premium";
 
 const D = {
   bg: "var(--app-bg)",
@@ -110,7 +111,37 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
   };
 
   const stopAudio = () => { getEngine().cancel(); setAudio(null); };
-  const skipAudio = (n) => getEngine().skipBy(n);
+
+  // Scrubbing through the narration (and the ±15s hops) is a premium
+  // control — free users get play/pause, the bar is read-only and taps
+  // route to the upgrade modal.
+  const premium = isPremium();
+  const [scrub, setScrub] = useState(null); // 0..1 while the bar is being dragged
+
+  const barFrac = (e, bar) => {
+    const r = bar.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  };
+
+  const onBarDown = (e) => {
+    if (!premium) { openPremium("summary_seek"); return; }
+    const bar = e.currentTarget;
+    bar.setPointerCapture?.(e.pointerId);
+    setScrub(barFrac(e, bar));
+    const move = (ev) => setScrub(barFrac(ev, bar));
+    const up = (ev) => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+      setScrub(null);
+      getEngine().seekTo(barFrac(ev, bar));
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
+  };
+
+  const seekOrUpsell = (n) => (premium ? getEngine().skipBy(n) : openPremium("summary_seek"));
   const cycleRate = () => {
     const next = audio.rate === 1 ? 1.25 : audio.rate === 1.25 ? 1.5 : 1;
     getEngine().setRate(next);
@@ -348,21 +379,35 @@ export default function SummaryView({ resource, onBack, onOpenResource }) {
             <button onClick={stopAudio} aria-label="Stop playback" style={{ background: "none", border: "none", color: D.hint, fontSize: 15, cursor: "pointer", padding: 2, fontFamily: "inherit" }}>✕</button>
           </div>
 
-          {/* Progress — tap to seek */}
+          {/* Progress — premium users can drag the knob to scrub back through
+              the audio; free users see a read-only bar that routes to upgrade */}
           <div
-            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); getEngine().seekTo((e.clientX - r.left) / r.width); }}
-            style={{ height: 14, display: "flex", alignItems: "center", cursor: "pointer" }}
+            onPointerDown={onBarDown}
+            title={premium ? "Drag to scrub through the audio" : "Premium — drag to scrub through the audio"}
+            style={{ height: 16, display: "flex", alignItems: "center", cursor: "pointer", touchAction: "none" }}
           >
-            <div style={{ width: "100%", height: 4, borderRadius: 99, background: D.accent, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${audio.count ? (audio.idx / audio.count) * 100 : 0}%`, background: D.gold, transition: "width 0.3s linear" }} />
+            <div style={{ position: "relative", width: "100%", height: 4, borderRadius: 99, background: D.accent }}>
+              <div style={{
+                height: "100%", borderRadius: 99, background: D.gold,
+                width: `${(scrub ?? (audio.count ? audio.idx / audio.count : 0)) * 100}%`,
+                transition: scrub != null ? "none" : "width 0.3s linear",
+              }} />
+              <div style={{
+                position: "absolute", top: "50%", left: `${(scrub ?? (audio.count ? audio.idx / audio.count : 0)) * 100}%`,
+                width: 12, height: 12, borderRadius: "50%", background: D.gold,
+                transform: "translate(-50%, -50%)", boxShadow: "0 1px 5px rgba(0,0,0,0.45)",
+                opacity: premium ? 1 : 0.5,
+              }} />
             </div>
+            {!premium && <span aria-hidden="true" style={{ fontSize: 10, marginLeft: 8 }}>🔒</span>}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
-            {[["↺ 15", () => skipAudio(-1), "Back ~15s"], ["↻ 15", () => skipAudio(1), "Forward ~15s"]].map(([l, fn, t]) => (
-              <button key={l} onClick={fn} title={t} style={{
+            {[["↺ 15", () => seekOrUpsell(-1), "Back ~15s"], ["↻ 15", () => seekOrUpsell(1), "Forward ~15s"]].map(([l, fn, t]) => (
+              <button key={l} onClick={fn} title={premium ? t : `Premium — ${t.toLowerCase()}`} style={{
                 padding: "5px 10px", borderRadius: 9, border: `0.5px solid ${D.line}`,
-                background: "none", color: D.muted, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                background: "none", color: premium ? D.muted : D.hint, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                opacity: premium ? 1 : 0.65,
               }}>{l}</button>
             ))}
             <button

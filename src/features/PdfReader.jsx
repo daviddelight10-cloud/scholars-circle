@@ -142,7 +142,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // Tool mode: "none" | "highlight" | "erase" | "circle" | "pen" | "line" | "arrow"
   const [tool, setTool] = useState("none");
   const [askNudge, setAskNudge] = useState(false); // intro "circle" — hint at the Ask AI tool instead of auto-arming it
-  const [lectureStep, setLectureStep] = useState(0); // "lecture" intro coachmark — 0 off, 1-2 slides, 3 collapsing into the FAB
+  const [lectureStep, setLectureStep] = useState(0); // "lecture" intro coachmark — 0 off, 1-3 slides, 4 collapsing into the FAB
+  const lectureStepRef = useRef(0); // pins chrome visible while the intro plays
+  useEffect(() => { lectureStepRef.current = lectureStep; }, [lectureStep]);
   const [penColor, setPenColor] = useState(INK_COLORS[0].value);
 
 
@@ -3462,7 +3464,7 @@ Passage:
       // Scroll hides chrome but never closes overlays — the study panel/chat
       // keep their own close affordances. On desktop the study panel is a
       // docked side panel, not an overlay, so it stays put either way.
-      if (dy > 6 && t > 80) setChromeHidden(true);
+      if (dy > 6 && t > 80 && !lectureStepRef.current) setChromeHidden(true); // intro pins chrome — the card collapses into the FAB, it has to be there
       else if (dy < -6 && !focusPinRef.current) setChromeHidden(false);
       // Idle re-show — pause to read for a moment and chrome drifts back.
       // (Focus mode pins chrome hidden and is exempt.)
@@ -6138,8 +6140,9 @@ Passage:
             </div>
           )}
 
-          {/* "Read & ask AI" nudge — the intro didn't arm the tool; point at it */}
-          {askNudge && !circleMode && !loading && !loadError && (
+          {/* "Read & ask AI" nudge — the intro didn't arm the tool; point at it.
+              Hidden while chrome is — a pointer at a hidden FAB is worse than no hint */}
+          {askNudge && !circleMode && !loading && !loadError && !chromeHidden && (
             <div className="pdf-circle-hint pdf-circle-hint--sticky" style={{
               position: "absolute", left: "50%", bottom: 96, transform: "translateX(-50%)",
               zIndex: 60, pointerEvents: "none",

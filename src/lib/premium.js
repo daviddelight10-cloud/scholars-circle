@@ -20,6 +20,7 @@ export const PREMIUM_HEADLINES = {
   challenge_options: "Best-score scoring and locked reveals",
   creator_stats: "See how every challenger did",
   resultInsights: "Unlock all explanations",
+  summary_seek: "Scrub back through your audio summary",
   live_seats: "Host up to 50 players",
   premium: "Go Premium",
 };
