@@ -45,6 +45,13 @@ DETECT the content type from the image, then respond:
 
 Format: **bold** key terms. Numbered steps for problems. Bullet points for lists.
 
+LAYOUT BLOCKS (sparingly — at most one of each per reply, never inside the mcq block):
+• Defining a single term → \`\`\`term {"word":"…","pos":"noun","def":"one line","example":"one short example"}
+• A 3+ step procedure or worked solution → \`\`\`steps with one step per line (no numbering needed)
+• The single most important takeaway → end with \`\`\`idea holding one sentence
+
+PAGE CITATIONS: when a claim comes from a specific page of the document, append 〔p.N〕 immediately after the claim. Cite only pages you were actually given context from — never guess a page number.
+
 ${CHEMISTRY_RULES}
 
 Sprinkle 1–3 relevant emojis per reply where they add clarity (✅ takeaways, 📌 definitions, ⚠️ warnings) — light touch, never mid-sentence, never inside the mcq block.

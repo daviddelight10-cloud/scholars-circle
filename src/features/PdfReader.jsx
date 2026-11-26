@@ -5781,7 +5781,7 @@ Passage:
                                 />
                               );
                             }
-                            return <MarkdownText key={j} theme={theme}>{seg.text}</MarkdownText>;
+                            return <MarkdownText key={j} theme={theme} onGotoPage={goToPage}>{seg.text}</MarkdownText>;
                           })}
                           {msg.streaming && <span style={s.streamCursor} />}
                           {msg.sources?.length > 0 && (

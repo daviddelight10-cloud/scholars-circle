@@ -1,5 +1,7 @@
 import MoleculeView from "./MoleculeView.jsx";
 import ReactionView from "./ReactionView.jsx";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 const PALETTES = {
   dark: {
@@ -39,18 +41,18 @@ const PALETTES = {
   light: {
     text: "#2D2823",
     muted: "#6B665C",
-    accent: "#C23B3B",
+    accent: "#B8770E",
     codeBg: "#f5f3ee",
     codeBorder: "#d4d0c5",
     heading: "#1a1a2e",
     mathColor: "#2D2823",
-    blockquoteBorder: "#C23B3B",
-    blockquoteBg: "rgba(194,59,59,0.05)",
-    blockquoteText: "#8a3030",
+    blockquoteBorder: "#B8770E",
+    blockquoteBg: "rgba(184,119,14,0.07)",
+    blockquoteText: "#6E5510",
     codeText: "#3F3A33",
     boldColor: "#1a1a2e",
     italicColor: "var(--app-faint)",
-    listBullet: "#C23B3B",
+    listBullet: "#B8770E",
     headingBorder: "#d4d0c5",
   },
   sepia: {
@@ -81,6 +83,15 @@ function renderMath(match, display) {
   if (expr.startsWith("$$")) expr = expr.slice(2, -2);
   else if (expr.startsWith("$")) expr = expr.slice(1, -1);
   expr = expr.trim();
+
+  try {
+    const html = katex.renderToString(expr, { displayMode: display, throwOnError: true, output: "html" });
+    return display
+      ? `<div style="text-align:center;margin:8px 0;color:__MATH_COLOR__">${html}</div>`
+      : `<span style="color:__MATH_COLOR__">${html}</span>`;
+  } catch {
+    // Malformed LaTeX → fall through to the unicode-flattened fallback.
+  }
 
   const replacements = [
     [/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)"],
@@ -175,6 +186,8 @@ function renderInline(text, recall) {
   html = html.replace(/\$\$([^$]+)\$\$/g, (_, m) => renderMath("$$" + m + "$$", true));
   // Inline math $...$
   html = html.replace(/\$([^$\n]+)\$/g, (_, m) => renderMath("$" + m + "$", false));
+  // Page citations — 〔p.4〕 or [p.4] → tappable gold superscript (delegated click)
+  html = html.replace(/[〔[]p\.(\d+)[〕\]]/g, '<sup class="md-cite" data-goto-page="$1" style="color:#d98a12;font-weight:700;cursor:pointer;margin-left:2px" title="Jump to page $1">p.$1</sup>');
   // Bold — recall mode renders it blurred until tapped
   html = html.replace(/\*\*([^*]+)\*\*/g, recall
     ? '<strong class="md-rbl" style="color:__BOLD_COLOR__">$1</strong>'
@@ -217,7 +230,50 @@ function FlowSteps({ steps, palette: P, recall }) {
   );
 }
 
-export default function MarkdownText({ children, style, theme = "dark", recallMode = false }) {
+// ```term — dictionary-style card for a single defined term.
+function TermCard({ term, palette: P, recall }) {
+  const head = term.word || term.term || "";
+  const def = term.def || term.short || term.definition || "";
+  return (
+    <div style={{ margin: "10px 0", padding: "10px 12px", borderRadius: 12, background: P.blockquoteBg, border: `0.5px solid ${P.blockquoteBorder}`, fontFamily: "Manrope,sans-serif" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 15, fontWeight: 800, color: P.heading }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(head, P, recall) }} />
+        {term.pos && <span style={{ fontSize: 10.5, fontStyle: "italic", color: "#d98a12" }}>{term.pos}</span>}
+      </div>
+      {def && <div style={{ fontSize: 12.5, color: P.text, lineHeight: 1.55, marginTop: 3 }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(def, P, recall) }} />}
+      {term.example && <div style={{ fontSize: 11.5, color: P.muted, marginTop: 4 }}>e.g. {term.example}</div>}
+    </div>
+  );
+}
+
+// ```steps — numbered solution rail with a gold connecting spine.
+function StepsCard({ steps, palette: P, recall }) {
+  return (
+    <div style={{ margin: "10px 0", fontFamily: "Manrope,sans-serif" }}>
+      {steps.map((step, i) => (
+        <div key={i} style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(145deg,#F5A623,#d98a12)", color: "#1a1200", fontSize: 10.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+            {i < steps.length - 1 && <div style={{ width: 1.5, flex: 1, background: "rgba(245,166,35,0.35)", margin: "2px 0" }} />}
+          </div>
+          <div style={{ fontSize: 12.5, color: P.text, lineHeight: 1.55, paddingBottom: 10, flex: 1, minWidth: 0 }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(step, P, recall) }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ```idea — the one-line takeaway, gold callout.
+function IdeaCard({ body, palette: P, recall }) {
+  return (
+    <div style={{ margin: "10px 0", padding: "8px 12px", borderRadius: "0 8px 8px 0", background: "rgba(245,166,35,0.10)", borderLeft: "3px solid #F5A623", fontFamily: "Manrope,sans-serif" }}>
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "#d98a12" }}>💡 Key idea</span>
+      <div style={{ fontSize: 12.5, color: P.text, lineHeight: 1.55, marginTop: 2 }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(body, P, recall) }} />
+    </div>
+  );
+}
+
+export default function MarkdownText({ children, style, theme = "dark", recallMode = false, onGotoPage }) {
   const P = PALETTES[theme] || PALETTES.dark;
   if (!children || typeof children !== "string") {
     return <div style={style}>{children}</div>;
@@ -253,6 +309,28 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
           continue;
         }
       }
+      if (lang === "term") {
+        let term = null;
+        try { term = JSON.parse(body.trim()); } catch { /* malformed JSON → code block below */ }
+        if (term && typeof term === "object") {
+          elements.push(<TermCard key={elements.length} term={term} palette={P} recall={recallMode} />);
+          continue;
+        }
+      }
+      if (lang === "steps") {
+        const steps = body.split("\n").map(l => l.replace(/^\d+[.)]\s*/, "").trim()).filter(Boolean);
+        if (steps.length > 0) {
+          elements.push(<StepsCard key={elements.length} steps={steps} palette={P} recall={recallMode} />);
+          continue;
+        }
+      }
+      if (lang === "idea") {
+        const txt = body.trim();
+        if (txt) {
+          elements.push(<IdeaCard key={elements.length} body={txt} palette={P} recall={recallMode} />);
+          continue;
+        }
+      }
       elements.push(
         <pre key={elements.length} style={{
           background: P.codeBg, border: `0.5px solid ${P.codeBorder}`,
@@ -266,12 +344,18 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
 
     const lines = seg.split("\n");
     let listItems = [];
+    let listKind = "ul";
+    let listStart = 1;
     let i = 0;
 
     const flushList = () => {
       if (listItems.length > 0) {
-        elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
+        const Tag = listKind === "ol" ? "ol" : "ul";
+        const startProp = listKind === "ol" && listStart > 1 ? { start: listStart } : {};
+        elements.push(<Tag key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }} {...startProp}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</Tag>);
         listItems = [];
+        listKind = "ul";
+        listStart = 1;
       }
     };
 
@@ -339,32 +423,36 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
 
       // Headings — ids (md-sec-N) let SummaryView's section rail target them
       if (trimmed.startsWith("#### ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        flushList();
         elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 13, fontWeight: 700, color: P.heading, margin: "10px 0 4px", scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(5), P, recallMode) }} />);
         i++;
         continue;
       }
       if (trimmed.startsWith("### ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        flushList();
         elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 14, fontWeight: 700, color: P.heading, margin: "12px 0 5px", paddingBottom: 3, borderBottom: `0.5px solid ${P.headingBorder}`, scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(4), P, recallMode) }} />);
         i++;
         continue;
       }
       if (trimmed.startsWith("## ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        flushList();
         elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 15.5, fontWeight: 700, color: P.heading, margin: "14px 0 6px", paddingBottom: 4, borderBottom: `0.5px solid ${P.headingBorder}`, scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(3), P, recallMode) }} />);
         i++;
         continue;
       }
       if (trimmed.startsWith("# ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        flushList();
         elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 17, fontWeight: 800, color: P.heading, margin: "16px 0 8px", paddingBottom: 5, borderBottom: `0.5px solid ${P.headingBorder}`, scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P, recallMode) }} />);
         i++;
         continue;
       }
 
-      // List items
-      if (/^[-*•]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
+      // List items — ordered runs keep their numbers (step-by-step solutions)
+      const olMatch = trimmed.match(/^(\d+)\.\s+/);
+      if (/^[-*•]\s+/.test(trimmed) || olMatch) {
+        const kind = olMatch ? "ol" : "ul";
+        if (listItems.length > 0 && kind !== listKind) flushList();
+        if (listItems.length === 0) { listKind = kind; if (olMatch) listStart = parseInt(olMatch[1], 10); }
         const content = trimmed.replace(/^[-*•]\s+/, "").replace(/^\d+\.\s+/, "");
         listItems.push(<span key={listItems.length} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(content, P, recallMode) }} />);
         i++;
@@ -373,7 +461,7 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
 
       // Blockquote — render as callout box; ⚠️ / 💎 markers get distinct styles
       if (trimmed.startsWith("> ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        flushList();
         const qt = trimmed.slice(2);
         const qStyle = /^⚠️|^⚠/.test(qt)
           ? { background: "rgba(239,83,80,0.08)", borderLeft: "3px solid #EF5350", color: "var(--c-ef9a9a)" }
@@ -386,17 +474,12 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
       }
 
       // Regular paragraph
-      if (listItems.length > 0) {
-        elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
-        listItems = [];
-      }
+      flushList();
       elements.push(<div key={elements.length} style={{ margin: "6px 0", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(line, P, recallMode) }} />);
       i++;
     }
 
-    if (listItems.length > 0) {
-      elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
-    }
+    flushList();
   }
 
   return (
@@ -408,7 +491,11 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
         `}</style>
       )}
       <div
-        onClick={recallMode ? (e) => { const t = e.target; if (t.classList?.contains("md-rbl")) t.classList.toggle("revealed"); } : undefined}
+        onClick={(e) => {
+          const cite = e.target.closest?.("[data-goto-page]");
+          if (cite && onGotoPage) { onGotoPage(parseInt(cite.dataset.gotoPage, 10)); return; }
+          if (recallMode && e.target.classList?.contains("md-rbl")) e.target.classList.toggle("revealed");
+        }}
         style={{ fontSize: 13.5, lineHeight: 1.75, color: P.text, fontFamily: "Manrope,sans-serif", wordBreak: "break-word", overflowWrap: "anywhere" }}
       >{elements}</div>
     </>
