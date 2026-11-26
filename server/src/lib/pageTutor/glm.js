@@ -58,6 +58,7 @@ async function callGLM({ pageImage, pageText, page, resourceTitle }) {
         response_format: { type: "json_object" },
         reasoning: { effort: "low" },
       }),
+      signal: AbortSignal.timeout(45_000),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

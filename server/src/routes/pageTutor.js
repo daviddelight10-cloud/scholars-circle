@@ -57,13 +57,16 @@ const lessonPayload = (l, page) => ({
   generationSource: l.generationSource, page,
 });
 
-// POST /api/page-tutor/lesson { resourceId, page, pageImage?, pageText?, regenerate? }
+// POST /api/page-tutor/lesson { resourceId, page, pageImage?, pageText?, regenerate?, glmRetry? }
 // pageImage: client-rendered JPEG data URL — used ONLY by the GLM fallback
 // (Gemini sees the server-built one-page PDF; a forged client image can at
 // worst produce a flagged `glm` lesson, regenerable via regenerate:true).
+// glmRetry: the second phase of a needImage handshake — the first request
+// answered { needImage: true } when Gemini failed and no image was sent; the
+// retry carries one and goes straight to GLM instead of re-running Gemini.
 router.post("/lesson", requireAuth, async (req, res) => {
   try {
-    const { resourceId, regenerate } = req.body || {};
+    const { resourceId, regenerate, glmRetry } = req.body || {};
     const page = Math.max(1, parseInt(req.body?.page, 10) || 0);
     const pageImage = typeof req.body?.pageImage === "string" &&
       /^data:image\/(jpeg|png|webp);base64,/.test(req.body.pageImage) &&
@@ -106,8 +109,10 @@ router.post("/lesson", requireAuth, async (req, res) => {
     let promise = inflight.get(cacheKey);
     if (!promise || regenTarget) {
       promise = (async () => {
-        if (!pdfBuf) pdfBuf = await fetchPdfBytes(resource);
-        const onePage = await singlePagePdfBase64(pdfBuf, page).catch(() => null);
+        // glmRetry skips the PDF fetch/extract work entirely — GLM only takes
+        // the client's page image + text, and Gemini already failed on pass 1.
+        if (!glmRetry && !pdfBuf) pdfBuf = await fetchPdfBytes(resource);
+        const onePage = glmRetry ? null : await singlePagePdfBase64(pdfBuf, page).catch(() => null);
         // Parse only the single page (not the whole document) — keeps pdf.js
         // font warnings to one line per generation instead of one per page,
         // and avoids O(n) parsing on every explain call.
@@ -118,12 +123,14 @@ router.post("/lesson", requireAuth, async (req, res) => {
         }
         // Scanned pages: server extraction is empty — client OCR text fills in.
         if (!pageText && clientPageText) pageText = clientPageText;
-        if (!onePage && !pageText) throw new Error(`page ${page} unreadable`);
+        if (!onePage && !pageText && !pageImage) throw new Error(`page ${page} unreadable`);
         const r = await generateLesson({
           pdfBase64: onePage?.base64 || null, pageText, page,
           resourceTitle: resource.title, pageImage, allowFallback: !regenTarget,
+          glmOnly: !!glmRetry && !regenTarget,
         });
         if (!r.ok) {
+          if (r.needImage) return { needImage: true };
           if (r.lessonFailedSchema && r.rawText) return { fallback: r.rawText, source: r.source || "gemini" };
           throw new Error(r.error || "generation failed");
         }
@@ -141,6 +148,10 @@ router.post("/lesson", requireAuth, async (req, res) => {
       }
       return res.status(502).json({ error: "Could not explain this page right now — try again shortly" });
     }
+
+    // GLM fallback needs the client's page image — ask for it (the reader
+    // re-POSTs with pageImage + glmRetry rather than degrading to text-only).
+    if (result.needImage) return res.json({ needImage: true });
 
     let lessonData;
     if (result.fallback) {

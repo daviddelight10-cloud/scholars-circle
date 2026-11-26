@@ -4,6 +4,7 @@ import HomePage from './features/HomePage';
 import AuthPages from './pages/AuthPages';
 import { lazyWithRetry } from './lib/lazyWithRetry.js';
 import { ensureAppSession } from './lib/authToken.js';
+import StandalonePremiumHost from './components/StandalonePremiumHost.jsx';
 // faculty.<domain> serves the staff shell for every path; /faculty/* elsewhere.
 import { IS_FACULTY_HOST } from './faculty/env.js';
 
@@ -48,6 +49,15 @@ function RequireAuth({ children }) {
   return children;
 }
 
+// One paywall host for every route that doesn't mount its own
+// sc-open-premium listener. /app and live-quiz rooms self-host — mounting a
+// second listener there would double-render the payment modal.
+function GlobalPaywallHost() {
+  const { pathname } = useLocation();
+  if (pathname === "/app" || pathname.startsWith("/live/")) return null;
+  return <StandalonePremiumHost />;
+}
+
 const PageLoader = () => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: 'var(--app-bg)' }}>
     <div style={{ width: 32, height: 32, border: '3px solid var(--app-tint-strong)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -84,6 +94,7 @@ export default function AppRouter() {
     );
   }
   return (
+    <>
     <Suspense fallback={<PageLoader />}>
     <Routes>
       {/* Landing page routes - redirect to /app if logged in */}
@@ -135,5 +146,7 @@ export default function AppRouter() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </Suspense>
+    <GlobalPaywallHost />
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Room, RoomEvent, Track } from "livekit-client";
 import { getVoiceToken } from "./liveQuizApi";
 
 /**
@@ -19,30 +18,36 @@ export function useLiveKitVoice(roomId, enabled) {
   useEffect(() => {
     if (!roomId || !enabled) return;
     let cancelled = false;
-    const room = new Room();
-    roomRef.current = room;
-
-    const attachTrack = (track) => {
-      if (track.kind !== Track.Kind.Audio) return;
-      const el = track.attach();
-      el.autoplay = true;
-      document.body.appendChild(el);
-      audioElsRef.current.push(el);
-    };
-
-    room.on(RoomEvent.TrackSubscribed, attachTrack);
-    room.on(RoomEvent.TrackUnsubscribed, (track) => {
-      track.detach().forEach((el) => el.remove());
-    });
-    room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-      setSpeakingIds(new Set(speakers.map((s) => s.identity)));
-    });
-    room.on(RoomEvent.Disconnected, () => setConnected(false));
 
     (async () => {
       try {
-        const { token, url } = await getVoiceToken(roomId);
+        // The SDK (~430kB min) stays out of the page chunk — it only loads when
+        // a room actually enables voice, in parallel with the token fetch.
+        const [{ Room, RoomEvent, Track }, { token, url }] = await Promise.all([
+          import("livekit-client"),
+          getVoiceToken(roomId),
+        ]);
         if (cancelled) return;
+        const room = new Room();
+        roomRef.current = room;
+
+        const attachTrack = (track) => {
+          if (track.kind !== Track.Kind.Audio) return;
+          const el = track.attach();
+          el.autoplay = true;
+          document.body.appendChild(el);
+          audioElsRef.current.push(el);
+        };
+
+        room.on(RoomEvent.TrackSubscribed, attachTrack);
+        room.on(RoomEvent.TrackUnsubscribed, (track) => {
+          track.detach().forEach((el) => el.remove());
+        });
+        room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+          setSpeakingIds(new Set(speakers.map((s) => s.identity)));
+        });
+        room.on(RoomEvent.Disconnected, () => setConnected(false));
+
         await room.connect(url, token);
         if (cancelled) { room.disconnect(); return; }
         setConnected(true);
@@ -62,7 +67,7 @@ export function useLiveKitVoice(roomId, enabled) {
       cancelled = true;
       audioElsRef.current.forEach((el) => el.remove());
       audioElsRef.current = [];
-      try { room.disconnect(); } catch {}
+      try { roomRef.current?.disconnect(); } catch {}
       roomRef.current = null;
     };
   }, [roomId, enabled]);

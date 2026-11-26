@@ -344,8 +344,29 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   );
   const dueCount = dueItems.length;
   const [lastReview, setLastReview] = useState(() => loadStored(`sc_review_last_${docKey}`, null));
+  // Page render for the GLM fallback's image input — only invoked when the
+  // server answers needImage (Gemini down), so the ~600KB render+upload cost
+  // is paid only on the fallback path, never upfront.
+  const buildPageImage = useCallback(async (page) => {
+    try {
+      const pg = await pdfDocRef.current?.getPage(page);
+      if (!pg) return null;
+      const base = pg.getViewport({ scale: 1 });
+      const scale = Math.min(1.5, 1000 / base.width); // ~100KB JPEG — GLM only needs layout
+      const vp = pg.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(vp.width);
+      canvas.height = Math.ceil(vp.height);
+      await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+      return canvas.toDataURL("image/jpeg", 0.7);
+    } catch {
+      return null;
+    }
+  }, []);
   const pageTutor = usePageTutor({
     resourceId: propResourceId,
+    getText: getPageText,
+    getImage: buildPageImage,
     onLessonDone: (xpAwarded) => {
       const L = lectureRef.current;
       if (L) lecturePlayRef.current?.(L, L.pos + 1);
@@ -1700,31 +1721,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   }, [propResourceId, voiceName, voiceLevel, currentPage, voice, getPageText]);
 
   // ── Page Tutor handlers ────────────────────────────────────────────────────
-  // Snapshot for a fresh generation: a rendered JPEG of the page (the GLM
-  // fallback's image input) plus extracted/OCR'd text (helps scanned pages).
-  const buildPageSnapshot = useCallback(async (page) => {
-    let pageImage = null, pageText = "";
-    try {
-      const pg = await pdfDocRef.current?.getPage(page);
-      if (pg) {
-        const base = pg.getViewport({ scale: 1 });
-        const scale = Math.min(2, 1400 / base.width);
-        const vp = pg.getViewport({ scale });
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.ceil(vp.width);
-        canvas.height = Math.ceil(vp.height);
-        await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
-        pageImage = canvas.toDataURL("image/jpeg", 0.8);
-      }
-    } catch {}
-    try { pageText = String(await getPageText(page) || "").slice(0, 6000); } catch {}
-    return { pageImage, pageText };
-  }, [getPageText]);
-
   const handleExplain = useCallback(() => {
     setStudyView("lesson");
-    pageTutor.explain(currentPage, { snapshot: buildPageSnapshot(currentPage) });
-  }, [currentPage, pageTutor, buildPageSnapshot]);
+    pageTutor.explain(currentPage);
+  }, [currentPage, pageTutor]);
 
   // ── Lecture mode — continuous playback across a page range ──────────────────
   const [lecture, setLecture] = useState(null);          // { queue:[pages], pos, cachedOnly }
@@ -1766,11 +1766,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       setTimeout(tryLecturePlay, 400);
     } else if (!L.cachedOnly && aiUsage?.isActivated !== false) {
       setLecturePrep(p);
-      pageTutor.explain(p, { snapshot: buildPageSnapshot(p) });
+      pageTutor.explain(p);
     } else {
       lecturePlayRef.current?.(next, pos + 1); // skip pages we can't play
     }
-  }, [pageTutor, goToPage, buildPageSnapshot, aiUsage, stopLecture, tryLecturePlay]);
+  }, [pageTutor, goToPage, aiUsage, stopLecture, tryLecturePlay]);
   useEffect(() => { lecturePlayRef.current = lecturePlay; }, [lecturePlay]);
 
   const startLecture = useCallback((from, to, cachedOnly) => {

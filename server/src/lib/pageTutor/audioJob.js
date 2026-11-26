@@ -61,7 +61,15 @@ export function enqueueAudio(lessonId) {
         where: { lessonId, status: { in: ["pending", "failed"] } },
         orderBy: { sectionId: "asc" },
       });
-      for (const row of rows) await processSection(lessonId, row);
+      // Each section is bounded — a hung TTS/storage/DB call must release the
+      // queue so later sections and the sweeper still make progress. The row
+      // stays "pending" and the 5-min sweep re-attempts it.
+      for (const row of rows) {
+        await Promise.race([
+          processSection(lessonId, row),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("section timeout")), 90_000)),
+        ]).catch((e) => console.warn(`[pageTutor] section ${lessonId}/${row.sectionId}:`, e.message));
+      }
       await updateLessonAudioStatus(lessonId);
     } finally {
       running.delete(lessonId);

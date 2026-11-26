@@ -37,6 +37,7 @@ async function callGemini({ pdfBase64, pageText, page, resourceTitle }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45_000), // a hung call must not hold the request open
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -88,18 +89,33 @@ export async function generateWithGemini({ pdfBase64, pageText, page, resourceTi
 // Orchestrator: Gemini → GLM (OpenRouter) → fail. GLM is skipped entirely when
 // PAGE_TUTOR_FALLBACK=off or there's no OpenRouter key, and during premium
 // regenerations (allowFallback=false) which exist to restore gemini quality.
-export async function generateLesson({ pdfBase64, pageText, page, resourceTitle, pageImage, allowFallback = true }) {
+// glmOnly: the client's second-phase request — Gemini just failed on the first
+// pass, so go straight to GLM instead of burning another 3 attempts.
+// needImage: returned instead of running text-only GLM when the client sent no
+// page image — the reader answers it with a glmRetry request carrying one.
+export async function generateLesson({ pdfBase64, pageText, page, resourceTitle, pageImage, allowFallback = true, glmOnly = false }) {
+  if (glmOnly) {
+    const { generateWithGLM } = await import("./glm.js");
+    const g = await generateWithGLM({ pageImage, pageText, page, resourceTitle });
+    if (g.ok) return { ...g, source: pageImage ? "glm" : "glm_text" };
+    if (g.lessonFailedSchema) return { ...g, source: "glm" };
+    return { ok: false, error: `glm: ${g.error}` };
+  }
   const r = await generateWithGemini({ pdfBase64, pageText, page, resourceTitle });
   if (r.ok) return { ...r, source: "gemini" };
   if (r.lessonFailedSchema) return { ...r, source: "gemini" };
-  if (!allowFallback || process.env.PAGE_TUTOR_FALLBACK === "off") {
+  if (!allowFallback || process.env.PAGE_TUTOR_FALLBACK === "off" || !process.env.OPENROUTER_API_KEY) {
     return { ok: false, error: r.error || "generation failed" };
   }
+  // GLM can't read the server-side PDF — it needs the client's page image.
+  // Ask for one rather than silently degrading to text-only; the reader only
+  // sends the ~600KB render when generation actually reaches this point.
+  if (!pageImage) return { ok: false, needImage: true, error: r.error };
   const { generateWithGLM } = await import("./glm.js");
   const g = await generateWithGLM({ pageImage, pageText, page, resourceTitle });
   if (g.ok) {
     console.log(`[pageTutor] gemini failed (${r.error}) — glm fallback succeeded`);
-    return { ...g, source: pageImage ? "glm" : "glm_text" };
+    return { ...g, source: "glm" };
   }
   if (g.lessonFailedSchema) return { ...g, source: "glm" };
   return { ok: false, error: `gemini: ${r.error} | glm: ${g.error}` };

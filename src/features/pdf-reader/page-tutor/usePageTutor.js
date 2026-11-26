@@ -10,7 +10,7 @@ import { openPremium } from "../../../lib/premium.js";
 const POLL_MS = 3000;
 const SPEECH_FLAG = speechSupported() ? "always" : false;
 
-export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
+export function usePageTutor({ resourceId, onLessonDone, onPlayFailed, getText, getImage } = {}) {
   const cacheRef = useRef(new Map()); // page -> { lessonId, lesson, audioStatus, generationSource }
   const pollRef = useRef(null);
   const elRef = useRef(null); // the one <audio> element
@@ -27,6 +27,8 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
   const [reviewItems, setReviewItems] = useState([]);        // flattened recall Qs — chapter review
   const cbRef = useRef({});                                  // lecture-mode callbacks (latest props)
   useEffect(() => { cbRef.current = { onLessonDone, onPlayFailed }; }, [onLessonDone, onPlayFailed]);
+  const providerRef = useRef({});                            // snapshot providers (page-parametrized)
+  useEffect(() => { providerRef.current = { getText, getImage }; }, [getText, getImage]);
 
   useEffect(() => {
     let live = true;
@@ -78,10 +80,14 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
     }
   }, [refreshAudio, startPolling]);
 
-  // explain(page, { snapshot }) — snapshot is an optional promise/value
-  // { pageImage, pageText } used only when a fresh generation happens (GLM
-  // fallback input + scanned-page OCR text). Cache hits ignore it.
-  const explain = useCallback(async (page, { autoIfCached = false, snapshot } = {}) => {
+  // explain(page) — snapshot providers come from the hook options (getText
+  // resolves the page's extracted/OCR'd text, sent on the first request for
+  // scanned pages; getImage renders the page JPEG and is only called when
+  // the server answers { needImage } — the GLM fallback needs a visual
+  // input). Keeping the render+upload off the first request is the single
+  // biggest latency win for poor connections — it only happens when Gemini
+  // is actually down. Cache hits call neither.
+  const explain = useCallback(async (page, { autoIfCached = false } = {}) => {
     if (!resourceId) return;
     const hit = cacheRef.current.get(page);
     if (hit) { adopt(page, { ...hit, cached: true }); return; }
@@ -94,11 +100,19 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
     if (elRef.current) { elRef.current.pause(); elRef.current.src = ""; }
     speechRef.current?.cancel();
     try {
-      const snap = snapshot ? await Promise.resolve(snapshot).catch(() => ({})) : {};
-      const data = await explainPage(resourceId, page, snap);
+      const { getText: text, getImage: image } = providerRef.current;
+      const pageText = text ? String(await Promise.resolve(text(page)).catch(() => "") || "").slice(0, 6000) : "";
+      let data = await explainPage(resourceId, page, { pageText });
+      if (data?.needImage) {
+        const pageImage = image ? await Promise.resolve(image(page)).catch(() => null) : null;
+        data = await explainPage(resourceId, page, { pageText, pageImage, glmRetry: true });
+      }
+      if (data?.needImage) throw new Error("Could not explain this page right now — try again shortly");
       adopt(page, data);
     } catch (err) {
-      if (err.code === "premium_required" || err.status === 403) {
+      // Only the server's explicit premium code opens the paywall — a bare
+      // 403 here means "no access to this resource", not an upsell.
+      if (err.code === "premium_required") {
         setStatus("premium");
         openPremium?.("Page Tutor");
       } else {
@@ -110,13 +124,14 @@ export function usePageTutor({ resourceId, onLessonDone, onPlayFailed } = {}) {
 
   // Re-run a glm-produced lesson through the real engine once it recovers.
   // Server keeps the old lesson if regeneration fails.
-  const regenerate = useCallback(async (page, { snapshot } = {}) => {
+  const regenerate = useCallback(async (page) => {
     if (!resourceId || regenerating) return;
     setRegenerating(true);
     setError("");
     try {
-      const snap = snapshot ? await Promise.resolve(snapshot).catch(() => ({})) : {};
-      const data = await explainPage(resourceId, page, { ...snap, regenerate: true });
+      const { getText: text } = providerRef.current;
+      const pageText = text ? String(await Promise.resolve(text(page)).catch(() => "") || "").slice(0, 6000) : "";
+      const data = await explainPage(resourceId, page, { pageText, regenerate: true });
       if (data.regenFailed) {
         setError("Full engine is still busy — kept the current lesson.");
         return;

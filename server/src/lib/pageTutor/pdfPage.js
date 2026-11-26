@@ -16,7 +16,7 @@ export async function fetchPdfBytes(resource) {
   if (hit && Date.now() - hit.at < BYTES_TTL) return hit.buf;
   const url = resource.fileUrl;
   if (!url || !/^https?:\/\//.test(url)) throw new Error("Resource has no downloadable file");
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) }); // bound the download — large files over slow storage links
   if (!res.ok) throw new Error(`Could not fetch PDF (${res.status})`);
   const buf = Buffer.from(await res.arrayBuffer());
   bytesCache.set(resource.id, { buf, at: Date.now() });

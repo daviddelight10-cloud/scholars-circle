@@ -40,6 +40,7 @@ async function synthesizeGoogle(text, voice) {
       voice: { languageCode, name },
       audioConfig: { audioEncoding: "MP3", speakingRate: GOOGLE_RATE },
     }),
+    signal: AbortSignal.timeout(30_000), // bound it — a stuck call would wedge the audio queue
   });
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
@@ -67,6 +68,7 @@ async function synthesizeGemini(text, voice) {
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
       },
     }),
+    signal: AbortSignal.timeout(30_000), // bound it — a stuck call would wedge the audio queue
   });
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
