@@ -10,7 +10,7 @@ import { downscaleImage, readFileAsDataUrl } from "../../lib/imageUtils.js";
 import { haptics } from "../../lib/haptics.js";
 import { API_BASE } from "../../lib/constants.js";
 import { QUIZ_NEXT_CHIPS } from "../pdf-reader/chatPrompts.js";
-import { SCHOLAR_SYSTEM, SCHOLAR_CHIPS } from "./scholarPrompt.js";
+import { SCHOLAR_SYSTEM } from "./scholarPrompt.js";
 import { useReviewPlan, examKeyOf, daysUntil, readiness } from "../../hooks/useReviewPlan.js";
 
 const MAX_HISTORY = 10;
@@ -43,6 +43,24 @@ const extractTopic = (q) =>
     .replace(/\b(in detail|in depth|deeply|step by step|from scratch|for beginners?|please)\b/gi, "")
     .trim()
     .slice(0, 120);
+
+// Pull a studyable topic out of an answered question for the "learn deeply"
+// route — "what is glycolysis" / "explain glycolysis" → "glycolysis".
+const deepTopic = (q) =>
+  q
+    .replace(/^(please\s+)?(can you\s+|could you\s+|hey\s+|hi\s+|hello\s+|so\s+|okay\s+|ok\s+)?/i, "")
+    .replace(/^(what (is|are|was|were|does|do|did|happens|happened)s?\s+|explain( to me| me)?|tell me( about)?|describe|define|discuss|how (does|do|did|can|to)\s+|why (is|are|does|do|was|did)\s+|break down|help me understand)\s*/i, "")
+    .replace(/^(the|a|an)\s+/i, "")
+    .replace(/[?.!\s]+$/g, "")
+    .trim();
+
+// Only offer the deep-learn route after genuine knowledge questions — not
+// commands, quiz flow, or chit-chat.
+const COMMAND_START = /^(next|continue|another|repeat|again|more|simpler|easier|harder|yes\b|no\b|ok\b|okay|thanks|thank|stop|skip|i got|got it|correct|wrong|try again|summarize my|explain my attached|quiz me on my attached)/i;
+const looksLearnable = (q) => {
+  const t = (q || "").trim();
+  return t.length >= 4 && t.length <= 80 && !COMMAND_START.test(t);
+};
 
 const ThinkingBubble = () => {
   const [vi, setVi] = useState(0);
@@ -328,6 +346,18 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     send(trimmed);
   }, [loading, attach, onOpenAITutor, send]);
 
+  // "Learn this deeply" chip — same flow as the teach-me intent: confirm,
+  // close, launch Guided Study on the extracted topic.
+  const routeToStudy = useCallback((topic) => {
+    haptics.selection();
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: `Learn "${topic}" deeply` },
+      { role: "assistant", content: `Good choice — opening **Guided Study** for *${topic}*. Step by step, with quick checks along the way…` },
+    ]);
+    setTimeout(() => { setOpen(false); onOpenAITutor(topic); }, 650);
+  }, [onOpenAITutor]);
+
   const stopStream = () => abortRef.current?.abort();
 
   // File pickers — camera/gallery photos go straight to vision; documents get
@@ -547,7 +577,23 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   }, [segs]);
   const lastSegs = segs[segs.length - 1] || [];
   const lastIsQuiz = lastSegs.some((sg) => sg.type === "mcq");
-  const chipsToShow = lastIsQuiz ? QUIZ_NEXT_CHIPS : SCHOLAR_CHIPS;
+  // Suggestion chips — contextual only (Gizmo-style). Quiz flow gets next-step
+  // controls; a knowledge answer gets the "learn this deeply" Guided Study
+  // route. No fixed chips.
+  const chipsToShow = useMemo(() => {
+    if (lastIsQuiz) return QUIZ_NEXT_CHIPS;
+    const lastA = [...messages].reverse().find((m) => m.role === "assistant");
+    if (lastA?.content?.includes("Guided Study")) return [];
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUser || lastUser.images || lastUser.docName || !onOpenAITutor) return [];
+    if (!looksLearnable(lastUser.content)) return [];
+    const topic = deepTopic(lastUser.content);
+    if (topic.length < 3) return [];
+    return [{
+      label: `📚 Learn "${topic.length > 28 ? `${topic.slice(0, 26)}…` : topic}" deeply`,
+      route: topic,
+    }];
+  }, [lastIsQuiz, messages, onOpenAITutor]);
   const showChips = messages.length > 0 && !loading && !messages[messages.length - 1]?.streaming;
 
   const handleQuizPick = (key, mcq, orig) => {
@@ -1095,7 +1141,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
             {showChips && (
               <div style={s.chipsRow} className="gs-chips">
                 {chipsToShow.map((chip) => (
-                  <button key={chip.label} style={s.chip} className="gs-chip" onClick={() => send(chip.prompt)}>
+                  <button key={chip.label} style={s.chip} className="gs-chip" onClick={() => (chip.route ? routeToStudy(chip.route) : send(chip.prompt))}>
                     {chip.label}
                   </button>
                 ))}
