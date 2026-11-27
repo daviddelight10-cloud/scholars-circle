@@ -3856,13 +3856,15 @@ Passage:
   }, [lastUserPrompt, lastAnswer]);
   const chipsToShow = useMemo(() => {
     if (chatMessages.length === 0) return STARTER_CHIPS;
-    if (lastMcqState === "answered") return QUIZ_NEXT_CHIPS;
-    if (lastMcqState === "open") return [];
+    // Page-drift chip leads in every state — a student who scrolled away
+    // mid-quiz should still be able to jump the thread to the new page.
+    const drift = currentPage !== chatCtxPage
+      ? { label: `📄 Explain p.${currentPage}`, prompt: `Explain the key points on page ${currentPage} — keep it clear and simple.` }
+      : null;
+    if (lastMcqState === "answered") return drift ? [drift, ...QUIZ_NEXT_CHIPS].slice(0, 4) : QUIZ_NEXT_CHIPS;
+    if (lastMcqState === "open") return drift ? [drift] : [];
     const base = smartChipsFor(chipSet, userPrompts);
-    if (currentPage !== chatCtxPage) {
-      return [{ label: `📄 Explain p.${currentPage}`, prompt: `Explain the key points on page ${currentPage} — keep it clear and simple.` }, ...base].slice(0, 4);
-    }
-    return base;
+    return drift ? [drift, ...base].slice(0, 4) : base;
   }, [chatMessages.length, lastMcqState, chipSet, userPrompts, currentPage, chatCtxPage]);
   const showChips = chatMessages.length > 0 && chipsToShow.length > 0 &&
     chatMessages[chatMessages.length - 1]?.role === "assistant" && !chatLoading;
