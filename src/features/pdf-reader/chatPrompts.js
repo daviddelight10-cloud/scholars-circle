@@ -6,47 +6,78 @@ export const SMART_CHIPS = [
   { label: "Explain the page", prompt: "Explain the key points on this page — keep it clear and simple." },
 ];
 
-// Intent-aware follow-ups — gated so refinement chips only exist where they
-// make sense: "Explain simpler" needs a prior explanation/definition to
-// simplify, and "Test my knowledge" needs taught content to test (it lives
-// in the teaching sets below, never in the default or starter rows).
-// Quiz controls come from QUIZ_NEXT_CHIPS while an mcq card is on screen —
-// there is no quiz intent set here on purpose.
+// Intent-aware pedagogy chips — deterministic, zero model tokens. Every
+// teaching set runs the understand → simplify → anchor → test ladder:
+// "Test my knowledge" lives in the sets below only where there's taught
+// content to test (never in the default or starter rows), and quiz
+// controls come from QUIZ_NEXT_CHIPS while an mcq card is on screen.
+const CHIP_SIMPLER = { simpler: true }; // sentinel — smartChipsFor swaps in the current ladder rung
+const CHIP_ANALOGY = { label: "Use an analogy", prompt: "Explain this using a simple everyday analogy." };
+const CHIP_EXAMPLE = { label: "An example", prompt: "Give me one concrete real-world example of this." };
+const CHIP_TEST = { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." };
+const CHIP_DEEPER = { label: "Go deeper", prompt: "Go deeper on this — the mechanism and why it matters." };
+const CHIP_MNEMONIC = { label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points in this." };
+const CHIP_AGAIN = { label: "Explain it again", prompt: "Explain the key points on this page — keep it clear and simple." };
+const CHIP_WHY = { label: "Why this works", prompt: "Why does this approach work — what's the underlying reason?" };
+
 export const INTENT_CHIPS = {
-  explain: [
-    { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
-    { label: "An example", prompt: "Give me one concrete real-world example of this." },
-    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
-  ],
-  define: [
-    { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
-    { label: "An example", prompt: "Give me one concrete real-world example of this." },
-    { label: "Go deeper", prompt: "Go deeper on this — the mechanism and why it matters." },
-    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
-  ],
-  summary: [
-    { label: "Explain the page", prompt: "Explain the key points on this page — keep it clear and simple." },
-    { label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points in this." },
-    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
-  ],
-  mnemonic: [
-    { label: "Explain it again", prompt: "Explain the key points on this page — keep it clear and simple." },
-    { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
-    { label: "Key points", prompt: "Summarize the key points on this page in a few bullet points." },
-  ],
+  explain: [CHIP_SIMPLER, CHIP_ANALOGY, CHIP_EXAMPLE, CHIP_TEST],
+  define: [CHIP_SIMPLER, CHIP_EXAMPLE, CHIP_DEEPER, CHIP_TEST],
+  summary: [CHIP_SIMPLER, CHIP_MNEMONIC, CHIP_TEST],
+  steps: [CHIP_SIMPLER, CHIP_WHY, CHIP_EXAMPLE, CHIP_TEST],
+  mnemonic: [CHIP_AGAIN, CHIP_EXAMPLE, CHIP_TEST],
   default: SMART_CHIPS,
 };
 
-// The model optionally appends a "CHIPS: a | b | c" line — the follow-ups
-// THIS answer invites. parseSuggestedChips reads it for the chip row;
-// stripChipsLine removes it so it never renders as body text.
-const CHIPS_LINE = /\n?\s*CHIPS\s*:\s*([^\n]+)\s*$/i;
-export function parseSuggestedChips(content) {
-  const m = String(content || "").match(CHIPS_LINE);
-  if (!m) return null;
-  const chips = m[1].split("|").map((c) => c.trim()).filter((c) => c.length > 1 && c.length <= 44).slice(0, 4);
-  return chips.length ? chips.map((label) => ({ label, prompt: label })) : null;
+// The simplify ladder — index = simpler-asks already burned at the thread's
+// tail. Past the last rung the chip bows out (nothing left to simplify) and
+// analogy/example/mnemonic take over as the anchors.
+const SIMPLER_STEPS = [
+  { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
+  { label: "Even simpler", prompt: "Explain it even more simply — like I'm brand new to the topic." },
+  { label: "Like I'm 10", prompt: "Explain it the simplest possible way — like I'm a 10-year-old." },
+];
+const SIMPLER_ASK_RE = /\bsimpl|easier\b|eli5|like i'?m/i;
+
+// A chip already used anywhere in this thread swaps to its "another"
+// variant (or drops when no variant exists) — the row never offers the
+// exact same prompt twice.
+const ANOTHER = {
+  "An example": { label: "Another example", prompt: "Give me a different concrete real-world example of this." },
+  "Use an analogy": { label: "Another analogy", prompt: "Explain it with a different everyday analogy." },
+  "Make a mnemonic": { label: "Another mnemonic", prompt: "Give me a different memorable mnemonic for the key points." },
+};
+
+// Tunes an intent set for the live thread — userPrompts = every user
+// message content, oldest → newest.
+export function smartChipsFor(set, userPrompts) {
+  let depth = 0;
+  for (let i = userPrompts.length - 1; i >= 0; i--) {
+    if (SIMPLER_ASK_RE.test(String(userPrompts[i] || ""))) depth++;
+    else break;
+  }
+  const used = new Set(userPrompts.map((p) => String(p || "").trim()));
+  const out = [];
+  for (const chip of set) {
+    if (chip.simpler) {
+      const step = SIMPLER_STEPS[depth];
+      if (step) out.push(step);
+      continue;
+    }
+    if (used.has(chip.prompt)) {
+      const alt = ANOTHER[chip.label];
+      if (alt) out.push(alt);
+      continue;
+    }
+    out.push(chip);
+  }
+  return out.slice(0, 4);
 }
+
+// Legacy "CHIPS: a | b | c" trailer — replies generated before the static
+// pedagogy-chip revert still carry it. The prompt no longer emits the line;
+// stripChipsLine keeps it from rendering as body text in old messages.
+const CHIPS_LINE = /\n?\s*CHIPS\s*:\s*([^\n]+)\s*$/i;
 export function stripChipsLine(content) {
   return String(content || "").replace(CHIPS_LINE, "");
 }
@@ -96,8 +127,6 @@ LAYOUT BLOCKS (sparingly — at most one of each per reply, never inside the mcq
 • The single most important takeaway → end with \`\`\`idea holding one sentence
 
 PAGE CITATIONS: when a claim comes from a specific page of the document, append 〔p.N〕 immediately after the claim. Cite only pages you were actually given context from — never guess a page number.
-
-SUGGESTIONS: end every reply that does NOT contain an mcq block with one final line exactly formatted "CHIPS: label | label | label" — 2 to 3 short follow-ups (2-5 words each, phrased as a student's next question, e.g. "give an example", "why does this happen") specific to THIS answer's content. Replies containing an mcq block must NOT emit the CHIPS line.
 
 ${CHEMISTRY_RULES}
 

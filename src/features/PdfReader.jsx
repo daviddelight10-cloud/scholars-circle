@@ -23,7 +23,7 @@ import pdfjsLib, { loadPdfJs } from "../lib/pdfjs.js";
 
 // ── Split modules (styles, palettes, prompts, persistence) ──────────────────
 import { THEMES, CHROME, INK_COLORS, HIGHLIGHT_COLORS, PEN_WIDTHS, HIGHLIGHT_WIDTHS } from "./pdf-reader/constants.js";
-import { INTENT_CHIPS, STARTER_CHIPS, QUIZ_NEXT_CHIPS, GROUNDING_STOPWORDS, TUTOR_SYSTEM, parseSuggestedChips, stripChipsLine } from "./pdf-reader/chatPrompts.js";
+import { INTENT_CHIPS, STARTER_CHIPS, QUIZ_NEXT_CHIPS, GROUNDING_STOPWORDS, TUTOR_SYSTEM, smartChipsFor, stripChipsLine } from "./pdf-reader/chatPrompts.js";
 import {
   loadStored, saveStored, mergePageArrays, mergeBookmarkList, mergeReaderStats,
   getProxiedUrl, fetchProxiedPdf, idbGetFile, idbPutFile, idbDelFile,
@@ -3827,41 +3827,43 @@ Passage:
     if (!mcqSegIdxs.length) return "none";
     return mcqSegIdxs.every((j) => quizResults[`${lastAssistantIdx}:${j}`]) ? "answered" : "open";
   })();
-  // Smart chips — three sources in order: the model's own CHIPS suggestions
-  // (written for this specific answer), then intent-aware fallbacks chosen by
-  // what the user last asked, and a page-drift chip leading whenever the
-  // student has scrolled away from the thread's context page.
+  // Smart chips — deterministic pedagogy chips: an intent set chosen by the
+  // last ask/answer shape, tuned for the thread by smartChipsFor (simplify
+  // ladder + no-repeat variants), plus a page-drift chip leading whenever
+  // the student has scrolled away from the thread's context page.
   const lastUserPrompt = [...chatMessages].reverse().find((m) => m.role === "user")?.content || "";
-  const suggestedChips = useMemo(() => {
-    if (lastAssistantIdx < 0 || lastAssistantIdx !== chatMessages.length - 1) return null;
-    const m = chatMessages[lastAssistantIdx];
-    return m?.streaming ? null : parseSuggestedChips(m.content);
-  }, [chatMessages, lastAssistantIdx]);
   const lastAnswer = lastAssistantIdx >= 0 ? stripChipsLine(chatMessages[lastAssistantIdx]?.content || "") : "";
-  const intentChips = useMemo(() => {
+  const userPrompts = useMemo(
+    () => chatMessages.filter((m) => m.role === "user").map((m) => m.content),
+    [chatMessages]
+  );
+  const chipSet = useMemo(() => {
     const t = lastUserPrompt.toLowerCase();
     const ans = lastAnswer;
     if (/\bsimpler|easier|simple\b/.test(t)) return INTENT_CHIPS.explain;
     if (/mnemonic/.test(t)) return INTENT_CHIPS.mnemonic;
     if (/key points|summar|recap/.test(t)) return INTENT_CHIPS.summary;
     if (/\bdefin|what is|what are|meaning of|meaning\b/.test(t) || /```term/.test(ans)) return INTENT_CHIPS.define;
+    // A steps-shaped answer (worked solution/procedure) gets the steps set —
+    // the "Why this works" chip beats a generic analogy for solutions.
+    if (/```steps/.test(ans)) return INTENT_CHIPS.steps;
     // Quiz/test prompts reach here only when the answer had NO mcq block —
     // the model taught instead, so the explain set fits, not quiz controls.
-    // The ```steps/```idea answer-shape check catches teaching replies to
-    // freeform prompts the regex would have missed.
-    if (/explain|teach|walk me|break down|quiz|test|question|why does|why is|how does|how is/.test(t) || /```(steps|idea)/.test(ans)) return INTENT_CHIPS.explain;
+    // The ```idea answer-shape check catches teaching replies to freeform
+    // prompts the regex would have missed.
+    if (/explain|teach|walk me|break down|quiz|test|question|why does|why is|how does|how is/.test(t) || /```idea/.test(ans)) return INTENT_CHIPS.explain;
     return INTENT_CHIPS.default;
   }, [lastUserPrompt, lastAnswer]);
   const chipsToShow = useMemo(() => {
     if (chatMessages.length === 0) return STARTER_CHIPS;
     if (lastMcqState === "answered") return QUIZ_NEXT_CHIPS;
     if (lastMcqState === "open") return [];
-    const base = suggestedChips || intentChips;
+    const base = smartChipsFor(chipSet, userPrompts);
     if (currentPage !== chatCtxPage) {
       return [{ label: `📄 Explain p.${currentPage}`, prompt: `Explain the key points on page ${currentPage} — keep it clear and simple.` }, ...base].slice(0, 4);
     }
     return base;
-  }, [chatMessages.length, lastMcqState, suggestedChips, intentChips, currentPage, chatCtxPage]);
+  }, [chatMessages.length, lastMcqState, chipSet, userPrompts, currentPage, chatCtxPage]);
   const showChips = chatMessages.length > 0 && chipsToShow.length > 0 &&
     chatMessages[chatMessages.length - 1]?.role === "assistant" && !chatLoading;
 
