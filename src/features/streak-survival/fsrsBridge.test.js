@@ -65,6 +65,15 @@ describe("normalizeQuestion hardening", () => {
     expect(tf._qFormat).toBe("tf");
     expect(isRenderableQuestion(tf)).toBe(true);
   });
+
+  it("skips true/false rows whose stem is interrogative — legacy bad items", () => {
+    const bad = normalizeQuestion({ question: "Secretion of zymogens protects against which process?", options: { A: "True", B: "False" }, correct: "A", format: "tf" });
+    expect(bad._qFormat).toBe("tf");
+    expect(isRenderableQuestion(bad)).toBe(false);
+    // a question-marked stem on a non-tf row is untouched
+    const mcq = normalizeQuestion({ question: "Which process?", options: { A: "x", B: "y" }, correct: "A" });
+    expect(isRenderableQuestion(mcq)).toBe(true);
+  });
 });
 
 describe("normalizeBank", () => {

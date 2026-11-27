@@ -281,6 +281,18 @@ describe("customise engine", () => {
     expect(rows[3].format).toBe("tf"); // defensive: True/False options dict
   });
 
+  it("drops true/false items whose stem is a question, not a statement", () => {
+    const rows = mapAiMcqsToRows([
+      { question: "Secretion of zymogens protects against which process?", format: "truefalse", correct: true },
+      { question: "Which enzyme digests proteins?", format: "tf", correct: true },
+      { question: "How are zymogens activated?", format: "truefalse", correct: false },
+      { question: "True or false: which ion drives secretion?", format: "tf", correct: true },
+      { question: "Zymogen secretion prevents auto-digestion.", format: "truefalse", correct: true },
+    ]);
+    expect(rows.length).toBe(1); // only the declarative statement survives
+    expect(rows[0].question).toBe("Zymogen secretion prevents auto-digestion.");
+  });
+
   it("leaves true/false rows untouched during rebalancing", () => {
     const tf = { question: "tf?", options: { A: "True", B: "False" }, correct: "A", explanation: "", format: "tf" };
     expect(rebalanceAnswers([tf])[0]).toEqual(tf);

@@ -1,4 +1,5 @@
 import { API_BASE } from '../../lib/constants';
+import { isTfStatementStem } from '../../lib/generationCore.js';
 
 // Bridge between the Streak Survival UI and the app's server-side FSRS-6.
 // The prototype's embedded FSRS-4.5 engine is intentionally absent — every
@@ -178,11 +179,14 @@ export function normalizeQuestion(mcq, idx = 0, resourceId = null, itemType = 'm
 }
 
 // A normalized row is only usable if it has a stem and ≥2 non-empty options.
+// TF items banked before the declarative-stem guard carry interrogative stems
+// ("protects against which process?") — unanswerable, so they're skipped here.
 export function isRenderableQuestion(nq) {
   return !!nq
     && typeof nq.q === 'string' && nq.q.trim().length > 0
     && Array.isArray(nq.opts)
-    && nq.opts.filter((o) => String(o).trim()).length >= 2;
+    && nq.opts.filter((o) => String(o).trim()).length >= 2
+    && (nq._qFormat !== 'tf' || isTfStatementStem(nq.q));
 }
 
 export function normalizeBank(mcqData, resourceId) {

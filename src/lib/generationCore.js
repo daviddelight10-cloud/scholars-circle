@@ -47,7 +47,7 @@ CRITICAL INSTRUCTIONS:
 1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
 2. Extract ONLY the questions that already exist in the content — do NOT generate new questions.
 3. If no questions are found in this section, return an empty array [].
-4. Each extracted question has exactly 4 options (A, B, C, D) and one correct answer — EXCEPT true/false questions, which use "format":"truefalse", no "options", and "correct": true or false.
+4. Each extracted question has exactly 4 options (A, B, C, D) and one correct answer — EXCEPT true/false questions, which use "format":"truefalse", no "options", and "correct": true or false. A true/false "question" must be a DECLARATIVE statement to be judged (e.g. "The SA node is the heart's primary pacemaker.") — never a question form.
 5. Preserve the original question text, options, and correct answer as written in the document.
 6. Include the explanation only if one is provided in the document; otherwise leave it empty.
 
@@ -60,7 +60,7 @@ Format:
     "explanation": "Brief explanation."
   },
   {
-    "question": "Statement that is true or false?",
+    "question": "The SA node is the heart's primary pacemaker.",
     "format": "truefalse",
     "correct": true,
     "explanation": "Brief explanation."
@@ -131,7 +131,7 @@ ITEM-WRITING RULES (follow strictly):
 6. Use exact terms, doses and values from the content; never invent facts that are not in it.
 7. explanation = 2-3 short sentences: why the correct answer is right, then why the most tempting distractor is wrong.
 8. Add "topic" (2-4 word subtopic), "difficulty" ("easy"|"medium"|"hard") and "type" ("recall"|"applied"|"vignette").
-9. TRUE/FALSE: where a fact in the content naturally reads as a statement-check, you may write up to ~15% of the set as true/false items — use "format":"truefalse", no "options", and "correct": true or false (still include explanation/topic/difficulty/type). Use them only where the format genuinely fits; every other item is a standard 4-option MCQ with "format":"mcq".
+9. TRUE/FALSE: where a fact in the content naturally reads as a statement-check, you may write up to ~15% of the set as true/false items — use "format":"truefalse", no "options", and "correct": true or false (still include explanation/topic/difficulty/type). The "question" field for a true/false item MUST be a declarative statement that can be judged true or false — never a question form (no "?", no which/what/who/when/where/why/how stems, no imperatives like "state whether"). Convert the underlying fact into a flat claim (true or a plausible false variant). Every other item is a standard 4-option MCQ with "format":"mcq".
 
 Format:
 [
@@ -146,7 +146,7 @@ Format:
     "format": "mcq"
   },
   {
-    "question": "Statement that is true or false?",
+    "question": "The SA node is the heart's primary pacemaker.",
     "format": "truefalse",
     "correct": true,
     "explanation": "Why the statement is true or false.",
@@ -398,6 +398,16 @@ export function dedupeMcqs(rows) {
 
 const TF_FORMATS = new Set(["truefalse", "true_false", "tf", "boolean", "statement"]);
 
+// A true/false item's stem must be a declarative statement to be judged —
+// an interrogative stem ("protects against which process?") glued to
+// True/False options is unanswerable. Shared by the generator map (drop at
+// write time) and the practice normalizer (skip legacy banked items).
+const INTERROGATIVE_STEM = /\?\s*$|^\s*(?:true or false[:,]?\s*)?(which|what|who|whom|whose|when|where|why|how)\b/i;
+export const isTfStatementStem = (stem) => {
+  const s = String(stem || "").trim();
+  return s.length > 0 && !INTERROGATIVE_STEM.test(s);
+};
+
 // True/false items arrive either marked via "format":"truefalse" (our prompt
 // contract) or defensively as an options dict whose values are all
 // True/False strings.
@@ -431,7 +441,9 @@ export function mapAiMcqsToRows(parsed) {
       let row;
       if (isTfQuestion(q)) {
         const letter = tfCorrectLetter(q.correct);
-        if (!letter) return null;
+        // An interrogative stem can't be judged true/false — drop it rather
+        // than bank a question that's literally unanswerable.
+        if (!letter || !isTfStatementStem(q.question)) return null;
         row = {
           question: q.question,
           options: { A: "True", B: "False" },
