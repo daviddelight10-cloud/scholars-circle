@@ -319,7 +319,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
       setMessages((prev) => [
         ...prev,
         { role: "user", content: trimmed },
-        { role: "assistant", content: `That's worth a proper lesson — opening the **AI Tutor** for *${topic}*…` },
+        { role: "assistant", content: `That deserves a real lesson — opening **Guided Study** for *${topic}*. I'll walk you through it step by step, with quick checks along the way…` },
       ]);
       setInput("");
       setTimeout(() => { setOpen(false); onOpenAITutor(topic); }, 650);

@@ -2053,6 +2053,14 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     );
   }
 
+  // Routed in with a question (Research Hub / Scholar handoff landing in chat
+  // view) — fire it immediately instead of making the student retype it.
+  useEffect(() => {
+    if (defaultView === "chat" && studyTopic?.trim() && messages.length === 0) {
+      ask(studyTopic.trim());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function ask(rawQ, attachOverride, docOverride, modeOverride) {
     const attach = attachOverride !== undefined ? attachOverride : attachment;
     const hasAttachment = !!attach;

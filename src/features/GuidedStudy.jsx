@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { callAI, callAIMultimodal } from "../lib/aiClient";
 import { fetchDiagram } from "../lib/diagramSearch.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import AiOrb from "../components/AiOrb.jsx";
 import { CHEMISTRY_RULES_BRIEF } from "../lib/chemistryPrompt.js";
 import { getStudyCache, saveStudyCache, clearStudyCache, recordGuidedProgress } from "../lib/studyCache.js";
 import { useComboStreak } from "../lib/useComboStreak.js";
@@ -254,17 +255,33 @@ function shuffleCheckOptions(check) {
 
 function normalizeCheck(c) {
   if (Array.isArray(c)) c = c[0]; // AI sometimes wraps check in an array
-  if (!c || !Array.isArray(c.options) || c.options.length < 2) return null;
+  if (!c) return null;
+  // Short-answer check (Gizmo-style typed recall) — the model supplies the
+  // expected answer so a fuzzy match can fast-path obvious correct responses.
+  const expected = String(c.expected || c.model || c.modelAnswer || "").trim();
+  if (expected && !Array.isArray(c.options)) {
+    return {
+      type: "short",
+      question: String(c.question || ""),
+      expected,
+      why: String(c.why || c.explanation || ""),
+    };
+  }
+  // MCQ check (cached sessions + the final review quiz still use this shape).
+  if (!Array.isArray(c.options) || c.options.length < 2) return null;
   const answer = typeof c.answer === "number"
     ? c.answer
     : "abcd".indexOf(String(c.answer || "").trim().toLowerCase().charAt(0));
   if (answer < 0 || answer >= c.options.length) return null;
-  return shuffleCheckOptions({
-    question: String(c.question || ""),
-    options: c.options.map(o => String(o)),
-    answer,
-    why: String(c.why || c.explanation || ""),
-  });
+  return {
+    type: "mcq",
+    ...shuffleCheckOptions({
+      question: String(c.question || ""),
+      options: c.options.map(o => String(o)),
+      answer,
+      why: String(c.why || c.explanation || ""),
+    }),
+  };
 }
 
 function normalizeChunk(chunk) {
@@ -390,15 +407,15 @@ async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitl
     `You are an expert tutor teaching "${topic}". Teach this section: "${section.title}"${ctxBlock}${prevBlock}${docHint}${contentBlock}${imageBlock}
 
 Reply ONLY with valid JSON (no markdown fences) in this exact shape:
-{"tldr":"one-sentence takeaway","chunks":[{"heading":"short heading","markdown":"2-4 short paragraphs of markdown","check":{"question":"quick comprehension question about THIS chunk","options":["option A","option B","option C","option D"],"answer":0,"why":"1 sentence explaining the correct answer"}}]}
+{"tldr":"one-sentence takeaway","chunks":[{"heading":"short heading","markdown":"2-4 short paragraphs of markdown","check":{"question":"quick comprehension question about THIS chunk","expected":"the correct short answer in 2-6 words","why":"1 sentence explaining the correct answer"}}]}
 
 Rules:
 - 3-5 chunks, ordered from foundational ideas to advanced ones — each chunk is a bite-sized piece a student absorbs in ~1 minute
 - In "markdown": use **bold** for key terms, bullet lists for enumerations, > blockquotes for real-world examples or analogies, code blocks for formulas/diagrams, LaTeX ($...$) for math
 - When a pathway, cycle or step sequence matters (metabolic pathways, cascades, algorithms), include a fenced code block tagged "flow" whose content is the steps joined by → (e.g. Glucose → Glucose-6-phosphate → Fructose-6-phosphate)
 - When a molecular structure or reaction genuinely helps (sugars, amino acids, drugs, simple organic chains — not water or simple ions): ${CHEMISTRY_RULES_BRIEF}
-- Every chunk MUST have a "check": a 4-option MCQ testing the core idea of that chunk (comprehension, not trivia)
-- "answer" is the 0-based index of the correct option — vary it across chunks
+- Every chunk MUST have a "check": a SHORT-ANSWER question testing the core idea of that chunk (comprehension, not trivia) — something the student answers in a few typed words, not multiple choice
+- "expected" is the ideal short answer (2-6 words); keep questions answerable in a few words — never ask for essay-length responses
 - When a labeled visual would genuinely help a medical student — anatomical structures, organ systems, histology, pathways maps, devices — add "diagram":"short Wikimedia Commons search phrase" to that chunk (e.g. "nephron anatomy diagram", "brachial plexus diagram", "heart chambers labeled"). At most 1-2 chunks per section may carry a diagram; only concrete visual structures qualify — never add it for abstract concepts, and omit the field entirely otherwise
 - Keep the tone clear, encouraging, and concise`,
     aiConfig,
@@ -442,6 +459,44 @@ Keep it concise and encouraging.`,
   );
 }
 
+// Local fast-path for short-answer checks — strong keyword coverage of the
+// expected answer counts as correct without an AI round-trip.
+const STOP_WORDS = new Set(["the","a","an","of","to","in","is","are","was","for","on","and","or","by","it","its","that","this","with","as","at","be","from","into","via"]);
+function shortAnswerLooksRight(expected, answer) {
+  const tokens = String(expected).toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+  if (!tokens.length) return false;
+  const hay = " " + String(answer).toLowerCase().replace(/[^a-z0-9\s]/g, " ") + " ";
+  const hits = tokens.filter(w => hay.includes(` ${w}`));
+  return hits.length >= Math.max(1, Math.ceil(tokens.length * 0.8));
+}
+
+// AI judge for short-answer checks — semantic match, so paraphrases pass.
+// Returns { verdict: "correct"|"close"|"wrong", why } — "close" = right idea,
+// missing precision; still counts as correct for streaks.
+async function aiCheckAnswer(question, expected, answer, aiConfig) {
+  if (shortAnswerLooksRight(expected, answer)) {
+    return { verdict: "correct", why: "" };
+  }
+  try {
+    const raw = await callAI(
+      `Judge this short-answer response.
+Question: "${question}"
+Expected answer: "${expected}"
+Student's answer: "${answer}"
+Reply ONLY with valid JSON: {"verdict":"correct|close|wrong","why":"one short sentence — praise what they got right, or name the one thing they missed"}
+- "correct": means the same thing as the expected answer (paraphrases count, spelling slips count)
+- "close": right idea but vague or slightly incomplete
+- "wrong": incorrect, unrelated, or blank`,
+      aiConfig
+    );
+    const parsed = extractJSON(raw);
+    const verdict = ["correct", "close", "wrong"].includes(parsed?.verdict) ? parsed.verdict : "wrong";
+    return { verdict, why: String(parsed?.why || "") };
+  } catch {
+    return { verdict: "wrong", why: "Couldn't check that — compare with the answer shown." };
+  }
+}
+
 // Cumulative end-of-topic review quiz — interleaved MCQs across all sections.
 async function aiReviewQuiz(topic, sections, fuzzyTitles, aiConfig, ctx) {
   const ctxBlock = buildContextBlock(ctx);
@@ -469,11 +524,7 @@ Reply ONLY with valid JSON (no markdown):
 function Spinner({ message }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"40px 20px" }}>
-      <div style={{
-        width:34, height:34, borderRadius:"50%",
-        border:`3px solid ${D.line}`, borderTopColor: D.border,
-        animation:"gs-spin 0.75s linear infinite",
-      }} />
+      <AiOrb size={34} state="thinking" />
       {message && <span style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", textAlign:"center" }}>{message}</span>}
     </div>
   );
@@ -606,6 +657,77 @@ function CheckCard({ check, index, total, selected, onAnswer }) {
         }}>
           {correct ? "✓ Correct. " : "✗ Not quite. "}<MarkdownText plain>{check.why}</MarkdownText>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Quick Check (typed short answer — Gizmo-style recall) ────────────────────
+// result: { answer, verdict: "correct"|"close"|"wrong"|"revealed" }
+function ShortAnswerCard({ check, index, total, result, checking, onSubmit, onRetry, onReveal }) {
+  const [val, setVal] = useState("");
+  const settled = !!result;
+  const good = settled && (result.verdict === "correct" || result.verdict === "close");
+  const wrong = settled && result.verdict === "wrong";
+  const revealed = settled && result.verdict === "revealed";
+  const border = !settled ? "rgba(255,215,0,0.25)"
+    : good ? "rgba(61,214,140,0.4)"
+    : "rgba(255,84,112,0.4)";
+  return (
+    <div className="gs-pop" style={{
+      background: D.card,
+      border: `0.5px solid ${border}`,
+      borderRadius: 14, padding: "13px 15px", margin: "4px 0 6px",
+    }}>
+      <div style={{ fontSize: 9, color: "#FFD700", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "Manrope,sans-serif", marginBottom: 7 }}>
+        ⚡ Quick check{total > 1 ? ` ${index + 1} of ${total}` : ""} · type your answer
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: D.text, lineHeight: 1.55, fontFamily: "Manrope,sans-serif", marginBottom: 10 }}>
+        <MarkdownText plain>{check.question}</MarkdownText>
+      </div>
+
+      {!settled ? (
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && val.trim() && !checking) onSubmit(val.trim()); }}
+            placeholder="Your answer — a few words is enough…"
+            disabled={checking}
+            style={{
+              flex: 1, minWidth: 0, background: D.bar, border: `0.5px solid ${D.line}`,
+              borderRadius: 10, padding: "9px 12px", fontSize: 12.5, color: D.text,
+              fontFamily: "Manrope,sans-serif", outline: "none",
+            }}
+            onFocus={e => e.target.style.borderColor = D.border}
+            onBlur={e => e.target.style.borderColor = D.line}
+          />
+          <Btn onClick={() => onSubmit(val.trim())} disabled={!val.trim() || checking} style={{ flexShrink: 0 }}>
+            {checking ? "…" : "Check"}
+          </Btn>
+        </div>
+      ) : (
+        <>
+          {result.answer && (
+            <div style={{ fontSize: 11.5, color: D.muted, fontFamily: "Manrope,sans-serif", marginBottom: 6, fontStyle: "italic" }}>
+              You said: "{result.answer}"
+            </div>
+          )}
+          <div style={{ fontSize: 11.5, lineHeight: 1.6, fontFamily: "Manrope,sans-serif", color: good ? "#7EE2A8" : revealed ? D.muted : "#FF9AA9" }}>
+            {result.verdict === "correct" && "✓ Correct. "}
+            {result.verdict === "close" && "✓ Close enough. "}
+            {result.verdict === "wrong" && "✗ Not quite. "}
+            {result.verdict === "revealed" && "Answer: "}
+            {(wrong || revealed) && <><strong style={{ color: D.text }}>{check.expected}</strong>{check.why ? " — " : ""}</>}
+            <MarkdownText plain>{result.why || check.why}</MarkdownText>
+          </div>
+          {wrong && (
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <Btn variant="ghost" onClick={onRetry} style={{ padding: "5px 12px", fontSize: 11 }}>↻ Try again</Btn>
+              <Btn variant="ghost" onClick={onReveal} style={{ padding: "5px 12px", fontSize: 11 }}>Show answer</Btn>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -757,6 +879,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   const prefetchRef                     = useRef(null);   // {sectionId, promise} — in-flight next-section generation
   const questionPrefetchRef             = useRef(null);   // {sectionId, promise} — in-flight comprehension question
   const [reexplaining, setReexplaining] = useState({});   // {chunkIdx: bool}
+  const [checkingAns, setCheckingAns]   = useState({});   // {chunkIdx: bool} — short-answer judging
+  const [studyOrb, setStudyOrb]         = useState(null); // one-shot mascot mood
+  const moodSeqRef                      = useRef(0);
   const combo                           = useComboStreak("guided");
   const studiedCount                    = Object.keys(studied).length;
   const sessionXP                       = combo.correctCount * XP_PER_CORRECT + combo.totalStreakBonus;
@@ -880,6 +1005,15 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setSessionChecks({ ...checksRef.current });
     combo.handleAnswer(isCorrect);
     if (isCorrect) haptics.success(); else haptics.error();
+    studyMood(isCorrect ? "celebrate" : "oops");
+  }
+
+  // One-shot mascot reaction on the header orb — auto-clears so the next
+  // check result re-triggers it.
+  function studyMood(m) {
+    const id = ++moodSeqRef.current;
+    setStudyOrb(m);
+    if (m) setTimeout(() => { if (moodSeqRef.current === id) setStudyOrb(null); }, 1100);
   }
 
   function saveExplanation(topicStr, sectionId, data) {
@@ -1044,6 +1178,44 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setVisibleChunks(v => Math.max(v, chunkIdx + 2));
   }
 
+  // Typed short-answer check — local fuzzy match first, AI judge as backstop
+  // for paraphrases. "close" counts as correct but still shows the gap.
+  async function handleShortSubmit(ci, text) {
+    const check = sectionData?.chunks?.[ci]?.check;
+    if (!check || check.type !== "short" || checkAnswers[ci] || checkingAns[ci] || !text) return;
+    haptics.light();
+    setCheckingAns(c => ({ ...c, [ci]: true }));
+    try {
+      const { verdict, why } = await aiCheckAnswer(check.question, check.expected, text, aiConfig);
+      setCheckAnswers(prev => ({ ...prev, [ci]: { answer: text, verdict, why } }));
+      const ok = verdict !== "wrong";
+      if (ok) studySounds.correct(); else studySounds.wrong();
+      recordCheck(ok);
+      setVisibleChunks(v => Math.max(v, ci + 2));
+    } finally { setCheckingAns(c => ({ ...c, [ci]: false })); }
+  }
+
+  function handleShortRetry(ci) {
+    haptics.selection();
+    setCheckAnswers(prev => { const n = { ...prev }; delete n[ci]; return n; });
+  }
+
+  function handleShortReveal(ci) {
+    if (!sectionData?.chunks?.[ci]?.check) return;
+    haptics.selection();
+    setCheckAnswers(prev => ({ ...prev, [ci]: { answer: prev[ci]?.answer || "", verdict: "revealed" } }));
+    setVisibleChunks(v => Math.max(v, ci + 2));
+  }
+
+  // True when this chunk's check ended wrong or was revealed — gates the
+  // "Explain differently" suggestion so it doesn't show on wins.
+  function missedCheck(ci, chunk) {
+    const r = checkAnswers[ci];
+    if (r === undefined) return false;
+    if (chunk?.check?.type === "short") return r.verdict === "wrong" || r.verdict === "revealed";
+    return r !== chunk?.check?.answer;
+  }
+
   // Regenerates just one chunk's explanation with a different, simpler framing —
   // shown after the student misses that chunk's quick check.
   async function explainDifferently(ci) {
@@ -1051,10 +1223,12 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     if (!chunk || reexplaining[ci] || !activeSection) return;
     setReexplaining(r => ({ ...r, [ci]: true }));
     try {
-      const chosen = chunk.check ? chunk.check.options?.[checkAnswers[ci]] : null;
-      const missed = chosen
-        ? ` They answered "${chosen}" to "${chunk.check.question}" — the correct answer was "${chunk.check.options?.[chunk.check.answer]}".`
-        : "";
+      const r = checkAnswers[ci];
+      const missed = chunk.check?.type === "short"
+        ? (r?.answer ? ` They answered "${r.answer}" to "${chunk.check.question}" — the expected answer was "${chunk.check.expected}".` : "")
+        : (chunk.check && r !== undefined
+            ? ` They answered "${chunk.check.options?.[r]}" to "${chunk.check.question}" — the correct answer was "${chunk.check.options?.[chunk.check.answer]}".`
+            : "");
       const raw = await callAI(
         `A student is learning "${activeSection.title}" (part of "${topic}").${missed} Re-explain this concept in a SIMPLER, different way — use a fresh analogy or concrete real-world example, and do not repeat the original phrasing. Reply with 1-3 short markdown paragraphs only (no JSON, no heading, no questions).`,
         aiConfig
@@ -1064,6 +1238,27 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         setSectionData(prev => prev ? ({
           ...prev,
           chunks: prev.chunks.map((c, i) => i === ci ? { ...c, markdown: text } : c),
+        }) : prev);
+      }
+    } catch {} finally { setReexplaining(r => ({ ...r, [ci]: false })); }
+  }
+
+  // Gizmo-style "give me an example" — appends a concrete worked example to the
+  // chunk instead of replacing the explanation.
+  async function giveExample(ci) {
+    const chunk = sectionData?.chunks?.[ci];
+    if (!chunk || chunk.example || reexplaining[ci] || !activeSection) return;
+    setReexplaining(r => ({ ...r, [ci]: true }));
+    try {
+      const raw = await callAI(
+        `A student just learned "${chunk.heading || activeSection.title}" (part of "${topic}"). Give ONE concrete real-world example or analogy that makes this exact concept click — 1-3 short markdown paragraphs, no JSON, no heading, no questions, start directly with the example.`,
+        aiConfig
+      );
+      const text = (raw || "").trim();
+      if (text) {
+        setSectionData(prev => prev ? ({
+          ...prev,
+          chunks: prev.chunks.map((c, i) => i === ci ? { ...c, example: text } : c),
         }) : prev);
       }
     } catch {} finally { setReexplaining(r => ({ ...r, [ci]: false })); }
@@ -1471,6 +1666,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
         <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"center" }}>
           <Btn variant="ghost" onClick={() => setPhase("roadmap")}>← Roadmap</Btn>
+          <AiOrb size={24} state={studyOrb || (loading ? "thinking" : undefined)} />
           <span style={{ fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
             {sectionIdx + 1} / {roadmap?.sections.length}
             {chunks ? ` · part ${Math.min(visibleChunks, chunks.length)}/${chunks.length}` : ""}
@@ -1543,19 +1739,53 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                           <MarkdownText theme="gold">{chunk.markdown}</MarkdownText>
                         </div>
                         {chunk.diagram && <DiagramFigure query={chunk.diagram} />}
-                        {chunk.check && (
-                          <CheckCard
-                            check={chunk.check}
-                            index={checkOrdinal(ci)}
-                            total={totalChecks}
-                            selected={checkAnswers[ci]}
-                            onAnswer={(oi) => handleCheckAnswer(ci, oi)}
-                          />
+                        {chunk.example && (
+                          <div className="gs-animate" style={{
+                            background:"rgba(255,215,0,0.05)", border:"0.5px solid rgba(255,215,0,0.2)",
+                            borderRadius:12, padding:"10px 14px", margin:"2px 0 14px",
+                          }}>
+                            <div style={{ fontSize:9, color:"#FFD700", fontWeight:700, letterSpacing:"0.08em", fontFamily:"Manrope,sans-serif", marginBottom:6 }}>💡 EXAMPLE</div>
+                            <div style={{ fontSize:13, color:"var(--app-text)", lineHeight:1.7, fontFamily:"Manrope,sans-serif" }}>
+                              <MarkdownText theme="gold">{chunk.example}</MarkdownText>
+                            </div>
+                          </div>
                         )}
-                        {chunk.check && checkAnswers[ci] !== undefined && checkAnswers[ci] !== chunk.check.answer && (
-                          <Btn variant="ghost" onClick={() => explainDifferently(ci)} disabled={reexplaining[ci]} style={{ marginTop:-8, marginBottom:14 }}>
-                            {reexplaining[ci] ? "↻ Re-explaining…" : "↻ Explain this differently"}
-                          </Btn>
+                        {chunk.check && (
+                          chunk.check.type === "short" ? (
+                            <ShortAnswerCard
+                              check={chunk.check}
+                              index={checkOrdinal(ci)}
+                              total={totalChecks}
+                              result={checkAnswers[ci]}
+                              checking={checkingAns[ci]}
+                              onSubmit={(t) => handleShortSubmit(ci, t)}
+                              onRetry={() => handleShortRetry(ci)}
+                              onReveal={() => handleShortReveal(ci)}
+                            />
+                          ) : (
+                            <CheckCard
+                              check={chunk.check}
+                              index={checkOrdinal(ci)}
+                              total={totalChecks}
+                              selected={checkAnswers[ci]}
+                              onAnswer={(oi) => handleCheckAnswer(ci, oi)}
+                            />
+                          )
+                        )}
+                        {/* Gizmo-style follow-ups — appear once a check settles */}
+                        {chunk.check && checkAnswers[ci] !== undefined && (
+                          <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginTop:2, marginBottom:14 }}>
+                            {missedCheck(ci, chunk) && (
+                              <Btn variant="ghost" onClick={() => explainDifferently(ci)} disabled={reexplaining[ci]} style={{ padding:"5px 12px", fontSize:11 }}>
+                                {reexplaining[ci] ? "↻ Re-explaining…" : "↻ Explain differently"}
+                              </Btn>
+                            )}
+                            {!chunk.example && (
+                              <Btn variant="ghost" onClick={() => giveExample(ci)} disabled={reexplaining[ci]} style={{ padding:"5px 12px", fontSize:11 }}>
+                                {reexplaining[ci] ? "…" : "💡 Give me an example"}
+                              </Btn>
+                            )}
+                          </div>
                         )}
                         {!chunk.check && ci === visibleChunks - 1 && ci < chunks.length - 1 && (
                           <Btn variant="ghost" onClick={() => setVisibleChunks(v => v + 1)} style={{ marginBottom:14 }}>
@@ -1708,6 +1938,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
         <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"center" }}>
           <Btn variant="ghost" onClick={() => setPhase("roadmap")}>← Roadmap</Btn>
+          <AiOrb size={24} state={studyOrb || undefined} />
           <span style={{ fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>🏁 Final Review</span>
           <span style={{ flex:1 }} />
           {comboChip}

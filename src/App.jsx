@@ -9562,7 +9562,7 @@ function App() {
               || homeViewerToken != null
               || ctxUI.hideMobileNav
             }
-            onOpenAITutor={(topic) => { setAiDefaultView("chat"); setAiStudyTopic(topic || ""); setAiStudyMode("input"); setAiStudyAttachment(null); setAiStudyContext(null); setAiKey(k => k + 1); setTab("aitutor"); }}
+            onOpenAITutor={(topic) => { setAiDefaultView(topic ? "study" : "chat"); setAiStudyTopic(topic || ""); setAiStudyMode(topic ? "auto-roadmap" : "input"); setAiStudyAttachment(null); setAiStudyContext(null); setAiKey(k => k + 1); setTab("aitutor"); }}
             theme={darkMode ? "dark" : "light"}
           />
         </Suspense>
