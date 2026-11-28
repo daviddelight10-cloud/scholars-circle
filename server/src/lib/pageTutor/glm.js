@@ -23,15 +23,18 @@ function extractJson(text) {
   return null;
 }
 
-async function callGLM({ pageImage, pageText, page, resourceTitle }) {
+async function callGLM({ pageImage, pageText, page, resourceTitle, docContext = "", totalPages = 0 }) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) return { ok: false, error: "no-openrouter-key", retriable: false };
   const content = [
     ...(pageImage ? [{ type: "image_url", image_url: { url: pageImage } }] : []),
     {
       type: "text",
-      text: `Document: "${resourceTitle || "lecture notes"}". This is page ${page}` +
+      text: `Document: "${resourceTitle || "lecture notes"}". This is page ${page}${totalPages ? ` of ${totalPages}` : ""}` +
         (pageImage ? " shown in the image above.\n" : " (no page image available — work from the text below).\n") +
+        (docContext
+          ? `Overview of the whole document (one preview line per page — use it to place this page in the material):\n"""\n${docContext}\n"""\n\n`
+          : "") +
         (pageText
           ? `Machine-extracted text of this page${pageImage ? " (may be imperfect; the image is ground truth)" : ""}:\n"""\n${pageText}\n"""\n\n`
           : `\n`) +
@@ -84,10 +87,10 @@ async function callGLM({ pageImage, pageText, page, resourceTitle }) {
 }
 
 // Same contract as generateWithGemini: { ok, lesson?, grounded?, lessonFailedSchema?, rawText?, error?, ... }
-export async function generateWithGLM({ pageImage, pageText, page, resourceTitle }) {
+export async function generateWithGLM({ pageImage, pageText, page, resourceTitle, docContext = "", totalPages = 0 }) {
   let lastErr = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const r = await callGLM({ pageImage, pageText, page, resourceTitle });
+    const r = await callGLM({ pageImage, pageText, page, resourceTitle, docContext, totalPages });
     if (!r.ok) { lastErr = r.error; if (!r.retriable) break; continue; }
     const parsed = extractJson(r.text);
     const v = validateLesson(parsed);

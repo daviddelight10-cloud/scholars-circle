@@ -29,6 +29,14 @@ const T = {
 
 const THINK_VERBS = ["Thinking", "Connecting ideas", "Drafting answer", "Checking details"];
 const INTRO_KEY = "sc_scholar_intro";
+const MOOD_KEY = "sc_mood_today";
+// Daily check-in — id, chip label, the mascot's reply, orb reaction.
+const MOODS = [
+  ["good", "😊 Good", "Love it — let's make it count ✨", "excited"],
+  ["okay", "😐 Okay", "Steady day — I'm here when you need me", "greeting"],
+  ["struggling", "😩 Struggling", "Then we go light today — small wins only 💛", "greeting"],
+  ["pumped", "⚡ Pumped", "Beast mode — let's go 🔥", "excited"],
+];
 
 // Questions phrased as "teach/study/learn me X" want the full AI Tutor, not a
 // chat bubble — routed there with the topic prefilled. Conservative on
@@ -137,6 +145,14 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   const [orbMood, setOrbMood] = useState(null);
   // Companion teaser bubble — pops next to the orb with a contextual line.
   const [bubble, setBubble] = useState(null); // { text, prompt? }
+  // Daily mood check-in — the orb asks once a day; the pick feeds STUDENT CONTEXT.
+  const [moodAsk, setMoodAsk] = useState(false);
+  const [moodToday, setMoodToday] = useState(() => {
+    try {
+      const m = JSON.parse(localStorage.getItem(MOOD_KEY) || "null");
+      return m?.date === new Date().toDateString() ? m.mood : null;
+    } catch { return null; }
+  });
   // True on the first-ever sheet open — guides the first chat (attach hint,
   // "try me" card).
   const [firstOpen, setFirstOpen] = useState(false);
@@ -202,8 +218,9 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     if (dueCount > 0) lines.push(`- ${dueCount} flashcards due for review`);
     if (exam) lines.push(`- ${exam.name} exam in ${exam.days} day${exam.days === 1 ? "" : "s"}`);
     if (weak) lines.push(`- Weakest subject right now: ${weak.name}`);
+    if (moodToday) lines.push(`- Mood check-in today: ${moodToday}`);
     return lines.length ? `\n\nSTUDENT CONTEXT:\n${lines.join("\n")}` : "";
-  }, [dueCount, exam, weak]);
+  }, [dueCount, exam, weak, moodToday]);
 
   // Time-of-day greeting for the welcome hero.
   const greet = useMemo(() => {
@@ -469,7 +486,7 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
   // Companion teasers — the orb speaks first, mascot-style. Max 3 bubbles
   // per session, ~45s apart, only while the sheet is closed.
   useEffect(() => {
-    if (hidden || open || !teasers.length) return;
+    if (hidden || open || !teasers.length || moodAsk) return;
     let cancelled = false;
     let hideT = null;
     const show = () => {
@@ -486,7 +503,37 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
     const first = setTimeout(show, introPending ? 19000 : seen ? 9000 : 2800);
     const iv = setInterval(show, 45000);
     return () => { cancelled = true; clearTimeout(first); clearTimeout(hideT); clearInterval(iv); };
-  }, [hidden, open, teasers, seen]);
+  }, [hidden, open, teasers, seen, moodAsk]);
+
+  // Daily mood check-in — the orb asks once a day, after the first-run intro
+  // has had its moment. The pick rides STUDENT CONTEXT so replies match tone.
+  useEffect(() => {
+    if (hidden || open) return;
+    const today = new Date().toDateString();
+    let asked = false;
+    try { asked = JSON.parse(localStorage.getItem(MOOD_KEY) || "null")?.date === today; } catch {}
+    if (asked) return;
+    let introPending = false;
+    try { introPending = !localStorage.getItem(INTRO_KEY); } catch {}
+    const t = setTimeout(() => setMoodAsk(true), introPending ? 19500 : 2600);
+    return () => clearTimeout(t);
+  }, [hidden, open]);
+
+  const pickMood = (m) => {
+    const opt = MOODS.find((x) => x[0] === m) || MOODS[0];
+    haptics.selection();
+    try { localStorage.setItem(MOOD_KEY, JSON.stringify({ date: new Date().toDateString(), mood: m })); } catch {}
+    setMoodToday(m);
+    setMoodAsk(false);
+    setMood(opt[3]);
+    bubbleCountRef.current = 99; // the check-in is today's bubble — no generic teasers after
+    setBubble({ text: opt[2], prompt: null });
+    setTimeout(() => setBubble(null), 4600);
+  };
+  const dismissMood = () => {
+    try { localStorage.setItem(MOOD_KEY, JSON.stringify({ date: new Date().toDateString(), mood: null })); } catch {}
+    setMoodAsk(false);
+  };
 
   // Doze off after ~60s without interaction — wakes on open/send/mood/drag.
   useEffect(() => {
@@ -901,6 +948,35 @@ export default function GlobalScholar({ hidden = false, onOpenAITutor, theme = "
             aria-label="Dismiss suggestions"
           >✕</span>
         </button>
+      )}
+
+      {/* Daily mood check-in — the orb asks once a day */}
+      {!open && moodAsk && (
+        <div style={{ ...s.bubble, cursor: "default" }} role="dialog" aria-label="Mood check-in">
+          <div style={{ marginBottom: 7 }}>How are you feeling today?</div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {MOODS.map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => pickMood(m)}
+                style={{
+                  background: "rgba(245,166,35,0.12)",
+                  border: "1px solid rgba(245,166,35,0.4)",
+                  borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 700,
+                  color: "var(--app-text)", cursor: "pointer", fontFamily: "inherit",
+                }}
+              >{label}</button>
+            ))}
+          </div>
+          <span style={s.bubbleTail} aria-hidden="true" />
+          <span
+            style={s.bubbleX}
+            role="button"
+            tabIndex={-1}
+            onClick={(e) => { e.stopPropagation(); dismissMood(); }}
+            aria-label="Dismiss"
+          >✕</span>
+        </div>
       )}
 
       {open && (

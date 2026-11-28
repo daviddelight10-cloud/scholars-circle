@@ -304,6 +304,31 @@ export default function StatsDashboard({ stats, history, subjects }) {
         </div>
       </div>
 
+      {/* ── Focus time — reader study-goal sessions (local stats) ── */}
+      {(save.stats?.studyMinutes > 0 || save.stats?.goalsSet > 0) && (
+        <div className="sd-panel">
+          <div className="sd-panel-head">
+            <h3>Focus time</h3>
+            <span className="sd-panel-meta">
+              {save.stats.goalMinToday > 0 ? `${save.stats.goalMinToday} min today` : "study-goal sessions"}
+            </span>
+          </div>
+          <div className="sd-cards" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <div className="sd-card"><b style={{ color: "var(--sd-amber)" }}>
+              {save.stats.studyMinutes >= 60
+                ? `${Math.floor(save.stats.studyMinutes / 60)}h ${save.stats.studyMinutes % 60}m`
+                : `${save.stats.studyMinutes}m`}
+            </b><span>Studied</span></div>
+            <div className="sd-card"><b style={{ color: "var(--sd-green)" }}>
+              {save.stats.goalsKept}/{save.stats.goalsSet}
+            </b><span>Goals kept</span></div>
+            <div className="sd-card"><b>
+              {save.stats.goalsSet > 0 ? `${Math.round((save.stats.goalsKept / save.stats.goalsSet) * 100)}%` : "—"}
+            </b><span>Keep rate</span></div>
+          </div>
+        </div>
+      )}
+
       {/* ── Subject breakdown ── */}
       {subjRows.length > 0 && (
         <div className="sd-panel">

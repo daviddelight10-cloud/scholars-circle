@@ -11,6 +11,7 @@ ACCURACY RULES (hard requirements):
 - Never drop doses, classifications, staging, red flags or numbers when simplifying.
 - Never invent labels, values or anatomical relationships. If a diagram, label or number on the page cannot be read, set unclear: true and say what is unreadable.
 - No facts from outside the page unless the section is marked added_context.
+- When a document overview is provided, you may REFERENCE how this page connects to the rest of the material (e.g. "as introduced on page 2", "this feeds the calculations on page 6") — but teach only this page's content; never lift facts from other pages into a section.
 
 SECTION RULES:
 - 1-6 sections, each covering one idea on the page, in teaching order.

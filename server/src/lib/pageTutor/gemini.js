@@ -6,14 +6,17 @@ import { SYSTEM_PROMPT, PROMPT_VERSION } from "./prompt.js";
 
 const MODEL = process.env.PAGE_TUTOR_MODEL || "gemini-3.8-flash";
 
-async function callGemini({ pdfBase64, pageText, page, resourceTitle }) {
+async function callGemini({ pdfBase64, pageText, page, resourceTitle, docContext = "", totalPages = 0 }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return { ok: false, error: "no-key", retriable: false };
   const parts = [
     ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
     {
-      text: `Document: "${resourceTitle || "lecture notes"}". This is page ${page}` +
+      text: `Document: "${resourceTitle || "lecture notes"}". This is page ${page}${totalPages ? ` of ${totalPages}` : ""}` +
         (pdfBase64 ? " extracted as its own file.\n" : " (image extraction failed — work from the text below).\n") +
+        (docContext
+          ? `Overview of the whole document (one preview line per page — use it to place this page in the material):\n"""\n${docContext}\n"""\n\n`
+          : "") +
         (pageText
           ? `Machine-extracted text of this page${pdfBase64 ? " (may be imperfect; the PDF above is ground truth)" : ""}:\n"""\n${pageText}\n"""\n\n`
           : `This page has no extractable text — it is scanned or image-only. Read the PDF image.\n\n`) +
@@ -67,11 +70,11 @@ const RETRY_DELAYS = [1500, 4000]; // before attempts 2 and 3 — demand spikes 
 
 // Gemini only: 3 attempts, backoff between them. One schema retry is folded
 // in (a bad-JSON response burns an attempt like a retriable failure).
-export async function generateWithGemini({ pdfBase64, pageText, page, resourceTitle }) {
+export async function generateWithGemini({ pdfBase64, pageText, page, resourceTitle, docContext = "", totalPages = 0 }) {
   let lastErr = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await sleep(RETRY_DELAYS[attempt - 1] || 4000);
-    const r = await callGemini({ pdfBase64, pageText, page, resourceTitle });
+    const r = await callGemini({ pdfBase64, pageText, page, resourceTitle, docContext, totalPages });
     if (!r.ok) { lastErr = r.error; if (!r.retriable) break; continue; }
     let parsed;
     try { parsed = JSON.parse(r.text); } catch { parsed = null; }
@@ -93,15 +96,15 @@ export async function generateWithGemini({ pdfBase64, pageText, page, resourceTi
 // pass, so go straight to GLM instead of burning another 3 attempts.
 // needImage: returned instead of running text-only GLM when the client sent no
 // page image — the reader answers it with a glmRetry request carrying one.
-export async function generateLesson({ pdfBase64, pageText, page, resourceTitle, pageImage, allowFallback = true, glmOnly = false }) {
+export async function generateLesson({ pdfBase64, pageText, page, resourceTitle, pageImage, allowFallback = true, glmOnly = false, docContext = "", totalPages = 0 }) {
   if (glmOnly) {
     const { generateWithGLM } = await import("./glm.js");
-    const g = await generateWithGLM({ pageImage, pageText, page, resourceTitle });
+    const g = await generateWithGLM({ pageImage, pageText, page, resourceTitle, docContext, totalPages });
     if (g.ok) return { ...g, source: pageImage ? "glm" : "glm_text" };
     if (g.lessonFailedSchema) return { ...g, source: "glm" };
     return { ok: false, error: `glm: ${g.error}` };
   }
-  const r = await generateWithGemini({ pdfBase64, pageText, page, resourceTitle });
+  const r = await generateWithGemini({ pdfBase64, pageText, page, resourceTitle, docContext, totalPages });
   if (r.ok) return { ...r, source: "gemini" };
   if (r.lessonFailedSchema) return { ...r, source: "gemini" };
   if (!allowFallback || process.env.PAGE_TUTOR_FALLBACK === "off" || !process.env.OPENROUTER_API_KEY) {
@@ -112,7 +115,7 @@ export async function generateLesson({ pdfBase64, pageText, page, resourceTitle,
   // sends the ~600KB render when generation actually reaches this point.
   if (!pageImage) return { ok: false, needImage: true, error: r.error };
   const { generateWithGLM } = await import("./glm.js");
-  const g = await generateWithGLM({ pageImage, pageText, page, resourceTitle });
+  const g = await generateWithGLM({ pageImage, pageText, page, resourceTitle, docContext, totalPages });
   if (g.ok) {
     console.log(`[pageTutor] gemini failed (${r.error}) — glm fallback succeeded`);
     return { ...g, source: "glm" };

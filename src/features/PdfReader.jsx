@@ -14,7 +14,10 @@ import {
   recordPracticeResult, recordPracticeSession,
 } from "../lib/studyHistory.js";
 import { rateQuestion } from "./streak-survival/fsrsBridge.js";
-import { questEvent } from "./streak-survival/survivalStore.js";
+import { questEvent, mutate, addGems } from "./streak-survival/survivalStore.js";
+import { localDayKey } from "../lib/dayKey.js";
+import { haptics } from "../lib/haptics.js";
+import { studySounds } from "../lib/studySounds.js";
 import { API_BASE } from "../lib/constants";
 import { fetchWithAuth, getValidToken } from "../lib/authToken.js";
 import { getResolvedTheme } from "../lib/theme.js";
@@ -200,6 +203,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // { [page]: [{ id, color, rects:[[x0,y0,x1,y1] 0–1 vs page box], text, note, createdAt }] }
   const [textMarks, setTextMarks] = useState(() => loadStored(`sc_pdf_marks_${docKey}`, {}));
   const [selPop, setSelPop] = useState(null); // { x, y, above }
+  const [pageHoldPop, setPageHoldPop] = useState(null); // { x, y, page } — long-press/right-click menu
+  const holdTimerRef = useRef(null);
+  const [orbPressed, setOrbPressed] = useState(false);
+  // ── Study-goal session (orb proposes a focus timer, celebrates the keep) ──
+  const [studyGoal, setStudyGoal] = useState(null);   // { targetMin, startAt }
+  const [goalAskOpen, setGoalAskOpen] = useState(false);
+  const [goalElapsed, setGoalElapsed] = useState(0);  // seconds
+  const [goalDone, setGoalDone] = useState(false);
+  const [goalMood, setGoalMood] = useState(null);     // one-shot orb expression
+  const [goalBubble, setGoalBubble] = useState(null); // { text } — milestone lines
+  const goalAccruedRef = useRef(0);                   // whole minutes already banked to stats
   const pendingSelRef = useRef(null); // { page, text, rects } — survives popover taps
   // On touch devices we collapse the DOM selection after capture (hides the OS
   // Copy/Share menu that would stack on our popover). That collapse fires a
@@ -1204,6 +1218,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       // mouse users can still drag the handles. `pend` repaints the range as
       // an overlay since collapsing erases the native highlight.
       const coarse = !!window.matchMedia?.("(pointer: coarse)")?.matches;
+      setPageHoldPop(null); // a real text selection takes precedence over the page menu
       setSelPop({
         x: Math.max(100, Math.min(window.innerWidth - 100, cx)),
         y: above ? cyTop - 10 : cyBot + 10,
@@ -1236,10 +1251,76 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   useEffect(() => {
     const v = viewerRef.current;
     if (!v) return;
-    const dismiss = () => setSelPop(null);
+    const dismiss = () => { setSelPop(null); setPageHoldPop(null); };
     v.addEventListener("scroll", dismiss, { passive: true });
     return () => v.removeEventListener("scroll", dismiss);
   }, []);
+
+  // ── Study-goal session ────────────────────────────────────────────────────
+  // The orb proposes a focus timer once per day; picking one starts a
+  // session — a ring fills around the orb, milestones cheer at 50%/100%, and
+  // whole minutes bank into survival stats (server-synced gems on the keep).
+  useEffect(() => {
+    if (loading || loadError || !numPages || lectureStep || chromeHidden) return;
+    const today = localDayKey();
+    try { if (localStorage.getItem("sc_study_goal_date") === today) return; } catch {}
+    const t = setTimeout(() => {
+      setGoalAskOpen(true);
+      try { localStorage.setItem("sc_study_goal_date", today); } catch {}
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [loading, loadError, numPages, lectureStep, chromeHidden]);
+
+  const pickGoal = (min) => {
+    haptics.selection();
+    setStudyGoal({ targetMin: min, startAt: Date.now() });
+    setGoalElapsed(0); setGoalDone(false); setGoalAskOpen(false);
+    goalAccruedRef.current = 0;
+    mutate((s) => { s.stats.goalsSet += 1; });
+    setGoalBubble({ text: "Locked in — I'll keep time ⏱" });
+    setTimeout(() => setGoalBubble(null), 2600);
+  };
+  const skipGoal = () => { setGoalAskOpen(false); };
+
+  // The ticker: banks whole minutes to stats, fires the 50%/100% milestones.
+  useEffect(() => {
+    if (!studyGoal) return;
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - studyGoal.startAt) / 1000);
+      setGoalElapsed(elapsed);
+      const mins = Math.floor(elapsed / 60);
+      while (goalAccruedRef.current < mins) {
+        goalAccruedRef.current += 1;
+        mutate((s) => {
+          const today = localDayKey();
+          if (s.stats.goalDay !== today) { s.stats.goalDay = today; s.stats.goalMinToday = 0; }
+          s.stats.studyMinutes += 1;
+          s.stats.goalMinToday += 1;
+        });
+      }
+      const targetSec = studyGoal.targetMin * 60;
+      if (elapsed >= targetSec / 2 && elapsed < targetSec && !tick.half) {
+        tick.half = true;
+        setGoalBubble({ text: `Halfway — ${Math.ceil((targetSec - elapsed) / 60)} min left 💪` });
+        setTimeout(() => setGoalBubble(null), 4000);
+      }
+      if (elapsed >= targetSec && !tick.done) {
+        tick.done = true;
+        setGoalDone(true);
+        setGoalMood("celebrate");
+        studySounds.correct();
+        haptics.success();
+        mutate((s) => { s.stats.goalsKept += 1; });
+        addGems(2);
+        setGoalBubble({ text: `🎉 ${studyGoal.targetMin} min — you kept your word!` });
+        setTimeout(() => { setGoalMood(null); }, 3200);
+        setTimeout(() => setGoalBubble(null), 5000);
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 30000);
+    return () => clearInterval(iv);
+  }, [studyGoal]);
 
   // Persist marks (debounced)
   useEffect(() => {
@@ -2456,6 +2537,31 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
   };
 
+  // Page-level "explain this page" — same chat path as a selection ask, just
+  // scoped to the whole page instead of a highlighted span.
+  const askAboutPage = async (page) => {
+    if (chatLoading) return;
+    const pg = Math.max(1, Math.min(numPages || page, page));
+    setPageHoldPop(null);
+    setChatMessages((prev) => [...prev, { role: "user", content: `📄 Page ${pg}`, page: pg }]);
+    setStudyToolsOpen(false);
+    closeAllMobileOverlays();
+    setChatOpen(true);
+    setChatLoading(true);
+    setChatError(null);
+    chatNearBottomRef.current = true;
+    let pageText = "";
+    try { pageText = await getPageText(pg); } catch {}
+    const prompt = `Explain what page ${pg} of this document covers — teach it clearly, like a tutor.\n\n[Page ${pg} text:\n"""${(pageText || "").slice(0, 2500)}"""\n]`;
+    try {
+      await streamChatAnswer(prompt, null, trimHistory(chatMessages, pg), { page: pg });
+    } catch (err) {
+      if (!err.stoppedByUser) setChatError(err.message || "Something went wrong reaching the AI.");
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const speakSelection = () => {
     const sel = pendingSelRef.current;
     if (!sel || !window.speechSynthesis) return;
@@ -3133,11 +3239,32 @@ Passage:
     zoomIndicatorTimerRef.current = setTimeout(() => setShowZoomIndicator(false), 1200);
   };
 
+  // Long-press → page action popup. Armed on a single-finger touch with no
+  // tool active; cancelled by any move >10px, a second finger, or release.
+  const cancelHold = () => { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; };
+  const fireHold = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const layer = el?.closest?.("[data-text-layer]");
+    const page = Number(layer?.dataset?.textLayer) || currentPage;
+    haptics.light();
+    setSelPop(null);
+    setPageHoldPop({
+      x: Math.max(70, Math.min(window.innerWidth - 70, x)),
+      y: Math.max(90, Math.min(window.innerHeight - 90, y)),
+      page,
+    });
+  };
+
   const onTouchStartViewer = (e) => {
+    // Any fresh touch on the viewer dismisses the page-hold menu — touches on
+    // the menu itself stopPropagation and never reach here.
+    setPageHoldPop(null);
     // A lasso/pen stroke is in progress — ignore extra touches (resting palm,
     // second finger) so they can't start pinch tracking or corrupt the path.
     if (lassoPoints.current.length || currentStrokes.current.length) return;
     if (e.touches.length === 2) {
+      cancelHold();
+      setPageHoldPop(null);
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchStartDistRef.current = Math.hypot(dx, dy);
@@ -3166,6 +3293,12 @@ Passage:
       // Fresh touch — clear any stale flag from an interrupted prior gesture;
       // onOverlayDown re-arms it if this touch becomes a draw gesture.
       drawingGestureRef.current = false;
+      // Arm the long-press → page action popup (no tool, no lasso)
+      if (tool === "none") {
+        const hx = e.touches[0].clientX, hy = e.touches[0].clientY;
+        cancelHold();
+        holdTimerRef.current = setTimeout(() => { holdTimerRef.current = null; fireHold(hx, hy); }, 550);
+      }
       // Allow panning when zoomed in (paged modes; continuous uses native scroll)
       if (panZoomRef.current.scale > 1 && tool === "none" && (scrollMode === "single" || scrollMode === "book")) {
         panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -3181,6 +3314,12 @@ Passage:
     if (lassoPoints.current.length || currentStrokes.current.length) {
       e.preventDefault();
       return;
+    }
+    // Moving finger kills the long-press — it's a swipe/pan, not a hold
+    if (holdTimerRef.current && touchStartRef.current && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - touchStartRef.current.x;
+      const dy = e.touches[0].clientY - touchStartRef.current.y;
+      if (Math.hypot(dx, dy) > 10) cancelHold();
     }
     if (e.touches.length === 2 && pinchActiveRef.current && pinchStartDistRef.current > 0) {
       e.preventDefault();
@@ -3220,6 +3359,7 @@ Passage:
   };
 
   const onTouchEndViewer = (e) => {
+    cancelHold();
     if (pinchActiveRef.current) {
       pinchActiveRef.current = false;
       setPinchActive(false);
@@ -4911,6 +5051,52 @@ Passage:
         </div>
       )}
 
+      {/* ── Page-hold / right-click action menu ── */}
+      {pageHoldPop && tool === "none" && (
+        <div
+          style={{
+            position: "fixed",
+            left: pageHoldPop.x,
+            top: pageHoldPop.y,
+            transform: "translate(-50%, -100%)",
+            zIndex: 300,
+            background: T.toolbar,
+            border: `1px solid ${T.border}`,
+            borderRadius: 14,
+            boxShadow: `0 10px 32px ${T.shadow}`,
+            padding: "10px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            minWidth: 190,
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          <div style={{ fontSize: 10, fontWeight: 800, color: T.muted, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "inherit" }}>
+            Page {pageHoldPop.page}
+          </div>
+          <button
+            style={s.selPopBtn}
+            onClick={() => askAboutPage(pageHoldPop.page)}
+            disabled={chatLoading}
+          >✨ Ask AI to explain</button>
+          <button
+            style={s.selPopBtn}
+            onClick={() => {
+              const pg = pageHoldPop.page;
+              setPageHoldPop(null);
+              openStudyTools();
+              setStudyTab("tools");
+              setStudyView("lesson");
+              if (pg !== currentPage) goToPage(pg);
+              pageTutor.explain(pg);
+            }}
+          >📚 Page Tutor lesson</button>
+        </div>
+      )}
+
       {/* ── Define card — instant dictionary lookup for short selections ── */}
       {definePop && (
         <>
@@ -5439,6 +5625,9 @@ Passage:
           onTouchEnd={onTouchEndViewer}
           onPointerDown={onViewerPointerDown}
           onClick={onViewerTap}
+          // Desktop right-click → same page-action menu as a touch long-press;
+          // preventDefault also suppresses the iOS callout a hold triggers.
+          onContextMenu={(e) => { e.preventDefault(); if (tool === "none") fireHold(e.clientX, e.clientY); }}
         >
           {/* Zoom indicator badge */}
           {showZoomIndicator && (
@@ -6308,61 +6497,64 @@ Passage:
             </button>
           )}
 
-          {/* AI Study Tools floating button — hidden only under the mobile sheet; the
-              desktop dock leaves the document usable so the FAB stays visible */}
+          {/* Scholar orb docked to the left wall — the ball peeks out of the
+              edge and slides fully out on press. It lives on the opposite side
+              from the study sheet, so it stays visible while the panel is open. */}
           {(!chatOpen || dockMode) && !loading && !loadError && !chromeHidden && !(voiceActive && !voiceMinimized) && (
-            isMobile ? (
-              <button
-                style={{
-                  ...s.aiFab,
-                  transform: lectureStep === 4 ? "scale(1.16)" : undefined,
-                  opacity: studyToolsOpen || showOverflow ? 0 : 1,
-                  pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
-                }}
-                onClick={openStudyTools}
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => { e.stopPropagation(); }}
-                title="AI Study Tools"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+            <button
+              style={{
+                ...s.orbFab,
+                transform: `translateX(${orbPressed ? 0 : -18}px)${lectureStep === 4 ? " scale(1.16)" : ""}`,
+                opacity: showOverflow ? 0 : 1,
+                pointerEvents: showOverflow ? "none" : "auto",
+              }}
+              onClick={() => { setOrbPressed(false); openStudyTools(); }}
+              onPointerDown={(e) => { e.stopPropagation(); setOrbPressed(true); }}
+              onPointerUp={() => setOrbPressed(false)}
+              onPointerLeave={() => setOrbPressed(false)}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => { e.stopPropagation(); }}
+              title="AI Study Tools"
+            >
+              {studyGoal && (
+                <svg width="56" height="56" viewBox="0 0 56 56"
+                  style={{ position: "absolute", left: 3, top: 0, transform: "rotate(-90deg)", pointerEvents: "none" }}>
+                  <circle cx="28" cy="28" r="26" fill="none" stroke={T.border} strokeWidth="2.5" />
+                  <circle cx="28" cy="28" r="26" fill="none"
+                    stroke={goalDone ? "#3DD68C" : "#F5A623"} strokeWidth="2.5" strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 26}
+                    strokeDashoffset={2 * Math.PI * 26 * (1 - Math.min(1, goalElapsed / (studyGoal.targetMin * 60)))}
+                    style={{ transition: "stroke-dashoffset 1s linear" }} />
                 </svg>
-                {dueCount > 0 && (
-                  <span style={{
-                    position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 5px",
-                    borderRadius: 999, background: "linear-gradient(145deg, #FFC24B, #F5A623)",
-                    color: "#1a1200", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center",
-                    justifyContent: "center", boxShadow: "0 2px 8px rgba(245,166,35,0.5)",
-                  }}>{dueCount > 99 ? "99" : dueCount}</span>
-                )}
-              </button>
-            ) : (
-              <button
-                style={{
-                  ...s.studyFab,
-                  transform: lectureStep === 4 ? "scale(1.16)" : undefined,
-                  transition: "transform .18s ease",
-                  opacity: studyToolsOpen || showOverflow ? 0 : 1,
-                  pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
-                }}
-                onClick={openStudyTools}
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => { e.stopPropagation(); }}
-                title="AI Study Tools"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
-                </svg>
-                {dueCount > 0 && (
-                  <span style={{
-                    position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, padding: "0 5px",
-                    borderRadius: 999, background: "linear-gradient(145deg, #FFC24B, #F5A623)",
-                    color: "#1a1200", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center",
-                    justifyContent: "center", boxShadow: "0 2px 8px rgba(245,166,35,0.5)",
-                  }}>{dueCount > 99 ? "99" : dueCount}</span>
-                )}
-              </button>
-            )
+              )}
+              <AiOrb size={44} state={goalMood || (chatLoading ? "thinking" : "idle")} />
+              {dueCount > 0 && <span style={s.fabDot} />}
+            </button>
+          )}
+
+          {/* Study-goal ask bubble — sits beside the left-wall orb */}
+          {goalAskOpen && !loading && !loadError && !chromeHidden && (
+            <div style={s.goalBubble} onTouchStart={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: T.text, fontFamily: "inherit" }}>⏱ How long are we studying?</span>
+                <button onClick={skipGoal} aria-label="Dismiss"
+                  style={{ background: "none", border: "none", color: T.muted, fontSize: 13, cursor: "pointer", padding: "0 0 0 8px", lineHeight: 1 }}>✕</button>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[15, 30, 45, 60].map((m) => (
+                  <button key={m} style={s.goalChip} onClick={() => pickGoal(m)}>{m} min</button>
+                ))}
+                <button style={{ ...s.goalChip, background: "transparent", borderColor: T.border, color: T.muted, fontWeight: 600 }}
+                  onClick={skipGoal}>Just browsing</button>
+              </div>
+            </div>
+          )}
+
+          {/* Study-goal milestone line — small toast beside the orb */}
+          {goalBubble && (
+            <div style={{ ...s.goalBubble, padding: "8px 12px", fontSize: 12, fontWeight: 700, color: T.text, fontFamily: "inherit", maxWidth: 220 }}>
+              {goalBubble.text}
+            </div>
           )}
 
 

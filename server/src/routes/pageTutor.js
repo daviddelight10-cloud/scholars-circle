@@ -5,7 +5,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db.js";
-import { fetchPdfBytes, pageTexts, singlePagePdfBase64, sha256, MAX_PAGE_TEXT } from "../lib/pageTutor/pdfPage.js";
+import { fetchPdfBytes, pageTexts, singlePagePdfBase64, sha256, MAX_PAGE_TEXT, docDigest } from "../lib/pageTutor/pdfPage.js";
 import { generateLesson, PROMPT_VERSION } from "../lib/pageTutor/gemini.js";
 import { seedAudioRows, enqueueAudio, resetAudio } from "../lib/pageTutor/audioJob.js";
 import { signedUrl, AUDIO_BUCKET } from "../lib/storage.js";
@@ -113,6 +113,13 @@ router.post("/lesson", requireAuth, async (req, res) => {
         // the client's page image + text, and Gemini already failed on pass 1.
         if (!glmRetry && !pdfBuf) pdfBuf = await fetchPdfBytes(resource);
         const onePage = glmRetry ? null : await singlePagePdfBase64(pdfBuf, page).catch(() => null);
+        // Whole-doc context so the lesson knows where this page sits in the
+        // material — digest build reuses the cached whole-doc parse, so the
+        // O(n) pageTexts work happens once per document, not per explain.
+        const totalPages = onePage?.pageCount || 0;
+        const docContext = (!glmRetry && pdfBuf)
+          ? await docDigest(pdfBuf, resource.id).catch(() => "")
+          : "";
         // Parse only the single page (not the whole document) — keeps pdf.js
         // font warnings to one line per generation instead of one per page,
         // and avoids O(n) parsing on every explain call.
@@ -128,6 +135,7 @@ router.post("/lesson", requireAuth, async (req, res) => {
           pdfBase64: onePage?.base64 || null, pageText, page,
           resourceTitle: resource.title, pageImage, allowFallback: !regenTarget,
           glmOnly: !!glmRetry && !regenTarget,
+          docContext, totalPages,
         });
         if (!r.ok) {
           if (r.needImage) return { needImage: true };

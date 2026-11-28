@@ -37,7 +37,8 @@ function defaults() {
     questProgress: {},        // { [questId]: number }
     questClaimed: [],         // quest ids claimed today
     questBonus: false,        // all-quests-done bonus chest granted today
-    stats: { answered: 0, correct: 0, reviewCleared: 0, perfectRuns: 0, runs: 0 },
+    stats: { answered: 0, correct: 0, reviewCleared: 0, perfectRuns: 0, runs: 0,
+             studyMinutes: 0, goalsSet: 0, goalsKept: 0, goalDay: '', goalMinToday: 0 },
     achievements: [],         // unlocked achievement ids
     soundOn: true,
     shields: 0,               // held shields — absorb one heart loss each
@@ -57,6 +58,7 @@ export function loadSave() {
     const raw = localStorage.getItem(key);
     cache = raw ? { ...defaults(), ...JSON.parse(raw) } : defaults();
     cache.quizPrefs = { ...defaults().quizPrefs, ...(cache.quizPrefs || {}) };
+    cache.stats = { ...defaults().stats, ...(cache.stats || {}) }; // backfill new stat keys on old saves
     // One-time migration: pre-'smart' saves stored the old silent defaults
     // ('mcq'/no recall-first). Only migrate untouched prefs — explicit picks stay.
     if (cache.quizPrefs.v !== 2) {
@@ -168,6 +170,10 @@ export function tickDay() {
       s.questProgress = {};
       s.questClaimed = [];
       s.questBonus = false;
+    }
+    if (s.stats?.goalDay !== today) {
+      s.stats.goalDay = today;
+      s.stats.goalMinToday = 0;
     }
   });
 }

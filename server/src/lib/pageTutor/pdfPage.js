@@ -48,6 +48,26 @@ export async function pageTexts(buf, resourceId = "anon") {
 }
 
 export const MAX_PAGE_TEXT = 6000; // cap what reaches the model
+export const MAX_DOC_CONTEXT = 8000; // cap the whole-doc digest
+
+// Whole-document digest for lesson generation: one ~180-char preview per page
+// so the model knows where the current page sits in the material ("as
+// introduced on p.2"). pageTexts() is already 10-min cached per resourceId —
+// the whole-doc parse happens once per document, not per explain call.
+export async function docDigest(buf, resourceId = "anon") {
+  const pages = await pageTexts(buf, resourceId);
+  const parts = [];
+  let used = 0;
+  for (let i = 0; i < pages.length; i++) {
+    const preview = (pages[i] || "").slice(0, 180).trim();
+    if (!preview) continue; // scanned/blank pages contribute nothing readable
+    const line = `[p${i + 1}] ${preview}`;
+    if (used + line.length > MAX_DOC_CONTEXT) break;
+    parts.push(line);
+    used += line.length;
+  }
+  return parts.join("\n");
+}
 
 // One-page PDF (the "best option" input): the model sees the exact page —
 // layout, diagrams, handwriting — with no client-supplied image to poison.

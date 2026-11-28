@@ -407,15 +407,14 @@ async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitl
     `You are an expert tutor teaching "${topic}". Teach this section: "${section.title}"${ctxBlock}${prevBlock}${docHint}${contentBlock}${imageBlock}
 
 Reply ONLY with valid JSON (no markdown fences) in this exact shape:
-{"tldr":"one-sentence takeaway","chunks":[{"heading":"short heading","markdown":"2-4 short paragraphs of markdown","check":{"question":"quick comprehension question about THIS chunk","expected":"the correct short answer in 2-6 words","why":"1 sentence explaining the correct answer"}}]}
+{"tldr":"one-sentence takeaway","chunks":[{"heading":"short heading","markdown":"2-4 short paragraphs of markdown","check":{"question":"quick comprehension question about THIS chunk","options":["A","B","C","D"],"answer":0,"why":"1 sentence explaining the correct answer"}}]}
 
 Rules:
 - 3-5 chunks, ordered from foundational ideas to advanced ones — each chunk is a bite-sized piece a student absorbs in ~1 minute
 - In "markdown": use **bold** for key terms, bullet lists for enumerations, > blockquotes for real-world examples or analogies, code blocks for formulas/diagrams, LaTeX ($...$) for math
 - When a pathway, cycle or step sequence matters (metabolic pathways, cascades, algorithms), include a fenced code block tagged "flow" whose content is the steps joined by → (e.g. Glucose → Glucose-6-phosphate → Fructose-6-phosphate)
 - When a molecular structure or reaction genuinely helps (sugars, amino acids, drugs, simple organic chains — not water or simple ions): ${CHEMISTRY_RULES_BRIEF}
-- Every chunk MUST have a "check": a SHORT-ANSWER question testing the core idea of that chunk (comprehension, not trivia) — something the student answers in a few typed words, not multiple choice
-- "expected" is the ideal short answer (2-6 words); keep questions answerable in a few words — never ask for essay-length responses
+- Every chunk MUST have a "check": a MULTIPLE-CHOICE question testing the core idea of that chunk (comprehension, not trivia) — exactly 4 plausible options, one correct; "answer" is the 0-based index of the right option — vary it across chunks
 - When a labeled visual would genuinely help a medical student — anatomical structures, organ systems, histology, pathways maps, devices — add "diagram":"short Wikimedia Commons search phrase" to that chunk (e.g. "nephron anatomy diagram", "brachial plexus diagram", "heart chambers labeled"). At most 1-2 chunks per section may carry a diagram; only concrete visual structures qualify — never add it for abstract concepts, and omit the field entirely otherwise
 - Keep the tone clear, encouraging, and concise`,
     aiConfig,
@@ -603,9 +602,13 @@ function SectionCard({ section, index, status, isNext, onStudy }) {
 }
 
 // ─── Quick Check (interleaved MCQ) ─────────────────────────────────────────────
-function CheckCard({ check, index, total, selected, onAnswer }) {
+// wrongPicks: Set of option indices tried and missed — they mark ✗ and disable;
+// the check only settles (selected) on the correct option.
+function CheckCard({ check, index, total, selected, wrongPicks, onAnswer }) {
   const answered = selected !== undefined;
   const correct = answered && selected === check.answer;
+  const wp = wrongPicks || EMPTY_SET;
+  const retrying = !answered && wp.size > 0;
   return (
     <div className="gs-pop" style={{
       background: D.card,
@@ -622,19 +625,21 @@ function CheckCard({ check, index, total, selected, onAnswer }) {
         {check.options.map((opt, oi) => {
           const isCorrect = oi === check.answer;
           const isSel = oi === selected;
+          const isMissed = wp.has(oi);
           let bg = D.bar, bdr = D.line, col = D.text;
           if (answered) {
             if (isCorrect)      { bg = "rgba(61,214,140,0.08)"; bdr = D.green; col = "#7EE2A8"; }
             else if (isSel)     { bg = "rgba(255,84,112,0.08)"; bdr = D.red;   col = "#FF9AA9"; }
             else                { col = D.hint; }
-          }
+          } else if (isMissed)  { bg = "rgba(255,84,112,0.08)"; bdr = D.red;   col = "#FF9AA9"; }
           return (
-            <button key={oi} disabled={answered} onClick={() => onAnswer(oi)}
+            <button key={oi} disabled={answered || isMissed} onClick={() => onAnswer(oi)}
               style={{
                 display:"flex", alignItems:"center", gap:9, textAlign:"left",
                 background:bg, border:`0.5px solid ${bdr}`, borderRadius:10,
                 padding:"9px 12px", fontSize:12, color:col,
-                cursor: answered ? "default" : "pointer",
+                cursor: (answered || isMissed) ? "default" : "pointer",
+                opacity: isMissed && !answered ? 0.65 : 1,
                 fontFamily:"Manrope,sans-serif", transition:"border-color 0.15s, background 0.15s",
               }}>
               <span style={{
@@ -643,7 +648,7 @@ function CheckCard({ check, index, total, selected, onAnswer }) {
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:9, fontWeight:700,
               }}>
-                {answered && isCorrect ? "✓" : answered && isSel ? "✗" : String.fromCharCode(65 + oi)}
+                {answered && isCorrect ? "✓" : (isMissed || (answered && isSel)) ? "✗" : String.fromCharCode(65 + oi)}
               </span>
               <span style={{ flex:1 }}><MarkdownText plain>{opt}</MarkdownText></span>
             </button>
@@ -658,9 +663,15 @@ function CheckCard({ check, index, total, selected, onAnswer }) {
           {correct ? "✓ Correct. " : "✗ Not quite. "}<MarkdownText plain>{check.why}</MarkdownText>
         </div>
       )}
+      {retrying && (
+        <div style={{ marginTop:10, fontSize:11.5, fontFamily:"Manrope,sans-serif", color:"#FF9AA9" }}>
+          ✗ Not quite — pick again.
+        </div>
+      )}
     </div>
   );
 }
+const EMPTY_SET = new Set();
 
 // ─── Quick Check (typed short answer — Gizmo-style recall) ────────────────────
 // result: { answer, verdict: "correct"|"close"|"wrong"|"revealed" }
@@ -852,7 +863,8 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   const [studied, setStudied]           = useState({});        // {sectionId: "fuzzy"|"solid"|"mastered"}
   const [activeSection, setActive]      = useState(null);
   const [sectionData, setSectionData]   = useState(null);      // {tldr, chunks[]} | {text}
-  const [checkAnswers, setCheckAnswers] = useState({});        // {chunkIdx: optionIdx}
+  const [checkAnswers, setCheckAnswers] = useState({});        // {chunkIdx: optionIdx} — set only on settle
+  const [wrongPicks, setWrongPicks]     = useState({});        // {chunkIdx: Set<optionIdx>} — retry-before-settle trail
   const [visibleChunks, setVisibleChunks] = useState(1);
   const [qData, setQData]               = useState(null);      // {question, hint}
   const [userAnswer, setUserAnswer]     = useState("");
@@ -993,7 +1005,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   }
 
   function resetSessionState() {
-    setStudied({}); setSectionData(null); setCheckAnswers({}); setVisibleChunks(1);
+    setStudied({}); setSectionData(null); setCheckAnswers({}); setWrongPicks({}); setVisibleChunks(1);
     setQData(null); setUserAnswer(""); setFeedback(""); setReview(null); setActive(null);
     checksRef.current = { correct: 0, total: 0 };
     setSessionChecks({ correct: 0, total: 0 });
@@ -1130,7 +1142,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   async function handleStudy(section) {
     setActive(section);
     setSectionStep("learn");
-    setSectionData(null); setCheckAnswers({}); setVisibleChunks(1);
+    setSectionData(null); setCheckAnswers({}); setWrongPicks({}); setVisibleChunks(1);
     setQData(null); setUserAnswer(""); setFeedback("");
     setPhase("section");
     setLoading(true); setLoadingMsg("Loading explanation…");
@@ -1167,15 +1179,28 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     } finally { setLoading(false); }
   }
 
+  // MCQ with retry — a wrong pick marks ✗ and the combo breaks, but the check
+  // only settles on the correct option (Duolingo-style "pick again" loop).
   function handleCheckAnswer(chunkIdx, optIdx) {
-    if (checkAnswers[chunkIdx] !== undefined) return;
     const check = sectionData?.chunks?.[chunkIdx]?.check;
-    if (!check) return;
+    if (!check || checkAnswers[chunkIdx] !== undefined || wrongPicks[chunkIdx]?.has?.(optIdx)) return;
     haptics.selection();
-    if (optIdx === check.answer) studySounds.correct(); else studySounds.wrong();
-    setCheckAnswers(prev => ({ ...prev, [chunkIdx]: optIdx }));
-    recordCheck(optIdx === check.answer);
-    setVisibleChunks(v => Math.max(v, chunkIdx + 2));
+    if (optIdx === check.answer) {
+      studySounds.correct();
+      setCheckAnswers(prev => ({ ...prev, [chunkIdx]: optIdx }));
+      recordCheck(true);
+      setVisibleChunks(v => Math.max(v, chunkIdx + 2));
+    } else {
+      studySounds.wrong();
+      setWrongPicks(prev => {
+        const s = new Set(prev[chunkIdx] || []);
+        s.add(optIdx);
+        return { ...prev, [chunkIdx]: s };
+      });
+      combo.resetCombo();
+      haptics.error();
+      studyMood("oops");
+    }
   }
 
   // Typed short-answer check — local fuzzy match first, AI judge as backstop
@@ -1207,13 +1232,13 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setVisibleChunks(v => Math.max(v, ci + 2));
   }
 
-  // True when this chunk's check ended wrong or was revealed — gates the
-  // "Explain differently" suggestion so it doesn't show on wins.
+  // True when this chunk's check ended wrong, was revealed, or needed wrong
+  // picks before the settle — gates "Explain differently" so clean wins don't show it.
   function missedCheck(ci, chunk) {
     const r = checkAnswers[ci];
     if (r === undefined) return false;
     if (chunk?.check?.type === "short") return r.verdict === "wrong" || r.verdict === "revealed";
-    return r !== chunk?.check?.answer;
+    return (wrongPicks[ci]?.size || 0) > 0 || r !== chunk?.check?.answer;
   }
 
   // Regenerates just one chunk's explanation with a different, simpler framing —
@@ -1768,6 +1793,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                               index={checkOrdinal(ci)}
                               total={totalChecks}
                               selected={checkAnswers[ci]}
+                              wrongPicks={wrongPicks[ci]}
                               onAnswer={(oi) => handleCheckAnswer(ci, oi)}
                             />
                           )
