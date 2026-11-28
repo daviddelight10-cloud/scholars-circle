@@ -1206,7 +1206,18 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       if (tool === "highlight") {
         addMark("highlight", highlightColor);
         setAnnotatePopOpen(false);
+        // Collapse the DOM selection so the OS Copy/Share callout never pops
+        // — the mark is an overlay, it doesn't need the selection alive.
+        suppressSelClearRef.current = true;
+        sel.removeAllRanges();
         return;
+      }
+      // No word menu anymore — a stray touch-selection's only product is the
+      // native callout. Collapse it on coarse pointers (desktop keeps native
+      // selection for drag handles / Ctrl+C).
+      if (window.matchMedia?.("(pointer: coarse)")?.matches) {
+        suppressSelClearRef.current = true;
+        sel.removeAllRanges();
       }
     };
     const onChange = () => {
