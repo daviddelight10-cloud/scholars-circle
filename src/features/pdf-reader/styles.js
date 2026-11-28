@@ -1235,12 +1235,12 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       textAlign: "center",
     },
     // ── AI FAB (mobile) ────────────────────────────────────────────────────────
-    // Scholar orb docked to the left wall — the ball itself is the button:
-    // transparent shell, orb shifted left so it reads as peeking out of the
+    // Scholar orb docked to the right wall — the ball itself is the button:
+    // transparent shell, orb shifted right so it reads as peeking out of the
     // wall. Slides fully out on press.
     orbFab: {
       position: "absolute",
-      left: 0,
+      right: 0,
       bottom: isMobile ? 88 : 20,
       width: 62,
       height: 56,
@@ -1267,10 +1267,10 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       background: "#FF5A5F",
       boxShadow: `0 0 0 2px ${T.bg}, 0 0 8px rgba(255,90,95,0.8)`,
     },
-    // Study-goal ask bubble — anchored beside the left-wall orb.
+    // Study-goal ask bubble — anchored beside the right-wall orb.
     goalBubble: {
       position: "absolute",
-      left: 56,
+      right: 56,
       bottom: isMobile ? 96 : 26,
       zIndex: 96,
       background: T.toolbar,

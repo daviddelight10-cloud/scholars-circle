@@ -206,6 +206,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [pageHoldPop, setPageHoldPop] = useState(null); // { x, y, page } — long-press/right-click menu
   const holdTimerRef = useRef(null);
   const [orbPressed, setOrbPressed] = useState(false);
+  const [orbIntro, setOrbIntro] = useState(false);    // first-visit interactive orb bubble
   // ── Study-goal session (orb proposes a focus timer, celebrates the keep) ──
   const [studyGoal, setStudyGoal] = useState(null);   // { targetMin, startAt }
   const [goalAskOpen, setGoalAskOpen] = useState(false);
@@ -1200,34 +1201,12 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       if (!rects.length) { setSelPop(null); return; }
       pendingSelRef.current = { page, text: text.slice(0, 2000), rects };
       // MARK armed → convert the selection straight into a text highlight
-      // (lands in Highlights & notes) instead of showing the action popover.
+      // (lands in Highlights & notes). No floating word menu — plain taps/
+      // selections just select text; page actions live in the hold menu.
       if (tool === "highlight") {
         addMark("highlight", highlightColor);
         setAnnotatePopOpen(false);
         return;
-      }
-      const first = rects[0];
-      const cx = lr.left + ((first[0] + first[2]) / 2) * lr.width;
-      const cyTop = lr.top + first[1] * lr.height;
-      const cyBot = lr.top + first[3] * lr.height;
-      const above = cyTop > 110;
-      // Touch devices draw their own Copy/Share menu anchored to the DOM
-      // selection — it stacks on top of our popover. Every action here runs
-      // off pendingSelRef (copy uses the clipboard API), so we can drop the
-      // selection and keep only our bar. Desktop keeps native selection so
-      // mouse users can still drag the handles. `pend` repaints the range as
-      // an overlay since collapsing erases the native highlight.
-      const coarse = !!window.matchMedia?.("(pointer: coarse)")?.matches;
-      setPageHoldPop(null); // a real text selection takes precedence over the page menu
-      setSelPop({
-        x: Math.max(100, Math.min(window.innerWidth - 100, cx)),
-        y: above ? cyTop - 10 : cyBot + 10,
-        above,
-        pend: coarse ? { page, rects } : null,
-      });
-      if (coarse) {
-        suppressSelClearRef.current = true;
-        sel.removeAllRanges();
       }
     };
     const onChange = () => {
@@ -1256,12 +1235,37 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     return () => v.removeEventListener("scroll", dismiss);
   }, []);
 
+  // ── Orb intro (first visit ever) ─────────────────────────────────────────
+  // Before anything else, the orb introduces itself: a one-time bubble beside
+  // it that teaches the tap — and tapping it demonstrates the gesture by
+  // actually opening Study Tools.
+  useEffect(() => {
+    if (loading || loadError || !numPages || lectureStep || chromeHidden) return;
+    try { if (localStorage.getItem("sc_pdf_orb_intro")) return; } catch {}
+    const t = setTimeout(() => setOrbIntro(true), 1200);
+    return () => clearTimeout(t);
+  }, [loading, loadError, numPages, lectureStep, chromeHidden]);
+
+  const seenOrbIntro = () => {
+    try { localStorage.setItem("sc_pdf_orb_intro", "1"); } catch {}
+    setOrbIntro(false);
+  };
+
+  // Ignored intro self-dismisses — it can't squat on the edge forever, and
+  // dismissing it lets the goal-ask chain proceed.
+  useEffect(() => {
+    if (!orbIntro) return;
+    const t = setTimeout(seenOrbIntro, 18000);
+    return () => clearTimeout(t);
+  }, [orbIntro]);
+
   // ── Study-goal session ────────────────────────────────────────────────────
   // The orb proposes a focus timer once per day; picking one starts a
   // session — a ring fills around the orb, milestones cheer at 50%/100%, and
   // whole minutes bank into survival stats (server-synced gems on the keep).
   useEffect(() => {
     if (loading || loadError || !numPages || lectureStep || chromeHidden) return;
+    try { if (!localStorage.getItem("sc_pdf_orb_intro")) return; } catch {} // intro plays first
     const today = localDayKey();
     try { if (localStorage.getItem("sc_study_goal_date") === today) return; } catch {}
     const t = setTimeout(() => {
@@ -1269,7 +1273,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       try { localStorage.setItem("sc_study_goal_date", today); } catch {}
     }, 1500);
     return () => clearTimeout(t);
-  }, [loading, loadError, numPages, lectureStep, chromeHidden]);
+  }, [loading, loadError, numPages, lectureStep, chromeHidden, orbIntro]);
 
   const pickGoal = (min) => {
     haptics.selection();
@@ -3588,32 +3592,9 @@ Passage:
     }
   };
 
-  // ---- Immersive read: chrome auto-hides on scroll-down, returns on
-  // scroll-up (or the existing center-tap). Only fires while scrolling —
-  // single/book modes don't scroll vertically so they're unaffected.
-  useEffect(() => {
-    const v = viewerRef.current;
-    if (!v) return;
-    let last = v.scrollTop;
-    let idleT = null;
-    const onScroll = () => {
-      const t = v.scrollTop;
-      const dy = t - last;
-      last = t;
-      // Scroll hides chrome but never closes overlays — the study panel/chat
-      // keep their own close affordances. On desktop the study panel is a
-      // docked side panel, not an overlay, so it stays put either way.
-      if (dy > 6 && t > 80 && !lectureStepRef.current) setChromeHidden(true); // intro pins chrome — the card collapses into the FAB, it has to be there
-      else if (dy < -6 && !focusPinRef.current) setChromeHidden(false);
-      // Idle re-show — pause to read for a moment and chrome drifts back.
-      // (Focus mode pins chrome hidden and is exempt.)
-      clearTimeout(idleT);
-      idleT = setTimeout(() => { if (!focusPinRef.current) setChromeHidden(false); }, 3000);
-    };
-    v.addEventListener("scroll", onScroll, { passive: true });
-    return () => { v.removeEventListener("scroll", onScroll); clearTimeout(idleT); };
-  }, [loading, isMobile]);
-
+  // ---- Chrome stays put while scrolling — most edu readers do. It only
+  // leaves on a deliberate center-tap (Kindle-style tap zones below), the
+  // focus pin, or presentation mode.
   // ---- Close all mobile overlays (mutual exclusion) ----
   const closeAllMobileOverlays = () => {
     setAnnotatePopOpen(false);
@@ -5081,7 +5062,7 @@ Passage:
             style={s.selPopBtn}
             onClick={() => askAboutPage(pageHoldPop.page)}
             disabled={chatLoading}
-          >✨ Ask AI to explain</button>
+          >✨ Ask Scholar to explain</button>
           <button
             style={s.selPopBtn}
             onClick={() => {
@@ -6497,18 +6478,18 @@ Passage:
             </button>
           )}
 
-          {/* Scholar orb docked to the left wall — the ball peeks out of the
-              edge and slides fully out on press. It lives on the opposite side
-              from the study sheet, so it stays visible while the panel is open. */}
+          {/* Scholar orb docked to the right wall — the ball peeks out of the
+              edge and slides fully out on press, sitting where the old study
+              FAB lived so it's where new users look for it. */}
           {(!chatOpen || dockMode) && !loading && !loadError && !chromeHidden && !(voiceActive && !voiceMinimized) && (
             <button
               style={{
                 ...s.orbFab,
-                transform: `translateX(${orbPressed ? 0 : -18}px)${lectureStep === 4 ? " scale(1.16)" : ""}`,
+                transform: `translateX(${orbPressed ? 0 : 18}px)${lectureStep === 4 ? " scale(1.16)" : ""}`,
                 opacity: showOverflow ? 0 : 1,
                 pointerEvents: showOverflow ? "none" : "auto",
               }}
-              onClick={() => { setOrbPressed(false); openStudyTools(); }}
+              onClick={() => { setOrbPressed(false); if (orbIntro) seenOrbIntro(); openStudyTools(); }}
               onPointerDown={(e) => { e.stopPropagation(); setOrbPressed(true); }}
               onPointerUp={() => setOrbPressed(false)}
               onPointerLeave={() => setOrbPressed(false)}
@@ -6527,12 +6508,29 @@ Passage:
                     style={{ transition: "stroke-dashoffset 1s linear" }} />
                 </svg>
               )}
-              <AiOrb size={44} state={goalMood || (chatLoading ? "thinking" : "idle")} />
+              <AiOrb size={44} state={orbIntro ? "greeting" : goalMood || (chatLoading ? "thinking" : "idle")} />
               {dueCount > 0 && <span style={s.fabDot} />}
             </button>
           )}
 
-          {/* Study-goal ask bubble — sits beside the left-wall orb */}
+          {/* First-visit orb intro — the bubble teaches the tap; tapping it
+              demonstrates the gesture by opening Study Tools. */}
+          {orbIntro && !loading && !loadError && !chromeHidden && (
+            <button
+              style={{ ...s.goalBubble, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}
+              onClick={() => { seenOrbIntro(); openStudyTools(); }}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: T.text, lineHeight: 1.45 }}>
+                Tap me 📖 — I'll break down any page you don't understand.
+              </div>
+              <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>
+                Page Tutor &amp; study tools live in here →
+              </div>
+            </button>
+          )}
+
+          {/* Study-goal ask bubble — sits beside the right-wall orb */}
           {goalAskOpen && !loading && !loadError && !chromeHidden && (
             <div style={s.goalBubble} onTouchStart={(e) => e.stopPropagation()}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
